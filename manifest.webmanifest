@@ -1,7 +1,7 @@
 {
-  "name": "Caishen Enterprises Operations POS",
-  "short_name": "CE POS",
-  "description": "Branch sales and inventory operations for Caishen Enterprises.",
+  "name": "Angkol's Grill & Restobar POS",
+  "short_name": "Angkol's POS",
+  "description": "Branch sales and inventory operations for Angkol's Grill & Restobar.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -15,7 +15,7 @@
       "purpose": "any maskable"
     },
     {
-      "src": "assets/ce-logo.png",
+      "src": "assets/angkols-logo.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

@@ -1,6 +1,6 @@
 {
   "0": "app.js",
-  "1": "initCustomDatePickers",
+  "1": "renderBranchSelector",
   "2": "initCustomDropdowns",
   "3": "setView",
   "4": "showToast",
@@ -25,5 +25,5 @@
   "23": "graphify reference: GitHub clone and cross-repo merge",
   "24": "graphify reference: transcribe video and audio",
   "25": "extraction-spec.md",
-  "27": "renderBranchSelector"
+  "26": "buildSalesPdfReport_"
 }

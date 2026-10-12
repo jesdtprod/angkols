@@ -1,4 +1,4 @@
-# Caishen Enterprises POS
+# Angkol's Grill & Restobar POS
 
 Phase 1 provides a single-branch POS foundation using a static frontend and a Google Apps Script Web App backed by Google Sheets.
 

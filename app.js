@@ -5,7 +5,9 @@ const ADMIN_SESSION_KEY = 'ce-pos-admin-session';
 const INITIAL_ADMIN_KEY = 'ce-pos-initial-admin';
 const INITIAL_ADMIN_REGISTERED_KEY = 'ce-pos-initial-admin-registered';
 const supabaseConfig = window.CE_POS_SUPABASE || {};
-const supabaseClient = window.supabase?.createClient?.(supabaseConfig.url, supabaseConfig.publishableKey);
+const supabaseClient = supabaseConfig.url && supabaseConfig.publishableKey
+  ? window.supabase?.createClient?.(supabaseConfig.url, supabaseConfig.publishableKey)
+  : null;
 let products = [];
 let allProducts = [];
 let branches = [];
@@ -900,7 +902,7 @@ function renderReportPageFooter(pageNumber, totalPages, generatedTime, reportTyp
   return `
     <footer class="report-page-footer">
       <div class="page-footer-left">
-        <span>CAISHEN ENTERPRISES OPERATIONS &bull; ${escapeHtml(reportType)} Audit Report &bull; Generated ${escapeHtml(generatedTime)}</span>
+        <span>ANGKOL'S GRILL &amp; RESTOBAR OPERATIONS &bull; ${escapeHtml(reportType)} Audit Report &bull; Generated ${escapeHtml(generatedTime)}</span>
       </div>
       <div class="page-footer-right">
         <strong class="page-number-indicator">Page ${pageNumber} of ${totalPages}</strong>
@@ -913,9 +915,9 @@ function renderReportRunningHeader(branchName, periodText, reportTitle = 'Branch
   return `
     <header class="report-running-header">
       <div class="running-header-brand">
-        <img src="assets/ce-logo.png" class="report-badge-img" width="26" height="26" style="width:26px;height:26px;max-width:26px;max-height:26px;object-fit:contain;flex-shrink:0;" alt="Caishen Enterprises" />
+        <img src="assets/angkols-logo.png" class="report-badge-img" width="26" height="26" style="width:26px;height:26px;max-width:26px;max-height:26px;object-fit:contain;flex-shrink:0;" alt="Angkol's Grill &amp; Restobar" />
         <div>
-          <span class="running-brand-title">CAISHEN ENTERPRISES &bull; ${escapeHtml(reportTitle)}</span>
+          <span class="running-brand-title">ANGKOL'S GRILL &amp; RESTOBAR &bull; ${escapeHtml(reportTitle)}</span>
           <span class="running-brand-sub">${escapeHtml(branchName)} &bull; ${escapeHtml(periodText)}</span>
         </div>
       </div>
@@ -1064,10 +1066,10 @@ function buildSalesPdfReport_() {
         <header class="report-header">
           <div class="report-brand-wrap">
             <div class="report-logo">
-              <img src="assets/ce-logo.png" class="report-badge-img" width="42" height="42" style="width:42px;height:42px;max-width:42px;max-height:42px;object-fit:contain;flex-shrink:0;" alt="Caishen Enterprises" />
+              <img src="assets/angkols-logo.png" class="report-badge-img" width="42" height="42" style="width:42px;height:42px;max-width:42px;max-height:42px;object-fit:contain;flex-shrink:0;" alt="Angkol's Grill &amp; Restobar" />
             </div>
             <div>
-              <span class="report-eyebrow">CAISHEN ENTERPRISES OPERATIONS</span>
+              <span class="report-eyebrow">ANGKOL'S GRILL &amp; RESTOBAR OPERATIONS</span>
               <h1 class="report-title">Branch Sales, Returns & Inventory Ledger</h1>
               <p class="report-subtitle">Official sales, refund, replacement, and returned-stock audit report</p>
             </div>
@@ -1373,7 +1375,7 @@ function buildSalesPdfReport_() {
           </div>
 
           <div class="report-disclaimer">
-            <p>CAISHEN ENTERPRISES SYSTEM-GENERATED SALES AUDIT REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p>
+            <p>ANGKOL'S GRILL &amp; RESTOBAR SYSTEM-GENERATED SALES AUDIT REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p>
           </div>
         </div>
       `;
@@ -1573,9 +1575,9 @@ function generateInventoryReportPdf() {
       pageContentHtml += `
         <header class="report-header">
           <div class="report-brand-wrap">
-            <img src="assets/ce-logo.png" class="report-badge-img" width="42" height="42" style="width:42px;height:42px;max-width:42px;max-height:42px;object-fit:contain;flex-shrink:0;" alt="Caishen Enterprises" />
+            <img src="assets/angkols-logo.png" class="report-badge-img" width="42" height="42" style="width:42px;height:42px;max-width:42px;max-height:42px;object-fit:contain;flex-shrink:0;" alt="Angkol's Grill &amp; Restobar" />
             <div>
-              <span class="report-eyebrow">CAISHEN ENTERPRISES OPERATIONS</span>
+              <span class="report-eyebrow">ANGKOL'S GRILL &amp; RESTOBAR OPERATIONS</span>
               <h1 class="report-title">Branch Inventory Report</h1>
               <p class="report-subtitle">Stock movement and remaining inventory by product</p>
             </div>
@@ -1621,7 +1623,7 @@ function generateInventoryReportPdf() {
       pageContentHtml += `
         <footer class="report-document-footer">
           <div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By (Cashier / Staff)</span><span class="sign-sub">Signature over printed name</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Audited & Verified By</span><span class="sign-sub">Branch Manager / Operations</span></div></div>
-          <div class="report-disclaimer"><p>CAISHEN ENTERPRISES SYSTEM-GENERATED INVENTORY REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p></div>
+          <div class="report-disclaimer"><p>ANGKOL'S GRILL &amp; RESTOBAR SYSTEM-GENERATED INVENTORY REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p></div>
         </footer>
       `;
     }
@@ -3734,7 +3736,7 @@ async function downloadOperationalBackup() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `caishen-enterprises-backup-${backup.createdAt.replace(/[:.]/g, '-')}.json`;
+    link.download = `angkols-grill-restobar-backup-${backup.createdAt.replace(/[:.]/g, '-')}.json`;
     link.click();
     URL.revokeObjectURL(url);
     showToast('Operational backup downloaded.', 'success');
@@ -3757,7 +3759,7 @@ async function restoreOperationalBackup(event) {
     return;
   }
   if (backup?.schemaVersion !== '1' || !backup?.tables) {
-    showToast('Choose a valid Caishen Enterprises POS backup file.', 'error');
+    showToast("Choose a valid Angkol's Grill & Restobar POS backup file.", 'error');
     return;
   }
   const confirmed = await askConfirmation({
@@ -5360,9 +5362,9 @@ function generateQuarantinePdf() {
       pageContentHtml += `
         <header class="report-header">
           <div class="report-brand-wrap">
-            <img src="assets/ce-logo.png" class="report-badge-img" width="42" height="42" style="width:42px;height:42px;max-width:42px;max-height:42px;object-fit:contain;flex-shrink:0;" alt="Caishen Enterprises" />
+            <img src="assets/angkols-logo.png" class="report-badge-img" width="42" height="42" style="width:42px;height:42px;max-width:42px;max-height:42px;object-fit:contain;flex-shrink:0;" alt="Angkol's Grill &amp; Restobar" />
             <div>
-              <span class="report-eyebrow">CAISHEN ENTERPRISES OPERATIONS</span>
+              <span class="report-eyebrow">ANGKOL'S GRILL &amp; RESTOBAR OPERATIONS</span>
               <h1 class="report-title">Branch Quarantine Report</h1>
               <p class="report-subtitle">Quality inspection, restock, supplier return, and scrap disposition audit</p>
             </div>
@@ -5447,7 +5449,7 @@ function generateQuarantinePdf() {
             <div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By (Inspector / Staff)</span><span class="sign-sub">Signature over printed name</span></div>
             <div class="sign-column"><div class="sign-line"></div><span class="sign-title">Audited &amp; Verified By</span><span class="sign-sub">Branch Manager / Operations</span></div>
           </div>
-          <div class="report-disclaimer"><p>CAISHEN ENTERPRISES SYSTEM-GENERATED QUARANTINE REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p></div>
+          <div class="report-disclaimer"><p>ANGKOL'S GRILL &amp; RESTOBAR SYSTEM-GENERATED QUARANTINE REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p></div>
         </footer>
       `;
     }

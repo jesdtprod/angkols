@@ -1,4 +1,4 @@
 window.CE_POS_SUPABASE = {
-  url: 'https://rjppwbdiwgobgdjboeki.supabase.co',
-  publishableKey: 'sb_publishable_YSV7-5CbDof-mSVoPkdcqw_3JKHJJM9',
+  url: 'https://irmnfxwfwkznjktvugud.supabase.co',
+  publishableKey: 'sb_publishable_U0vqLDsPEI3FT020MFE-BA_YWgk8jGh',
 };

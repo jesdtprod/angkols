@@ -27,7 +27,7 @@
 When Supabase CLI access is configured for the project, replace manual SQL Editor deployment with:
 
 ```powershell
-supabase link --project-ref ozpwabhqbxdanayqniyo
+supabase link --project-ref irmnfxwfwkznjktvugud
 supabase db push
 supabase functions deploy manage-account --no-verify-jwt
 ```

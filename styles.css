@@ -1,5 +1,5 @@
 /* ==========================================================================
-   CAISHEN ENTERPRISES POS - CE BRAND DESIGN SYSTEM (ROYAL BLUE & EMERALD GREEN)
+   ANGKOL'S GRILL & RESTOBAR POS - BRAND DESIGN SYSTEM
    ========================================================================== */
 
 :root {
@@ -11,7 +11,7 @@
   --bg-hover: #1c3057;
   --bg-input: #0a1222;
 
-  /* CE Brand Colors (Aligned with ce-logo.png) */
+  /* Existing POS brand colors */
   --ce-blue: #0066f5;
   --ce-blue-hover: #0050d8;
   --ce-blue-dark: #00368a;
@@ -258,7 +258,7 @@ body {
 }
 
 /* ==========================================================================
-   AUTHENTICATION SESSION SPLASH (CAISHEN ENTERPRISES)
+   AUTHENTICATION SESSION SPLASH (ANGKOL'S GRILL & RESTOBAR)
    ========================================================================== */
 .auth-session-splash {
   display: none;
