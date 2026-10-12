@@ -30,6 +30,11 @@ let dailyExpenses = [];
 let sellingPriceBatches = [];
 let bundleComponents = [];
 let bundleAvailability = {};
+let restaurantTables = [];
+let restaurantOrders = [];
+let restaurantOrderItems = [];
+let selectedRestaurantTableId = '';
+let pendingRestaurantOrderId = '';
 let cart = [];
 let activeForm = '';
 let activeView = 'pos';
@@ -1872,9 +1877,12 @@ async function getAppData_(branchId) {
     client.from('inventory_quarantine_items').select('*'),
     client.from('daily_spot_cash').select('*').eq('branch_id', branchId).is('deleted_at', null).order('business_date', { ascending: false }),
     client.from('daily_expenses').select('*').eq('branch_id', branchId).is('deleted_at', null).order('business_date', { ascending: false }),
+    client.from('restaurant_tables').select('*').eq('branch_id', branchId).order('name'),
+    client.from('restaurant_orders').select('*').eq('branch_id', branchId).order('opened_at', { ascending: false }),
+    client.from('restaurant_order_items').select('*'),
   ]);
   results.forEach((result) => throwIfError_(result.error));
-  const [branchRows, productRows, branchProductRows, inventoryRows, customerRows, transferRows, saleRows, saleItemRows, paymentRows, openingCreditRows, stockInRows, sellingPriceBatchRows, bundleComponentRows, bundleAvailabilityRows, saleReturnRows, saleReturnItemRows, returnLotRows, quarantineCaseRows, quarantineItemRows, dailySpotCashRows, dailyExpenseRows] = results.map((result) => result.data || []);
+  const [branchRows, productRows, branchProductRows, inventoryRows, customerRows, transferRows, saleRows, saleItemRows, paymentRows, openingCreditRows, stockInRows, sellingPriceBatchRows, bundleComponentRows, bundleAvailabilityRows, saleReturnRows, saleReturnItemRows, returnLotRows, quarantineCaseRows, quarantineItemRows, dailySpotCashRows, dailyExpenseRows, tableRows, tableOrderRows, tableOrderItemRows] = results.map((result) => result.data || []);
   const branchMap = Object.fromEntries(branchRows.map((row) => [row.branch_id, row]));
   const productMap = Object.fromEntries(productRows.map((row) => [row.product_id, row]));
   const customerMap = Object.fromEntries(customerRows.map((row) => [row.customer_id, row]));
@@ -1923,7 +1931,7 @@ async function getAppData_(branchId) {
     return {
       saleId: sale.sale_id, branchId: sale.branch_id, date: sale.occurred_at, customerId: sale.customer_id || '',
       customerName: customerMap[sale.customer_id]?.name || 'Walk-in customer', subtotal: total + Number(sale.discount || 0),
-      total, discount: Number(sale.discount || 0), paymentType, status: sale.status || 'completed',
+      total, discount: Number(sale.discount || 0), paymentType, status: sale.status || 'completed', serviceType: sale.service_type || 'Takeout', tableId: sale.restaurant_table_id || '', serviceRecipient: sale.service_recipient || '', servicePhone: sale.service_phone || '', serviceAddress: sale.service_address || '',
       cashTendered: Number(sale.cash_tendered || 0), change: Number(sale.change || 0),
       creditPaid: paymentType === 'credit' ? paid : total, creditBalance: paymentType === 'credit' ? Math.max(total - paid, 0) : 0,
       items: saleItemRows.filter((item) => item.sale_id === sale.sale_id).map((item) => ({
@@ -1950,6 +1958,9 @@ async function getAppData_(branchId) {
     openingCreditAccounts: openingCreditRows.map((row) => ({ creditId: row.credit_account_id, sourceType: row.source_type || 'previous_balance', customerId: row.customer_id, customerName: customerMap[row.customer_id]?.name || 'Unknown customer', date: row.occurred_at, total: Number(row.original_amount || 0), reference: row.migration_reference || '' })),
     creditPayments: paymentRows.map((row) => ({ id: row.payment_id, creditId: row.credit_account_id || row.sale_id, saleId: row.sale_id || '', customerId: row.customer_id, customerName: customerMap[row.customer_id]?.name || 'Unknown customer', amount: Number(row.amount || 0), date: row.occurred_at, notes: row.notes || '' })).sort((a, b) => new Date(b.date) - new Date(a.date)),
     salesHistory,
+    restaurantTables: tableRows.map((row) => ({ id: row.table_id, name: row.name, area: row.area || '', capacity: Number(row.capacity), status: row.status })),
+    restaurantOrders: tableOrderRows.map((row) => ({ id: row.order_id, tableId: row.table_id, status: row.status, guestCount: Number(row.guest_count), customerName: row.customer_name || '', discount: Number(row.discount || 0), openedAt: row.opened_at })),
+    restaurantOrderItems: tableOrderItemRows.map((row) => ({ orderId: row.order_id, productId: row.product_id, qty: Number(row.qty), price: Number(row.price), notes: row.notes || '' })),
     saleReturns: saleReturnRows.map((row) => ({
       id: row.return_id, saleId: row.original_sale_id, type: row.return_type, status: row.status, reason: row.reason || '', refundAmount: Number(row.refund_amount || 0),
       refundResolvedAt: row.refund_resolved_at || null, replacementReleasedAt: row.replacement_released_at || null, resolvedAt: row.resolved_at || null, createdAt: row.created_at,
@@ -2054,7 +2065,7 @@ async function api(action, payload = {}) {
     return data;
   }
   if (action === 'recordSale') {
-    const { data, error } = await client.rpc('record_sale', {
+    const { data, error } = await client.rpc('record_sale_with_service', {
       target_branch_id: payload.branchId,
       sale_lines: payload.items.map((item) => ({
         productId: item.productId,
@@ -2066,6 +2077,11 @@ async function api(action, payload = {}) {
       customer_id_input: payload.customerId || null,
       discount_input: Number(payload.discount || 0),
       cash_tendered_input: Number(payload.cashTendered || 0),
+      service_type_input: payload.serviceType || 'Takeout',
+      restaurant_table_id_input: payload.tableId || null,
+      service_recipient_input: payload.serviceRecipient || '',
+      service_phone_input: payload.servicePhone || '',
+      service_address_input: payload.serviceAddress || '',
     });
     throwIfError_(error);
     return data;
@@ -2309,6 +2325,103 @@ function showToast(message, type = 'info') {
 function renderSkeletonTable() {
   const table = $('#inventoryTable');
   if (!table) return;
+
+  if (activeView === 'tableService') {
+    table.innerHTML = `
+      <section class="table-service-shell table-service-skeleton">
+        <div class="table-floor-column">
+          <div class="table-floor-header">
+            <div class="table-floor-title-wrap">
+              <div class="skeleton-shimmer" style="width: 80px; height: 10px; margin-bottom: 6px;"></div>
+              <div class="skeleton-shimmer" style="width: 140px; height: 20px;"></div>
+            </div>
+            <div class="table-floor-legend">
+              <div class="skeleton-shimmer" style="width: 160px; height: 16px;"></div>
+            </div>
+          </div>
+          <div class="restaurant-table-grid">
+            ${Array.from({ length: 6 }).map(() => `
+              <div class="restaurant-table-card table-skeleton-card" style="cursor: default; pointer-events: none;">
+                <div class="restaurant-table-card-top" style="width: 100%;">
+                  <div class="skeleton-shimmer" style="width: 58px; height: 18px; border-radius: 999px;"></div>
+                  <div class="skeleton-shimmer" style="width: 32px; height: 16px; border-radius: 999px;"></div>
+                </div>
+                <div class="skeleton-shimmer" style="width: 85px; height: 16px; margin-top: 4px;"></div>
+                <div class="skeleton-shimmer" style="width: 60px; height: 12px;"></div>
+                <div class="restaurant-table-footer" style="width: 100%;">
+                  <div class="skeleton-shimmer" style="width: 70px; height: 16px; border-radius: 6px;"></div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <aside class="table-tab-panel table-tab-skeleton">
+          <div class="table-tab-header">
+            <div class="table-tab-top-row">
+              <div class="table-tab-title-wrap" style="width: 60%;">
+                <div class="skeleton-shimmer" style="width: 90px; height: 10px; margin-bottom: 6px;"></div>
+                <div class="table-tab-heading-row">
+                  <div class="skeleton-shimmer" style="width: 80px; height: 22px;"></div>
+                  <div class="skeleton-shimmer" style="width: 65px; height: 18px; border-radius: 999px;"></div>
+                  <div class="skeleton-shimmer" style="width: 100px; height: 14px;"></div>
+                </div>
+              </div>
+              <div class="skeleton-shimmer" style="width: 68px; height: 38px; border-radius: 9px;"></div>
+            </div>
+            <div class="table-tab-actions">
+              <div class="skeleton-shimmer" style="height: 40px; border-radius: 9px;"></div>
+              <div class="skeleton-shimmer" style="height: 40px; border-radius: 9px;"></div>
+            </div>
+          </div>
+
+          <div class="table-tab-summary-card">
+            <div class="table-tab-stat">
+              <div class="skeleton-shimmer" style="width: 42px; height: 11px; margin-bottom: 6px;"></div>
+              <div class="skeleton-shimmer" style="width: 24px; height: 18px;"></div>
+            </div>
+            <div class="table-tab-stat">
+              <div class="skeleton-shimmer" style="width: 36px; height: 11px; margin-bottom: 6px;"></div>
+              <div class="skeleton-shimmer" style="width: 55px; height: 18px;"></div>
+            </div>
+            <div class="table-tab-stat stat-total">
+              <div class="skeleton-shimmer" style="width: 52px; height: 11px; margin-bottom: 6px;"></div>
+              <div class="skeleton-shimmer" style="width: 80px; height: 18px;"></div>
+            </div>
+          </div>
+
+          <div class="table-order-lines-container">
+            <div class="skeleton-shimmer" style="width: 115px; height: 11px; margin-bottom: 12px;"></div>
+            <div class="table-order-lines">
+              ${Array.from({ length: 2 }).map(() => `
+                <div class="table-order-line-item">
+                  <div class="table-line-info">
+                    <div class="skeleton-shimmer" style="width: 130px; height: 14px; margin-bottom: 4px;"></div>
+                    <div class="skeleton-shimmer" style="width: 70px; height: 10px;"></div>
+                  </div>
+                  <div class="skeleton-shimmer" style="width: 65px; height: 12px;"></div>
+                  <div class="skeleton-shimmer" style="width: 60px; height: 15px;"></div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="table-add-item-form" style="pointer-events: none;">
+            <div class="skeleton-shimmer" style="width: 95px; height: 11px; margin-bottom: 10px;"></div>
+            <div class="table-add-form-row">
+              <div class="skeleton-shimmer" style="flex: 1; height: 40px; border-radius: 9px;"></div>
+              <div class="skeleton-shimmer" style="width: 65px; height: 40px; border-radius: 9px;"></div>
+            </div>
+            <div class="table-add-form-row notes-row">
+              <div class="skeleton-shimmer" style="width: 100%; height: 38px; border-radius: 9px;"></div>
+            </div>
+            <div class="skeleton-shimmer" style="width: 100%; height: 42px; border-radius: 10px; margin-top: 4px;"></div>
+          </div>
+        </aside>
+      </section>
+    `;
+    return;
+  }
 
   if (activeView === 'bundleMonitoring') {
     table.innerHTML = Array.from({ length: 6 }).map(() => `
@@ -2894,14 +3007,15 @@ function openDropdown(wrapper, trigger) {
   const parentGroup = wrapper.closest('.form-field-group');
   if (parentGroup) parentGroup.classList.add('has-open-dropdown');
 
-  const searchInput = wrapper.querySelector('.dropdown-search-input');
+  const activeMenu = menu || document.querySelector(`.dropdown-menu-floating[data-dropdown-owner="${wrapper.dataset.dropdownId || ''}"]`) || wrapper.querySelector('.dropdown-menu');
+  const searchInput = activeMenu?.querySelector('.dropdown-search-input');
   if (searchInput) {
     searchInput.value = '';
-    const clearBtn = wrapper.querySelector('.dropdown-search-clear');
+    const clearBtn = activeMenu.querySelector('.dropdown-search-clear');
     if (clearBtn) clearBtn.style.display = 'none';
-    const emptyState = wrapper.querySelector('.dropdown-empty-state');
+    const emptyState = activeMenu.querySelector('.dropdown-empty-state');
     if (emptyState) emptyState.style.display = 'none';
-    wrapper.querySelectorAll('.dropdown-option').forEach((opt) => {
+    activeMenu.querySelectorAll('.dropdown-option').forEach((opt) => {
       opt.style.display = 'flex';
     });
     setTimeout(() => {
@@ -4599,8 +4713,328 @@ function bindPaginationEvents_(container = $('#inventoryTable'), renderFn = null
   });
 }
 
+function renderTableService() {
+  const table = $('#inventoryTable');
+  if (!table) return;
+  const query = String($('#searchInput')?.value || '').trim().toLowerCase();
+  const visibleTables = restaurantTables.filter((item) => !query || [item.name, item.area, item.status].some((value) => String(value).toLowerCase().includes(query)));
+  const openOrderFor = (tableId) => restaurantOrders.find((order) => order.tableId === tableId && order.status === 'Open');
+  if (selectedRestaurantTableId && !restaurantTables.some((item) => item.id === selectedRestaurantTableId)) selectedRestaurantTableId = '';
+  const selectedTable = restaurantTables.find((item) => item.id === selectedRestaurantTableId) || visibleTables[0] || null;
+  const selectedOrder = selectedTable ? openOrderFor(selectedTable.id) : null;
+  const selectedItems = selectedOrder ? restaurantOrderItems.filter((item) => item.orderId === selectedOrder.id) : [];
+  const subtotal = selectedItems.reduce((total, item) => total + (item.qty * item.price), 0);
+  const productMap = new Map(products.map((product) => [product.id, product]));
+  const availableProducts = products.filter((product) => product.status === 'Active' && Number(product.qty || 0) > 0);
+  const canRegisterTables = currentSession?.account?.role === 'admin';
+
+  if (!visibleTables.length) {
+    table.innerHTML = `
+      <div class="empty-state">
+        <p>${query ? 'No matching dining tables' : 'No tables registered'}</p>
+        <small>${query ? 'Try adjusting your search query' : 'Register each dining table before taking table orders.'}</small>
+        ${canRegisterTables && !query ? '<button class="button button-primary" type="button" data-register-table>Register Table</button>' : ''}
+      </div>
+    `;
+    table.querySelector('[data-register-table]')?.addEventListener('click', () => openForm('restaurantTable'));
+    return;
+  }
+
+  table.innerHTML = `
+    <section class="table-service-shell">
+      <div class="table-floor-column">
+        <div class="table-floor-header">
+          <div class="table-floor-title-wrap">
+            <span class="table-floor-kicker">FLOOR LAYOUT</span>
+            <h3 class="table-floor-count">${visibleTables.length} ${visibleTables.length === 1 ? 'Table' : 'Tables'} on Floor</h3>
+          </div>
+          <div class="table-floor-legend">
+            <span class="legend-item"><span class="legend-dot status-vacant"></span>Vacant</span>
+            <span class="legend-item"><span class="legend-dot status-occupied"></span>Occupied</span>
+            <span class="legend-item"><span class="legend-dot status-reserved"></span>Reserved</span>
+          </div>
+        </div>
+        <div class="restaurant-table-grid">
+          ${visibleTables.map((item) => {
+            const order = openOrderFor(item.id);
+            const itemTotal = order ? restaurantOrderItems.filter((line) => line.orderId === order.id).reduce((sum, line) => sum + line.qty * line.price, 0) : 0;
+            const selected = item.id === selectedTable?.id;
+            return `
+              <button class="restaurant-table-card ${selected ? 'is-selected' : ''}" type="button" data-select-table="${escapeHtml(item.id)}">
+                <div class="restaurant-table-card-top">
+                  <span class="restaurant-table-status status-${item.status.toLowerCase()}">${escapeHtml(item.status)}</span>
+                  <span class="restaurant-table-seats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>${item.capacity}</span>
+                </div>
+                <strong class="restaurant-table-name">${escapeHtml(item.name)}</strong>
+                <span class="restaurant-table-area">${escapeHtml(item.area || 'Dining area')}</span>
+                <div class="restaurant-table-footer">
+                  ${order ? `<span class="restaurant-table-tab-pill">${money(itemTotal)}</span>` : '<small class="restaurant-table-ready">Ready for guests</small>'}
+                </div>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <aside class="table-tab-panel">
+        ${selectedTable ? `
+          <div class="table-tab-header">
+            <div class="table-tab-top-row">
+              <div class="table-tab-title-wrap">
+                <span class="table-tab-kicker">ACTIVE ORDER TAB</span>
+                <div class="table-tab-heading-row">
+                  <h3 class="table-tab-title">${escapeHtml(selectedTable.name)}</h3>
+                  <span class="restaurant-table-status status-${selectedTable.status.toLowerCase()}">${escapeHtml(selectedTable.status)}</span>
+                  <span class="table-tab-meta">${escapeHtml(selectedTable.area || 'Dining area')} &bull; ${selectedTable.capacity} seats</span>
+                </div>
+              </div>
+              ${canRegisterTables ? `
+                <div class="table-admin-icon-group">
+                  <button class="icon-button" type="button" data-edit-table="${escapeHtml(selectedTable.id)}" aria-label="Edit Table" title="Edit Table">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                  </button>
+                  <button class="icon-button danger-icon" type="button" data-delete-table="${escapeHtml(selectedTable.id)}" aria-label="Delete Table" title="Delete Table">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              ` : ''}
+            </div>
+            ${selectedOrder
+              ? `<div class="table-tab-actions">
+                  <button class="button table-action-btn table-transfer-btn" type="button" data-transfer-table="${escapeHtml(selectedOrder.id)}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+                    <span>Transfer Table</span>
+                  </button>
+                  <button class="button button-primary table-action-btn table-pay-btn" type="button" data-table-payment="${escapeHtml(selectedOrder.id)}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                    <span>Payment In POS</span>
+                  </button>
+                </div>`
+              : `<button class="button button-primary table-action-btn table-open-btn" type="button" data-open-table="${escapeHtml(selectedTable.id)}" ${!['Vacant', 'Reserved'].includes(selectedTable.status) ? 'disabled' : ''}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                  <span>+ Open Tab</span>
+                </button>`
+            }
+          </div>
+
+          ${selectedOrder ? `
+            <div class="table-tab-summary-card">
+              <div class="table-tab-stat">
+                <span class="table-tab-stat-lbl">Guests</span>
+                <strong class="table-tab-stat-val">${selectedOrder.guestCount}</strong>
+              </div>
+              <div class="table-tab-stat">
+                <span class="table-tab-stat-lbl">Party</span>
+                <strong class="table-tab-stat-val">${escapeHtml(selectedOrder.customerName || 'Walk-in')}</strong>
+              </div>
+              <div class="table-tab-stat stat-total">
+                <span class="table-tab-stat-lbl">Total Due</span>
+                <strong class="table-tab-stat-val text-accent">${money(subtotal)}</strong>
+              </div>
+            </div>
+
+            <div class="table-order-lines-container">
+              <span class="table-order-lines-header">ORDERED ITEMS (${selectedItems.length})</span>
+              <div class="table-order-lines">
+                ${selectedItems.length ? selectedItems.map((item) => {
+                  const product = productMap.get(item.productId);
+                  return `
+                    <div class="table-order-line-item">
+                      <div class="table-line-info">
+                        <strong class="table-line-name">${escapeHtml(product?.name || 'Item')}</strong>
+                        ${item.notes ? `<span class="table-line-note">${escapeHtml(item.notes)}</span>` : ''}
+                      </div>
+                      <span class="table-line-qty-price">${item.qty} &times; ${money(item.price)}</span>
+                      <strong class="table-line-total">${money(item.qty * item.price)}</strong>
+                    </div>
+                  `;
+                }).join('') : '<div class="table-tab-empty-msg">No items added to tab yet. Use the form below to add items.</div>'}
+              </div>
+            </div>
+
+            <form class="table-add-item-form" data-table-item-form data-order-id="${escapeHtml(selectedOrder.id)}">
+              <span class="table-add-form-title">Add Item to Tab</span>
+              <div class="table-add-form-row">
+                <select name="productId" required>
+                  <option value="" selected disabled>Select menu item...</option>
+                  ${availableProducts.map((product) => `<option value="${escapeHtml(product.id)}">${escapeHtml(product.name)} - ${money(displayedSellingPrice(product))}</option>`).join('')}
+                </select>
+                <input name="qty" type="number" min="0.001" step="0.001" value="1" required aria-label="Quantity" placeholder="Qty">
+              </div>
+              <div class="table-add-form-row notes-row">
+                <input name="notes" type="text" maxlength="180" placeholder="Order notes (optional)">
+              </div>
+              <button class="button button-primary table-add-btn" type="submit" ${availableProducts.length ? '' : 'disabled'}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                <span>Add to Tab</span>
+              </button>
+            </form>
+          ` : `
+            <div class="table-vacant-state">
+              <div class="table-vacant-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 10h16"/><path d="M6 10v9M18 10v9M3 19h18"/><path d="M8 6a4 4 0 0 1 8 0v4H8Z"/>
+                </svg>
+              </div>
+              <h4>Table is Ready</h4>
+              <p>This table is currently vacant. Use "+ Open Tab" above when guests arrive to start taking orders.</p>
+            </div>
+          `}
+        ` : `
+          <div class="table-vacant-state">
+            <div class="table-vacant-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 10h16"/><path d="M6 10v9M18 10v9M3 19h18"/><path d="M8 6a4 4 0 0 1 8 0v4H8Z"/>
+              </svg>
+            </div>
+            <h4>Select a Dining Table</h4>
+            <p>Select any table from the floor layout on the left to view active orders or open a new tab.</p>
+          </div>
+        `}
+      </aside>
+    </section>
+  `;
+
+  table.querySelector('[data-register-table]')?.addEventListener('click', () => openForm('restaurantTable'));
+  table.querySelector('[data-edit-table]')?.addEventListener('click', (event) => openForm('editRestaurantTable', event.currentTarget.dataset.editTable));
+  table.querySelector('[data-delete-table]')?.addEventListener('click', async (event) => {
+    const tableId = event.currentTarget.dataset.deleteTable;
+    const targetTable = restaurantTables.find((item) => item.id === tableId) || selectedTable;
+    const tableName = targetTable ? targetTable.name : 'this dining table';
+    const confirmed = await askConfirmation({
+      title: 'Delete Dining Table',
+      eyebrow: 'TABLE SERVICE',
+      subtitle: 'Permanent action — please confirm',
+      message: `Are you sure you want to delete <strong class="confirm-highlight-name">${escapeHtml(tableName)}</strong>?`,
+      warning: 'This dining table will be permanently removed from the floor layout. Any past orders and customer visits remain archived in sales records.',
+      confirmText: 'Delete Table',
+      confirmType: 'danger'
+    });
+    if (!confirmed) return;
+    try {
+      const { error } = await requireSupabase_().rpc('delete_restaurant_table', { target_table_id: tableId });
+      throwIfError_(error);
+      selectedRestaurantTableId = '';
+      await refresh(false);
+      showToast('Dining table deleted.', 'success');
+    } catch (error) {
+      showToast(error.message || 'Unable to delete dining table.', 'error');
+    }
+  });
+  table.querySelectorAll('[data-select-table]').forEach((button) => button.addEventListener('click', () => { selectedRestaurantTableId = button.dataset.selectTable; renderTableService(); }));
+  table.querySelector('[data-open-table]')?.addEventListener('click', () => openForm('restaurantTab', table.querySelector('[data-open-table]').dataset.openTable));
+  table.querySelector('[data-table-payment]')?.addEventListener('click', () => beginRestaurantPayment_(table.querySelector('[data-table-payment]').dataset.tablePayment));
+  table.querySelector('[data-transfer-table]')?.addEventListener('click', (event) => openTableTransferDialog_(event.currentTarget.dataset.transferTable, selectedTable.id));
+  table.querySelector('[data-table-item-form]')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const submitBtn = event.currentTarget.querySelector('button[type="submit"]');
+    const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+    const form = new FormData(event.currentTarget);
+    const product = products.find((item) => item.id === form.get('productId'));
+    const qty = Number(form.get('qty'));
+    if (!product || !Number.isFinite(qty) || qty <= 0) return showToast('Choose a menu item and valid quantity.', 'error');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="btn-spinner"></span> Adding...';
+    }
+    try {
+      const { error } = await requireSupabase_().rpc('add_restaurant_order_item', { target_order_id: event.currentTarget.dataset.orderId, target_product_id: product.id, qty_input: qty, price_input: displayedSellingPrice(product), notes_input: String(form.get('notes') || '') });
+      throwIfError_(error); showToast('Item added to table tab.', 'success'); await refresh(false);
+    } catch (error) {
+      showToast(error.message || 'Unable to add item.', 'error');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnHtml;
+      }
+    }
+  });
+  initCustomDropdowns(table);
+}
+
+function openTableTransferDialog_(orderId, sourceTableId) {
+  const dialog = $('#tableTransferDialog');
+  const grid = $('#tableTransferGrid');
+  const submit = $('#tableTransferSubmit');
+  const error = $('#tableTransferError');
+  const source = restaurantTables.find((item) => item.id === sourceTableId);
+  const vacant = restaurantTables.filter((item) => item.status === 'Vacant' && item.id !== sourceTableId);
+  if (!vacant.length) return showToast('There is no vacant table available for transfer.', 'error');
+  let destinationId = '';
+
+  const sourceNameEl = $('#tableTransferSourceName');
+  const sourceMetaEl = $('#tableTransferSourceMeta');
+  const destNameEl = $('#tableTransferDestName');
+  const destMetaEl = $('#tableTransferDestMeta');
+  const countBadgeEl = $('#tableTransferCountBadge');
+
+  if (sourceNameEl) sourceNameEl.textContent = source?.name || 'Selected Table';
+  if (sourceMetaEl) sourceMetaEl.textContent = `${source?.area || 'Dining area'} · ${source?.capacity || 0} seats`;
+  if (destNameEl) {
+    destNameEl.textContent = 'Select a table';
+    destNameEl.style.color = '';
+  }
+  if (destMetaEl) destMetaEl.textContent = 'Must be vacant';
+  if (countBadgeEl) countBadgeEl.textContent = `${vacant.length} ${vacant.length === 1 ? 'Vacant' : 'Vacant'}`;
+
+  $('#tableTransferSubtitle').textContent = `Move ${source?.name || 'this table'} and its unpaid tab to a vacant table.`;
+  error.textContent = '';
+  submit.disabled = true;
+  submit.innerHTML = '<span class="button-text">Transfer Table</span>';
+
+  grid.innerHTML = vacant.map((item) => `
+    <button class="table-transfer-card" type="button" data-destination-table="${escapeHtml(item.id)}">
+      <div class="table-transfer-card-top">
+        <span class="restaurant-table-status status-vacant">Vacant</span>
+        <span class="restaurant-table-seats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>${item.capacity}</span>
+      </div>
+      <strong class="table-transfer-card-name">${escapeHtml(item.name)}</strong>
+      <span class="table-transfer-card-area">${escapeHtml(item.area || 'Dining area')}</span>
+      <div class="table-transfer-card-radio"></div>
+    </button>
+  `).join('');
+
+  grid.querySelectorAll('[data-destination-table]').forEach((button) => button.addEventListener('click', () => {
+    destinationId = button.dataset.destinationTable;
+    grid.querySelectorAll('[data-destination-table]').forEach((card) => card.classList.toggle('is-selected', card === button));
+    const chosen = vacant.find((t) => t.id === destinationId);
+    if (chosen && destNameEl) {
+      destNameEl.textContent = chosen.name;
+      destNameEl.style.color = '#38bdf8';
+    }
+    if (chosen && destMetaEl) {
+      destMetaEl.textContent = `${chosen.area || 'Dining area'} · ${chosen.capacity} seats`;
+    }
+    submit.disabled = false;
+  }));
+  dialog.showModal();
+
+  const onSubmit = async (event) => {
+    event.preventDefault();
+    if (!destinationId) return;
+    submit.disabled = true;
+    submit.innerHTML = '<span class="btn-spinner"></span><span>Transferring tab...</span>';
+    try {
+      const { error: requestError } = await requireSupabase_().rpc('transfer_restaurant_table', { target_order_id: orderId, destination_table_id: destinationId });
+      throwIfError_(requestError);
+      selectedRestaurantTableId = destinationId;
+      dialog.close();
+      await refresh(false);
+      showToast('Table tab transferred.', 'success');
+    } catch (requestError) {
+      error.textContent = formatAlertMessage(requestError.message);
+      submit.disabled = false;
+      submit.innerHTML = '<span class="button-text">Transfer Table</span>';
+    }
+  };
+  const cleanup = () => form.removeEventListener('submit', onSubmit);
+  const form = $('#tableTransferForm');
+  form.addEventListener('submit', onSubmit, { once: true });
+  dialog.addEventListener('close', cleanup, { once: true });
+}
+
 function renderInventory() {
   if (activeView === 'dashboard') { renderDashboard(); return; }
+  if (activeView === 'tableService') { renderTableService(); return; }
   if (activeView === 'bundleMonitoring') { renderBundleMonitoring(); return; }
   if (activeView === 'quarantine') { renderQuarantinedItems(); return; }
   if (activeView === 'quarantineReport') { renderQuarantineReport(); return; }
@@ -4817,16 +5251,18 @@ function renderBundleMonitoring() {
         `;
       }).join('') || '<span class="bundle-no-components">No components configured</span>';
       const sets = Number(bundleAvailability[bundle.id] ?? bundle.qty ?? 0);
-      const emptyShells = Math.max(0, Number(bundle.tankInventory?.empty || 0) - sets);
       const isZeroSets = sets === 0;
       return `
         <article class="bundle-monitor-card ${isZeroSets ? 'has-zero-sets' : ''}">
           <div class="bundle-monitor-card-header">
             <div class="bundle-monitor-header-left">
               <div class="bundle-monitor-icon-badge" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                ${bundle.imageUrl
+                  ? `<img class="bundle-monitor-photo" src="${escapeHtml(bundle.imageUrl)}" alt="${escapeHtml(bundle.name)}" loading="lazy" />`
+                  : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M7 3h10l2 4-2 14H7L5 7l2-4Z"/><path d="M5 7h14M9 3v4m6-4v4"/><path d="M9 12h6M9 16h6"/>
-                </svg>
+                </svg>`
+                }
               </div>
               <div class="bundle-monitor-title-block">
                 <strong class="bundle-monitor-name" title="${escapeHtml(bundle.name)}">${escapeHtml(bundle.name)}</strong>
@@ -4853,15 +5289,6 @@ function renderBundleMonitoring() {
               <div class="bundle-stat-info">
                 <strong class="bundle-stat-val">${sets.toLocaleString('en-PH')}</strong>
                 <span class="bundle-stat-lbl">sets producible</span>
-              </div>
-            </div>
-            <div class="bundle-monitor-stat stat-empty ${emptyShells === 0 ? 'is-zero' : ''}" title="Empty shells remaining after producible sets are reserved">
-              <div class="bundle-stat-icon-wrap">
-                ${tankIcon(false)}
-              </div>
-              <div class="bundle-stat-info">
-                <strong class="bundle-stat-val">${emptyShells.toLocaleString('en-PH')}</strong>
-                <span class="bundle-stat-lbl">empty shells left</span>
               </div>
             </div>
           </div>
@@ -7303,6 +7730,9 @@ async function refresh(showSkeleton = true) {
     inventoryQuarantineItems = data.inventoryQuarantineItems || [];
     dailySpotCash = data.dailySpotCash || [];
     dailyExpenses = data.dailyExpenses || [];
+    restaurantTables = data.restaurantTables || [];
+    restaurantOrders = data.restaurantOrders || [];
+    restaurantOrderItems = data.restaurantOrderItems || [];
     openingCreditAccounts = data.openingCreditAccounts || [];
     creditAccounts = calculateOutstandingCreditAccounts(salesHistory, creditPayments, openingCreditAccounts);
     inventoryReportData = data.inventoryReport || {};
@@ -7539,6 +7969,22 @@ function openForm(type, productId = '') {
     transfer: {
       title: 'New stock transfer', eyebrow: 'BRANCH OPERATIONS', subtitle: 'Create a draft transfer from the selected branch.', submit: 'Create draft',
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>`,
+    },
+    restaurantTable: {
+      title: 'Register Dining Table', eyebrow: 'TABLE SERVICE', subtitle: 'Add a table to the selected branch dining floor.', submit: 'Register Table',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16"/><path d="M6 10v9M18 10v9M3 19h18"/><path d="M8 6a4 4 0 0 1 8 0v4H8Z"/></svg>`,
+    },
+    editRestaurantTable: {
+      title: 'Edit Dining Table', eyebrow: 'TABLE SERVICE', subtitle: 'Update table details and floor status.', submit: 'Save Table',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16"/><path d="M6 10v9M18 10v9M3 19h18"/><path d="M8 6a4 4 0 0 1 8 0v4H8Z"/></svg>`,
+    },
+    restaurantTab: {
+      title: 'Open table tab', eyebrow: 'TABLE SERVICE', subtitle: 'Start a running order for this dining table.', submit: 'Open tab',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16"/><path d="M6 10v9M18 10v9M3 19h18"/><path d="M8 6a4 4 0 0 1 8 0v4H8Z"/></svg>`,
+    },
+    settleRestaurantTab: {
+      title: 'Settle table tab', eyebrow: 'TABLE SERVICE', subtitle: 'Cash settlement records the sale and releases the table.', submit: 'Complete cash settlement',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>`,
     },
   }[type] || {
     title: 'Product form',
@@ -8126,12 +8572,69 @@ function openForm(type, productId = '') {
     </div>
   `;
 
+  const selectedRestaurantTable = restaurantTables.find((item) => item.id === productId);
+  const selectedRestaurantOrder = restaurantOrders.find((item) => item.id === productId);
+  const settledTabItems = selectedRestaurantOrder ? restaurantOrderItems.filter((item) => item.orderId === selectedRestaurantOrder.id) : [];
+  const settledTabSubtotal = settledTabItems.reduce((total, item) => total + item.qty * item.price, 0);
+  const restaurantTableFields = `
+    <div class="form-field-group">
+      <label for="modalTableName"><span class="label-text">Table Name <span class="required">*</span></span></label>
+      <div class="input-with-icon">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16"/><path d="M6 10v9M18 10v9M3 19h18"/><path d="M8 6a4 4 0 0 1 8 0v4H8Z"/></svg>
+        <input id="modalTableName" name="name" value="${escapeHtml(selectedRestaurantTable?.name || '')}" placeholder="e.g. Table 1" required autocomplete="off">
+      </div>
+    </div>
+    <div class="form-field-group">
+      <label for="modalTableCapacity"><span class="label-text">Seats <span class="required">*</span></span></label>
+      <div class="input-with-icon">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <input id="modalTableCapacity" name="capacity" type="number" min="1" step="1" value="${escapeHtml(selectedRestaurantTable?.capacity || 2)}" required inputmode="numeric">
+      </div>
+    </div>
+    <div class="form-field-group full-field">
+      <label for="modalTableArea"><span class="label-text">Area <span class="optional-label">(optional)</span></span></label>
+      <div class="input-with-icon">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <input id="modalTableArea" name="area" value="${escapeHtml(selectedRestaurantTable?.area || '')}" placeholder="e.g. Main dining, terrace, bar" autocomplete="off">
+      </div>
+    </div>
+    ${type === 'editRestaurantTable' ? `<div class="form-field-group full-field"><label for="modalTableStatus"><span class="label-text">Status</span></label><select id="modalTableStatus" name="status">${['Vacant','Occupied','Reserved','Cleaning'].map((status) => `<option value="${status}" ${selectedRestaurantTable?.status === status ? 'selected' : ''}>${status}</option>`).join('')}</select></div>` : ''}
+  `;
+  const restaurantTabFields = `
+    <div class="form-field-group full-field">
+      <label><span class="label-text">Dining Table</span></label>
+      <div class="input-with-icon">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16"/><path d="M6 10v9M18 10v9M3 19h18"/><path d="M8 6a4 4 0 0 1 8 0v4H8Z"/></svg>
+        <input value="${escapeHtml(selectedRestaurantTable?.name || 'Selected table')}" readonly>
+      </div>
+    </div>
+    <div class="form-field-group">
+      <label for="modalTableGuests"><span class="label-text">Guest Count <span class="required">*</span></span></label>
+      <div class="input-with-icon">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <input id="modalTableGuests" name="guestCount" type="number" min="1" step="1" value="1" required inputmode="numeric">
+      </div>
+    </div>
+    <div class="form-field-group">
+      <label for="modalTableGuestName"><span class="label-text">Guest / Reference <span class="optional-label">(optional)</span></span></label>
+      <div class="input-with-icon">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <input id="modalTableGuestName" name="customerName" placeholder="Walk-in guest" autocomplete="off">
+      </div>
+    </div>
+  `;
+  const settleRestaurantTabFields = `
+    <div class="form-field-group full-field"><div class="staff-reset-summary-card"><div class="staff-reset-info"><strong class="staff-reset-name">${escapeHtml(restaurantTables.find((item) => item.id === selectedRestaurantOrder?.tableId)?.name || 'Dining table')}</strong><span class="staff-reset-meta">${settledTabItems.length} order line${settledTabItems.length === 1 ? '' : 's'} &bull; Current subtotal ${money(settledTabSubtotal)}</span></div></div></div>
+    <div class="form-field-group"><label for="modalTableDiscount"><span class="label-text">Discount (PHP)</span></label><div class="input-with-prefix"><span class="input-prefix">PHP</span><input id="modalTableDiscount" name="discount" type="number" min="0" max="${settledTabSubtotal}" step="0.01" value="${escapeHtml(selectedRestaurantOrder?.discount || 0)}" required inputmode="decimal"></div></div>
+    <div class="form-field-group"><label for="modalTableTendered"><span class="label-text">Cash Tendered (PHP) <span class="required">*</span></span></label><div class="input-with-prefix"><span class="input-prefix">PHP</span><input id="modalTableTendered" name="cashTendered" type="number" min="0" step="0.01" placeholder="0.00" required inputmode="decimal"></div></div>
+  `;
+
   const container = $('#formFields');
-  const compactFormTypes = new Set(['product', 'edit', 'linkProduct', 'branch', 'editBranch', 'customer', 'editCustomer', 'admin', 'editAdmin', 'resetStaff', 'dailySpotCash', 'editDailySpotCash', 'dailyExpenses', 'editDailyExpense']);
+  const compactFormTypes = new Set(['product', 'edit', 'linkProduct', 'branch', 'editBranch', 'customer', 'editCustomer', 'admin', 'editAdmin', 'resetStaff', 'dailySpotCash', 'editDailySpotCash', 'dailyExpenses', 'editDailyExpense', 'restaurantTable', 'editRestaurantTable', 'restaurantTab', 'settleRestaurantTab']);
   $('#formDialog').dataset.formLayout = compactFormTypes.has(type) ? 'compact' : 'scrollable';
   $('#formDialog').dataset.formType = type;
   container.scrollTop = 0;
-  container.innerHTML = type === 'product' || type === 'edit' ? productFields : type === 'linkProduct' ? linkProductFields : type === 'branch' || type === 'editBranch' ? branchFields : type === 'customer' || type === 'editCustomer' ? customerFields : type === 'staff' || type === 'editStaff' ? staffFields : type === 'resetStaff' ? resetStaffFields : type === 'admin' || type === 'editAdmin' ? adminFields : type === 'transfer' ? transferFields : type === 'dailySpotCash' || type === 'editDailySpotCash' ? dailySpotCashFields : type === 'dailyExpenses' || type === 'editDailyExpense' ? dailyExpenseFields : stockFields;
+  container.innerHTML = type === 'product' || type === 'edit' ? productFields : type === 'linkProduct' ? linkProductFields : type === 'branch' || type === 'editBranch' ? branchFields : type === 'customer' || type === 'editCustomer' ? customerFields : type === 'staff' || type === 'editStaff' ? staffFields : type === 'resetStaff' ? resetStaffFields : type === 'admin' || type === 'editAdmin' ? adminFields : type === 'transfer' ? transferFields : type === 'dailySpotCash' || type === 'editDailySpotCash' ? dailySpotCashFields : type === 'dailyExpenses' || type === 'editDailyExpense' ? dailyExpenseFields : type === 'restaurantTable' || type === 'editRestaurantTable' ? restaurantTableFields : type === 'restaurantTab' ? restaurantTabFields : type === 'settleRestaurantTab' ? settleRestaurantTabFields : stockFields;
 
   // Initialize smooth dropdowns and custom datepickers for newly injected fields
   initCustomDropdowns(container);
@@ -8291,13 +8794,13 @@ async function deleteProduct(productId) {
    NAVIGATION & VIEWS
    ========================================================================== */
 function setView(view, preserveSidebarOpen = false) {
-  const validViews = ['dashboard', 'pos', 'products', 'bundleMonitoring', 'inventory', 'quarantine', 'quarantineReport', 'branches', 'transfers', 'dailySpotCash', 'dailyExpenses', 'customers', 'credits', 'sales', 'inventoryReports', 'staffAccounts', 'adminAccount'];
+  const validViews = ['dashboard', 'pos', 'tableService', 'products', 'bundleMonitoring', 'inventory', 'quarantine', 'quarantineReport', 'branches', 'transfers', 'dailySpotCash', 'dailyExpenses', 'customers', 'credits', 'sales', 'inventoryReports', 'staffAccounts', 'adminAccount'];
   const permissions = currentSession?.account?.permissions || ['*'];
   const dailySpotCashNav = document.querySelector('[data-view="dailySpotCash"]');
   if (dailySpotCashNav) dailySpotCashNav.hidden = !permissions.includes('*') && !permissions.includes('dailySpotCash');
   const dailyExpensesNav = document.querySelector('[data-view="dailyExpenses"]');
   if (dailyExpensesNav) dailyExpensesNav.hidden = !permissions.includes('*') && !permissions.includes('dailyExpenses');
-  const requiredPermission = ['quarantine', 'quarantineReport'].includes(view) ? 'inventory' : view === 'bundleMonitoring' ? 'products' : view;
+  const requiredPermission = ['quarantine', 'quarantineReport'].includes(view) ? 'inventory' : ['bundleMonitoring'].includes(view) ? 'products' : view === 'tableService' ? 'pos' : view;
   if (view !== 'dashboard' && !permissions.includes('*') && !permissions.includes(requiredPermission)) view = permissions[0] || 'pos';
   if (!validViews.includes(view)) view = 'pos';
   activeView = view;
@@ -8312,8 +8815,9 @@ function setView(view, preserveSidebarOpen = false) {
   const details = {
     dashboard: ['WORKSPACE', 'Dashboard', 'BRANCH OVERVIEW', 'Operational Snapshot'],
     pos: ['WORKSPACE', 'Point of Sale', 'INVENTORY', 'Available Products'],
+    tableService: ['SERVICE FLOOR', 'Table Service', 'DINING TABLES', 'Open Tabs and Guest Orders'],
     products: ['CATALOG', 'Product Registration', 'PRODUCT CATALOG', 'Registered Products'],
-    bundleMonitoring: ['CATALOG', 'Bundles Monitoring', 'BUNDLE INVENTORY', 'Production and Empty Shell Availability'],
+    bundleMonitoring: ['CATALOG', 'Bundles Monitoring', 'BUNDLE INVENTORY', 'Sellable Bundle Availability'],
     inventory: ['BRANCH INVENTORY', 'Inventory Stock', 'STOCK CONTROL', 'Main Branch Stock'],
     quarantine: ['INVENTORY CONTROL', 'Quarantined Items', 'INSPECTION HOLDING AREA', 'Items Awaiting Disposition'],
     quarantineReport: ['REPORTING', 'Quarantine Report', 'QUARANTINE REPORT', 'Branch Quarantine Report'],
@@ -8335,7 +8839,9 @@ function setView(view, preserveSidebarOpen = false) {
   $('#catalogTitle').textContent = details[3];
   const searchInput = $('#searchInput');
   if (searchInput) {
-    searchInput.placeholder = view === 'customers'
+    searchInput.placeholder = view === 'tableService'
+      ? 'Search table, area, or status...'
+      : view === 'customers'
       ? 'Search customer name, phone, or address...'
       : view === 'branches'
       ? 'Search branch name, type, or address...'
@@ -8365,6 +8871,7 @@ function setView(view, preserveSidebarOpen = false) {
   const viewIcons = {
     dashboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>`,
     pos: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
+    tableService: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16"/><path d="M6 10v9M18 10v9M3 19h18"/><path d="M8 6a4 4 0 0 1 8 0v4H8Z"/></svg>`,
     products: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" x2="12" y1="22" y2="12"/></svg>`,
     bundleMonitoring: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10l2 4-2 14H7L5 7l2-4Z"/><path d="M5 7h14M9 3v4m6-4v4"/><path d="M9 12h6M9 16h6"/></svg>`,
     inventory: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"/><path d="m7 16.5-4.74-2.85"/><path d="m7 16.5 5-3"/><path d="M7 16.5v5.17"/><path d="M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"/><path d="m17 16.5-5-3"/><path d="m17 16.5 4.74-2.85"/><path d="M17 16.5v5.17"/><path d="M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z"/><path d="M12 8 7.26 5.15"/><path d="m12 8 4.74-2.85"/><path d="M12 13.5V8"/></svg>`,
@@ -8422,6 +8929,8 @@ function setView(view, preserveSidebarOpen = false) {
   if (staffBtn) staffBtn.hidden = view !== 'staffAccounts';
   const adminBtn = $('#addAdminButton');
   if (adminBtn) adminBtn.hidden = view !== 'adminAccount';
+  const restaurantTableBtn = $('#addRestaurantTableButton');
+  if (restaurantTableBtn) restaurantTableBtn.hidden = view !== 'tableService' || currentSession?.account?.role !== 'admin';
   const inventoryPdfBtn = $('#generateInventoryPdfButton');
   if (inventoryPdfBtn) inventoryPdfBtn.hidden = view !== 'inventoryReports';
   $('#pos').dataset.view = view;
@@ -8706,6 +9215,7 @@ $('#addDailySpotCashButton')?.addEventListener('click', () => openForm('dailySpo
 $('#addDailyExpenseButton')?.addEventListener('click', () => openForm('dailyExpenses'));
 $('#addStaffButton').addEventListener('click', () => openForm('staff'));
 $('#addAdminButton').addEventListener('click', () => openForm('admin'));
+$('#addRestaurantTableButton')?.addEventListener('click', () => openForm('restaurantTable'));
 $('#generateInventoryPdfButton').addEventListener('click', generateInventoryReportPdf);
 
 $('#modalForm').addEventListener('submit', async (event) => {
@@ -8877,6 +9387,18 @@ $('#modalForm').addEventListener('submit', async (event) => {
     confirmConfig = activeForm === 'admin'
       ? { title: 'Add Administrator', eyebrow: 'ADMINISTRATION', subtitle: 'Confirm full system access', message: `Are you sure you want to make <strong class="confirm-highlight-name">${escapeHtml(name)}</strong> an administrator?`, warning: 'This account will have access to all branches and all menus.', confirmText: 'Add Administrator', confirmType: 'primary' }
       : { title: 'Save Administrator Changes', eyebrow: 'ADMINISTRATION', subtitle: 'Confirm profile update', message: 'Are you sure you want to save these administrator profile changes?', confirmText: 'Save Changes', confirmType: 'primary' };
+  } else if (activeForm === 'restaurantTable') {
+    const name = String(form.get('name') || '').trim();
+    confirmConfig = { title: 'Register Dining Table', eyebrow: 'TABLE SERVICE', subtitle: 'Add table to dining floor', message: `Register <strong class="confirm-highlight-name">${escapeHtml(name)}</strong> for this branch?`, confirmText: 'Register Table', confirmType: 'primary' };
+  } else if (activeForm === 'editRestaurantTable') {
+    const name = String(form.get('name') || '').trim();
+    confirmConfig = { title: 'Save Dining Table', eyebrow: 'TABLE SERVICE', subtitle: 'Update table configuration', message: `Save changes for <strong class="confirm-highlight-name">${escapeHtml(name)}</strong>?`, confirmText: 'Save Table', confirmType: 'primary' };
+  } else if (activeForm === 'restaurantTab') {
+    const tableName = restaurantTables.find((item) => item.id === editingProductId)?.name || 'this table';
+    confirmConfig = { title: 'Open Table Tab', eyebrow: 'TABLE SERVICE', subtitle: 'Begin running guest order', message: `Open a running tab for <strong class="confirm-highlight-name">${escapeHtml(tableName)}</strong>?`, confirmText: 'Open Tab', confirmType: 'primary' };
+  } else if (activeForm === 'settleRestaurantTab') {
+    const discount = Number(form.get('discount') || 0); const tendered = Number(form.get('cashTendered') || 0);
+    confirmConfig = { title: 'Complete Cash Settlement', eyebrow: 'TABLE SERVICE', subtitle: 'Record sale and release table', message: `Record cash tendered of <strong class="confirm-highlight-name">${money(tendered)}</strong>${discount ? ` with ${money(discount)} discount` : ''}?`, warning: 'This deducts sold inventory and changes the table back to Vacant.', confirmText: 'Complete Settlement', confirmType: 'primary' };
   } else if (activeForm === 'transfer') {
     const destId = form.get('destinationBranchId');
     const dest = branches.find((b) => b.id === destId);
@@ -8951,6 +9473,25 @@ $('#modalForm').addEventListener('submit', async (event) => {
       products = [{ ...result, qty: 0, sku: result.sku || '' }, ...products];
       allProducts = [{ ...result }, ...allProducts];
       showToast('Product added successfully.', 'success');
+    } else if (activeForm === 'restaurantTable') {
+      const name = String(form.get('name') || '').trim(); const capacity = Number(form.get('capacity'));
+      if (!name || !Number.isInteger(capacity) || capacity < 1) throw new Error('Enter a table name and whole-number seat capacity.');
+      const { error } = await requireSupabase_().rpc('create_restaurant_table', { target_branch_id: activeBranchId, table_name_input: name, area_input: String(form.get('area') || ''), capacity_input: capacity });
+      throwIfError_(error); showToast('Dining table registered.', 'success');
+    } else if (activeForm === 'editRestaurantTable') {
+      const name = String(form.get('name') || '').trim(); const capacity = Number(form.get('capacity'));
+      if (!name || !Number.isInteger(capacity) || capacity < 1) throw new Error('Enter a table name and whole-number seat capacity.');
+      const { error } = await requireSupabase_().rpc('update_restaurant_table', { target_table_id: editingProductId, table_name_input: name, area_input: String(form.get('area') || ''), capacity_input: capacity, status_input: String(form.get('status') || 'Vacant') });
+      throwIfError_(error); showToast('Dining table updated.', 'success');
+    } else if (activeForm === 'restaurantTab') {
+      const guestCount = Number(form.get('guestCount')); if (!Number.isInteger(guestCount) || guestCount < 1) throw new Error('Enter a valid guest count.');
+      const { error } = await requireSupabase_().rpc('open_restaurant_table', { target_table_id: editingProductId, guest_count_input: guestCount, customer_name_input: String(form.get('customerName') || '') });
+      throwIfError_(error); selectedRestaurantTableId = editingProductId; showToast('Table tab opened.', 'success');
+    } else if (activeForm === 'settleRestaurantTab') {
+      const discount = Number(form.get('discount') || 0); const cashTendered = Number(form.get('cashTendered') || 0);
+      if (!Number.isFinite(discount) || discount < 0 || !Number.isFinite(cashTendered) || cashTendered < 0) throw new Error('Enter valid settlement amounts.');
+      const { data, error } = await requireSupabase_().rpc('settle_restaurant_table_cash', { target_order_id: editingProductId, discount_input: discount, cash_tendered_input: cashTendered });
+      throwIfError_(error); selectedRestaurantTableId = data.tableId; showToast(`Table settled. Change: ${money(data.change || 0)}.`, 'success');
     } else if (activeForm === 'edit') {
       const current = products.find((p) => p.id === editingProductId);
       const payload = { ...Object.fromEntries(form), productId: editingProductId, imagePath: current?.imagePath || '' };
@@ -9336,21 +9877,80 @@ function syncSaleCustomerOptions(paymentType) {
   if (!customerSelect || customerSelect.dataset.paymentMode === paymentType) return;
   const selectedCustomerId = customerSelect.value;
   const activeCustomers = sortByName_(customers.filter((customer) => customer.status === 'Active'));
-  const placeholder = paymentType === 'credit'
+  const placeholder = ['credit', 'split'].includes(paymentType)
     ? '<option value="" disabled>Select active customer</option>'
     : '<option value="">WALK-IN CUSTOMER</option>';
   customerSelect.innerHTML = `${placeholder}${activeCustomers.map((customer) => `<option value="${escapeHtml(customer.id)}">${escapeHtml(displayCustomerName(customer.name))}${customer.phone ? ` - ${escapeHtml(customer.phone)}` : ''}</option>`).join('')}`;
   customerSelect.value = activeCustomers.some((customer) => customer.id === selectedCustomerId) ? selectedCustomerId : '';
-  customerSelect.required = paymentType === 'credit';
+  customerSelect.required = ['credit', 'split'].includes(paymentType);
   customerSelect.dataset.paymentMode = paymentType;
   updateCustomDropdown(customerSelect);
+}
+
+function syncSaleServiceFields() {
+  const hasTableCheckout = Boolean(restaurantOrders.find((item) => item.id === pendingRestaurantOrderId && item.status === 'Open'));
+  let serviceType = document.querySelector('input[name="serviceType"]:checked')?.value || 'Takeout';
+  if (hasTableCheckout && serviceType !== 'Dine-in') {
+    document.querySelector('input[name="serviceType"][value="Dine-in"]').checked = true;
+    serviceType = 'Dine-in';
+  }
+  if (!hasTableCheckout && serviceType === 'Dine-in') {
+    document.querySelector('input[name="serviceType"][value="Takeout"]').checked = true;
+    serviceType = 'Takeout';
+  }
+  const tableGroup = $('#saleTableGroup');
+  const recipientGroup = $('#saleRecipientGroup');
+  const phoneGroup = $('#salePhoneGroup');
+  const addressGroup = $('#saleAddressGroup');
+  const tableInput = $('#saleTable');
+  const fixedTable = $('#saleTableFixed');
+  const pendingOrder = restaurantOrders.find((item) => item.id === pendingRestaurantOrderId && item.status === 'Open');
+  const paymentTable = pendingOrder ? restaurantTables.find((item) => item.id === pendingOrder.tableId) : null;
+  if (tableInput) {
+    tableInput.value = paymentTable ? paymentTable.id : '';
+  }
+  if (fixedTable) {
+    fixedTable.textContent = paymentTable ? `${paymentTable.name}${paymentTable.area ? ` · ${paymentTable.area}` : ''}` : 'Selected dining table';
+  }
+  $('#saleAddress').required = serviceType === 'Delivery';
+  tableGroup.hidden = serviceType !== 'Dine-in';
+  recipientGroup.hidden = serviceType === 'Takeout';
+  phoneGroup.hidden = serviceType !== 'Delivery';
+  addressGroup.hidden = serviceType !== 'Delivery';
+  return serviceType;
+}
+
+function setSaleDiscountMode(mode) {
+  const hiddenMode = $('#saleDiscountMode');
+  if (hiddenMode) hiddenMode.value = mode;
+  document.querySelectorAll('.discount-mode-btn').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.dataset.discountMode === mode);
+  });
+  const unit = $('#saleDiscountUnit');
+  if (unit) unit.textContent = mode === 'percent' ? '%' : 'PHP';
+  const discountInput = $('#saleDiscount');
+  if (discountInput) {
+    discountInput.placeholder = mode === 'percent' ? '0' : '0.00';
+    if (mode === 'percent' && Number(discountInput.value) > 100) {
+      discountInput.value = '100';
+    }
+  }
+  updateSaleCheckoutValues();
 }
 
 function updateSaleCheckoutValues() {
   const subtotal = saleSubtotal();
   const discountInput = $('#saleDiscount');
-  const discount = Math.min(Math.max(Number(discountInput.value) || 0, 0), subtotal);
+  const discountMode = $('#saleDiscountMode')?.value || 'amount';
+  const discountValue = Math.max(Number(discountInput.value) || 0, 0);
+  const discount = discountMode === 'percent'
+    ? Math.min((subtotal * Math.min(discountValue, 100)) / 100, subtotal)
+    : Math.min(discountValue, subtotal);
+  const discountUnit = $('#saleDiscountUnit') || document.querySelector('.sale-discount-currency');
+  if (discountUnit) discountUnit.textContent = discountMode === 'percent' ? '%' : 'PHP';
+  discountInput.max = discountMode === 'percent' ? '100' : String(subtotal);
   const paymentType = document.querySelector('input[name="paymentType"]:checked')?.value || 'cash';
+  const serviceType = syncSaleServiceFields();
   syncSaleCustomerOptions(paymentType);
   const total = subtotal - discount;
   const tenderedInput = $('#saleCashTendered');
@@ -9373,11 +9973,13 @@ function updateSaleCheckoutValues() {
   }
   const creditNotice = $('#saleCreditNotice');
   if (creditNotice) {
-    creditNotice.hidden = paymentType !== 'credit';
+    creditNotice.hidden = !['credit', 'split'].includes(paymentType);
+    creditNotice.querySelector('strong').textContent = paymentType === 'split' ? 'Split Payment Terms' : 'Customer Credit Terms';
+    creditNotice.querySelector('p').textContent = paymentType === 'split' ? 'The cash amount is received now; the remaining balance is charged to the selected customer.' : 'Amount will be debited to customer’s account receivables. Ensure an active customer is selected.';
   }
   const customerHint = $('#saleCustomerHint');
   if (customerHint) {
-    if (paymentType === 'credit') {
+    if (['credit', 'split'].includes(paymentType)) {
       customerHint.textContent = 'Active customer account required for credit';
       customerHint.classList.add('warning-hint');
     } else {
@@ -9391,7 +9993,7 @@ function updateSaleCheckoutValues() {
   const heroChange = $('#saleHeroChange');
   const changeStatus = $('#saleChangeStatus');
   if (heroChange && changeGroup && changeStatus) {
-    if (paymentType === 'cash') {
+    if (paymentType !== 'credit') {
       const diff = Math.round((tendered - total) * 100) / 100;
       if (Math.abs(diff) < 0.005) {
         heroChange.textContent = 'PHP 0.00';
@@ -9411,7 +10013,36 @@ function updateSaleCheckoutValues() {
     }
   }
 
-  return { subtotal, discount, total, paymentType, tendered };
+  return { subtotal, discount, discountMode, discountValue, total, paymentType, tendered, serviceType };
+}
+
+function beginRestaurantPayment_(orderId) {
+  const order = restaurantOrders.find((item) => item.id === orderId && item.status === 'Open');
+  if (!order) return showToast('This table tab is no longer open.', 'error');
+  const table = restaurantTables.find((item) => item.id === order.tableId);
+  const lines = restaurantOrderItems.filter((item) => item.orderId === orderId);
+  if (!lines.length) return showToast('Add at least one item before payment.', 'error');
+  const nextCart = lines.map((line) => {
+    const product = products.find((item) => item.id === line.productId);
+    return product ? { ...product, qty: line.qty, sellingPriceOverride: line.price } : null;
+  }).filter(Boolean);
+  if (nextCart.length !== lines.length) return showToast('One or more table items are no longer available.', 'error');
+  pendingRestaurantOrderId = orderId;
+  cart = nextCart;
+  setView('pos');
+  renderCart();
+  openSaleCheckout();
+  const dineIn = document.querySelector('input[name="serviceType"][value="Dine-in"]');
+  if (dineIn) dineIn.checked = true;
+  syncSaleServiceFields();
+  const tableInput = $('#saleTable');
+  if (tableInput) { tableInput.value = table?.id || ''; }
+  const fixedTable = $('#saleTableFixed');
+  if (fixedTable && table) {
+    fixedTable.textContent = `${table.name}${table.area ? ` · ${table.area}` : ''}`;
+  }
+  $('#saleRecipient').value = order.customerName || '';
+  updateSaleCheckoutValues();
 }
 
 function openSaleCheckout() {
@@ -9423,9 +10054,39 @@ function openSaleCheckout() {
   customerSelect.dataset.paymentMode = '';
   customerSelect.value = '';
   $('#saleDiscount').value = '0';
+  setSaleDiscountMode('amount');
   document.querySelector('input[name="paymentType"][value="cash"]').checked = true;
+  const pendingOrder = restaurantOrders.find((item) => item.id === pendingRestaurantOrderId && item.status === 'Open');
+  const checkoutTitle = $('#saleDialog .modal-title-content h2');
+  const checkoutSubtitle = $('#saleDialog .modal-subtitle');
+  if (checkoutTitle) checkoutTitle.textContent = pendingOrder ? 'Sales Checkout' : 'Complete Sale';
+  if (checkoutSubtitle) checkoutSubtitle.textContent = pendingOrder ? 'Review the table tab, apply a discount if needed, then complete payment.' : 'Review payment before recording this sale.';
+  const dineInInput = document.querySelector('input[name="serviceType"][value="Dine-in"]');
+  if (dineInInput) {
+    dineInInput.closest('label')?.toggleAttribute('hidden', !pendingOrder);
+    dineInInput.disabled = !pendingOrder;
+  }
+  document.querySelectorAll('input[name="serviceType"]').forEach((input) => {
+    if (input.value !== 'Dine-in') {
+      input.closest('label')?.toggleAttribute('hidden', Boolean(pendingOrder));
+      input.disabled = Boolean(pendingOrder);
+    }
+  });
+  document.querySelector(`input[name="serviceType"][value="${pendingOrder ? 'Dine-in' : 'Takeout'}"]`).checked = true;
+  $('#saleRecipient').value = '';
+  $('#salePhone').value = '';
+  $('#saleAddress').value = '';
   $('#saleCashTendered').value = '0.00';
   $('#saleFormError').textContent = '';
+  const fixedTable = $('#saleTableFixed');
+  const tableInput = $('#saleTable');
+  const paymentTable = pendingOrder ? restaurantTables.find((item) => item.id === pendingOrder.tableId) : null;
+  if (tableInput) {
+    tableInput.value = paymentTable ? paymentTable.id : '';
+  }
+  if (fixedTable) {
+    fixedTable.textContent = paymentTable ? `${paymentTable.name}${paymentTable.area ? ` · ${paymentTable.area}` : ''}` : 'Selected dining table';
+  }
   updateSaleCheckoutValues();
   $('#saleDialog').showModal();
   initCustomDropdowns($('#saleDialog'));
@@ -9441,7 +10102,13 @@ function showSaleReceipt({ sale, items, customerName, context }) {
   $('#receiptSaleId').textContent = sale.saleId || 'N/A';
   $('#receiptDate').textContent = new Date(sale.date || Date.now()).toLocaleString('en-PH');
   $('#receiptCustomer').textContent = displayCustomerName(customerName || 'Walk-in customer');
-  $('#receiptPayment').textContent = isCash ? 'Cash Payment' : 'Credit Account';
+  $('#receiptPayment').textContent = sale.paymentType === 'split' ? 'Cash + Credit' : isCash ? 'Cash Payment' : 'Credit Account';
+  const receiptTableCard = $('#receiptTableCard');
+  const receiptTable = $('#receiptTable');
+  const isDineIn = String(sale.serviceType || '').toLowerCase() === 'dine-in';
+  const tableName = restaurantTables.find((item) => item.id === sale.tableId)?.name || sale.tableId || 'Dining table';
+  if (receiptTableCard) receiptTableCard.hidden = !isDineIn;
+  if (receiptTable && isDineIn) receiptTable.textContent = tableName;
 
   // Modal Title and Eyebrow
   const eyebrowEl = $('#receiptModalEyebrow');
@@ -9629,8 +10296,13 @@ $('#saleReturnForm')?.addEventListener('submit', async (event) => {
 
 $('#checkoutButton').addEventListener('click', openSaleCheckout);
 $('#saleDiscount').addEventListener('input', updateSaleCheckoutValues);
+$('#saleDiscountMode')?.addEventListener('change', updateSaleCheckoutValues);
+document.querySelectorAll('.discount-mode-btn').forEach((btn) => {
+  btn.addEventListener('click', () => setSaleDiscountMode(btn.dataset.discountMode));
+});
 $('#saleCashTendered').addEventListener('input', updateSaleCheckoutValues);
 document.querySelectorAll('input[name="paymentType"]').forEach((input) => input.addEventListener('change', updateSaleCheckoutValues));
+document.querySelectorAll('input[name="serviceType"]').forEach((input) => input.addEventListener('change', updateSaleCheckoutValues));
 
 $('#saleExactBtn')?.addEventListener('click', () => {
   const subtotal = saleSubtotal();
@@ -9653,24 +10325,42 @@ $('#saleForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   const values = updateSaleCheckoutValues();
   const customerId = $('#saleCustomer').value;
+  const tableId = $('#saleTable').value;
+  const serviceRecipient = String($('#saleRecipient').value || '').trim();
+  const servicePhone = String($('#salePhone').value || '').trim();
+  const serviceAddress = String($('#saleAddress').value || '').trim();
   const error = $('#saleFormError');
-  if (values.paymentType === 'credit' && !customerId) {
-    error.textContent = 'Select a customer for a credit sale.';
+  if (values.serviceType === 'Dine-in' && !tableId) {
+    error.textContent = 'Select a dining table for this dine-in sale.';
+    return;
+  }
+  if (values.serviceType === 'Delivery' && !serviceAddress) {
+    error.textContent = 'Enter the delivery address.';
+    return;
+  }
+  if (['credit', 'split'].includes(values.paymentType) && !customerId) {
+    error.textContent = 'Select the customer for the credit balance.';
     return;
   }
   if (values.paymentType === 'cash' && values.tendered < values.total) {
     error.textContent = 'Cash tendered must cover the total due.';
     return;
   }
+  if (values.paymentType === 'split' && (values.tendered <= 0 || values.tendered >= values.total)) {
+    error.textContent = 'Enter the cash received. It must be greater than zero and less than the total.';
+    return;
+  }
 
   error.textContent = '';
   const customerName = customers.find((customer) => customer.id === customerId)?.name || 'Walk-in customer';
   const confirmed = await askConfirmation({
-    title: values.paymentType === 'credit' ? 'Complete Credit Sale' : 'Complete Cash Sale',
+    title: values.paymentType === 'split' ? 'Complete Split Payment' : values.paymentType === 'credit' ? 'Complete Credit Sale' : 'Complete Cash Sale',
     eyebrow: 'POINT OF SALE',
     subtitle: 'Confirm payment and checkout',
-    message: `Complete this ${values.paymentType} sale for <strong class="confirm-highlight-name">${money(values.total)}</strong> to ${escapeHtml(displayCustomerName(customerName))}?`,
-    warning: values.paymentType === 'credit'
+    message: `Complete this ${values.serviceType.toLowerCase()} ${values.paymentType} sale for <strong class="confirm-highlight-name">${money(values.total)}</strong> to ${escapeHtml(displayCustomerName(serviceRecipient || customerName))}?`,
+    warning: values.paymentType === 'split'
+      ? `Cash received: ${money(values.tendered)}. Credit balance: ${money(values.total - values.tendered)}.`
+      : values.paymentType === 'credit'
       ? "The amount will be added to this customer's credit balance and branch stock will be deducted."
       : `Cash tendered: ${money(values.tendered)}. Change: ${money(values.tendered - values.total)}.`,
     confirmText: 'Complete Sale',
@@ -9683,12 +10373,23 @@ $('#saleForm').addEventListener('submit', async (event) => {
   submitBtn.innerHTML = '<span class="btn-spinner"></span><span>Recording sale...</span>';
   try {
     const receiptItems = cart.map((item) => ({ ...item, priceBreakdown: getCartPriceBreakdown(item), lineTotal: cartItemTotal(item) }));
-    const sale = await api('recordSale', {
+    const sale = pendingRestaurantOrderId && values.paymentType === 'split'
+      ? await requireSupabase_().rpc('settle_restaurant_order_split_through_pos', { target_order_id: pendingRestaurantOrderId, customer_id_input: customerId, cash_received_input: values.tendered, discount_input: values.discount }).then(({ data, error }) => { throwIfError_(error); return data; })
+      : pendingRestaurantOrderId
+      ? await requireSupabase_().rpc('settle_restaurant_order_through_pos', { target_order_id: pendingRestaurantOrderId, payment_type_input: values.paymentType, customer_id_input: customerId || null, discount_input: values.discount, cash_tendered_input: values.paymentType === 'cash' ? values.tendered : 0 }).then(({ data, error }) => { throwIfError_(error); return data; })
+      : values.paymentType === 'split'
+      ? await requireSupabase_().rpc('record_split_sale_with_service', { target_branch_id: activeBranchId, sale_lines: cart.map((item) => ({ productId: item.id, qty: item.qty, ...(hasSellingPriceOverride(item.sellingPriceOverride) ? { price: Number(item.sellingPriceOverride) } : {}) })), customer_id_input: customerId, cash_received_input: values.tendered, discount_input: values.discount, service_type_input: values.serviceType, restaurant_table_id_input: tableId || null, service_recipient_input: serviceRecipient, service_phone_input: servicePhone, service_address_input: serviceAddress }).then(({ data, error }) => { throwIfError_(error); return data; })
+      : await api('recordSale', {
       branchId: activeBranchId,
       customerId,
       paymentType: values.paymentType,
       discount: values.discount,
       cashTendered: values.paymentType === 'cash' ? values.tendered : 0,
+      serviceType: values.serviceType,
+      tableId,
+      serviceRecipient,
+      servicePhone,
+      serviceAddress,
       items: cart.map((item) => ({
         productId: item.id,
         qty: item.qty,
@@ -9700,18 +10401,19 @@ $('#saleForm').addEventListener('submit', async (event) => {
     // Optimistic: deduct sold quantities from local products and add sale to history
     const soldItems = cart.slice();
     cart = [];
+    pendingRestaurantOrderId = '';
     products = products.map((p) => {
       const soldItem = soldItems.find((item) => item.id === p.id);
       return soldItem ? { ...p, qty: Math.max((Number(p.qty) || 0) - soldItem.qty, 0) } : p;
     });
     await refresh(false);
-    salesHistory = [{ ...sale, customerName, customerId, items: receiptItems, status: 'completed' }, ...salesHistory];
-    if (values.paymentType === 'credit') {
+    salesHistory = [{ ...sale, customerName: serviceRecipient || customerName, customerId, items: receiptItems, status: 'completed' }, ...salesHistory];
+    if (['credit', 'split'].includes(values.paymentType)) {
       creditAccounts = calculateOutstandingCreditAccounts(salesHistory, creditPayments, openingCreditAccounts);
     }
     renderInventory();
     renderCart();
-    showSaleReceipt({ sale, items: receiptItems, customerName, context: 'pos' });
+    showSaleReceipt({ sale, items: receiptItems, customerName: serviceRecipient || customerName, context: 'pos' });
     showToast(`Sale #${sale.saleId || 'Completed'} recorded: ${money(sale.total)}`, 'success');
     backgroundRefresh();
   } catch (error) {
@@ -9743,7 +10445,7 @@ function applySession(session, useRoleDefaultView = false) {
   const account = session.account;
   const permittedViews = account.permissions || [];
   document.querySelectorAll('[data-view]').forEach((item) => {
-    const requiredPermission = ['quarantine', 'quarantineReport'].includes(item.dataset.view) ? 'inventory' : item.dataset.view === 'bundleMonitoring' ? 'products' : item.dataset.view;
+    const requiredPermission = ['quarantine', 'quarantineReport'].includes(item.dataset.view) ? 'inventory' : item.dataset.view === 'bundleMonitoring' ? 'products' : item.dataset.view === 'tableService' ? 'pos' : item.dataset.view;
     const allowed = item.dataset.view === 'dashboard' || permittedViews.includes('*') || permittedViews.includes(requiredPermission);
     item.hidden = !allowed;
   });

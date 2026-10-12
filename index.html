@@ -51,6 +51,10 @@
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
             Point of Sale
           </button>
+          <button class="nav-item" type="button" data-view="tableService">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16M6 10v10m12-10v10M8 5h8v5H8z"/></svg>
+            Table Service
+          </button>
           <p class="nav-label">CATALOG AND STOCK</p>
           <button class="nav-item" type="button" data-view="products">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" x2="12" y1="22" y2="12"/></svg>
@@ -221,6 +225,10 @@
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
                   <span>Add Administrator</span>
                 </button>
+                <button class="button button-primary" id="addRestaurantTableButton" hidden>
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                  <span>Register Table</span>
+                </button>
               </div>
             </div>
 
@@ -389,6 +397,37 @@
       </form>
     </dialog>
 
+    <dialog id="tableTransferDialog" class="pepsi-dialog table-transfer-dialog">
+      <form id="tableTransferForm" novalidate>
+        <div class="modal-head">
+          <div class="modal-title-wrap"><div class="modal-icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></div><div class="modal-title-content"><span class="modal-eyebrow">TABLE SERVICE</span><h2>Transfer Table Tab</h2><p class="modal-subtitle" id="tableTransferSubtitle">Choose a vacant destination table.</p></div></div>
+          <button class="icon-button close-dialog-btn" type="button" data-close="tableTransferDialog" aria-label="Close transfer dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="table-transfer-flow-card">
+          <div class="table-transfer-step">
+            <span class="table-transfer-step-kicker">CURRENT TABLE</span>
+            <strong class="table-transfer-step-name" id="tableTransferSourceName">Table</strong>
+            <span class="table-transfer-step-meta" id="tableTransferSourceMeta">Occupied</span>
+          </div>
+          <div class="table-transfer-flow-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </div>
+          <div class="table-transfer-step is-dest">
+            <span class="table-transfer-step-kicker">DESTINATION TABLE</span>
+            <strong class="table-transfer-step-name" id="tableTransferDestName">Select a table</strong>
+            <span class="table-transfer-step-meta" id="tableTransferDestMeta">Must be vacant</span>
+          </div>
+        </div>
+        <div class="table-transfer-section-header">
+          <span>Available Vacant Tables</span>
+          <span class="table-transfer-count-badge" id="tableTransferCountBadge">0 Vacant</span>
+        </div>
+        <div class="table-transfer-grid" id="tableTransferGrid"></div>
+        <p class="form-error" id="tableTransferError" role="alert"></p>
+        <div class="modal-actions"><button class="button modal-cancel-btn" type="button" data-close="tableTransferDialog">Cancel</button><button class="button modal-save-btn" type="submit" id="tableTransferSubmit" disabled><span class="button-text">Transfer Table</span></button></div>
+      </form>
+    </dialog>
+
     <!-- Stock-In History Dialog -->
     <dialog id="stockInHistoryDialog" class="pepsi-dialog stock-in-history-dialog">
       <div class="stock-in-history-wrap">
@@ -512,7 +551,9 @@
         </div>
 
         <div class="sale-form-content">
-          <!-- Hero Order Summary Card -->
+          <div class="sale-modal-grid">
+            <div class="sale-col-left">
+              <!-- Hero Order Summary Card -->
           <div class="sale-summary-hero">
             <div class="sale-summary-header">
               <span class="sale-summary-label">TOTAL AMOUNT DUE</span>
@@ -528,13 +569,21 @@
             </div>
 
             <div class="sale-discount-row">
-              <label for="saleDiscount" class="sale-discount-label">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+              <div class="sale-discount-label-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
                 <span>Discount</span>
-              </label>
-              <div class="sale-discount-field">
-                <span class="sale-discount-currency">PHP</span>
-                <input id="saleDiscount" name="discount" type="number" min="0" step="0.01" value="0" placeholder="0.00" />
+              </div>
+
+              <div class="sale-discount-controls">
+                <div class="sale-discount-type-toggle" role="group" aria-label="Discount Type">
+                  <button type="button" class="discount-mode-btn is-active" data-discount-mode="amount" title="Discount in PHP">PHP</button>
+                  <button type="button" class="discount-mode-btn" data-discount-mode="percent" title="Discount in Percentage">%</button>
+                </div>
+                <div class="sale-discount-input-wrap">
+                  <span class="sale-discount-unit" id="saleDiscountUnit">PHP</span>
+                  <input id="saleDiscount" name="discount" type="number" min="0" step="any" value="0" placeholder="0.00" />
+                </div>
+                <input type="hidden" id="saleDiscountMode" value="amount" />
               </div>
             </div>
 
@@ -543,7 +592,76 @@
             <input id="saleTotal" type="hidden" />
           </div>
 
-          <!-- Customer Selection -->
+          <fieldset class="payment-method-fieldset sale-payment-fieldset sale-service-fieldset">
+            <legend class="label-text">Order Type <span class="required">*</span></legend>
+            <div class="sale-payment-options sale-service-options">
+              <label class="sale-payment-option">
+                <input type="radio" name="serviceType" value="Dine-in" />
+                <div class="sale-payment-card service-card">
+                  <div class="sale-payment-icon service-icon dinein-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+                  </div>
+                  <div class="sale-payment-info">
+                    <span class="sale-payment-title">Dine-in</span>
+                    <span class="sale-payment-sub">Table service</span>
+                  </div>
+                  <div class="sale-payment-radio"></div>
+                </div>
+              </label>
+
+              <label class="sale-payment-option">
+                <input type="radio" name="serviceType" value="Takeout" checked />
+                <div class="sale-payment-card service-card">
+                  <div class="sale-payment-icon service-icon takeout-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                  </div>
+                  <div class="sale-payment-info">
+                    <span class="sale-payment-title">Takeout</span>
+                    <span class="sale-payment-sub">Pickup</span>
+                  </div>
+                  <div class="sale-payment-radio"></div>
+                </div>
+              </label>
+
+              <label class="sale-payment-option">
+                <input type="radio" name="serviceType" value="Delivery" />
+                <div class="sale-payment-card service-card">
+                  <div class="sale-payment-icon service-icon delivery-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="13" x="1" y="4" rx="2"/><polygon points="17 8 20 8 23 11 23 17 17 17 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                  </div>
+                  <div class="sale-payment-info">
+                    <span class="sale-payment-title">Delivery</span>
+                    <span class="sale-payment-sub">Send direct</span>
+                  </div>
+                  <div class="sale-payment-radio"></div>
+                </div>
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="form-grid sale-service-details" id="saleServiceDetails">
+            <div class="form-field-group full-field" id="saleTableGroup" hidden>
+              <label><span class="label-text">Dining Table <span class="required">*</span></span></label>
+              <div class="sale-fixed-table" id="saleTableFixed"></div>
+              <input type="hidden" id="saleTable" name="tableId" />
+            </div>
+            <div class="form-field-group" id="saleRecipientGroup">
+              <label for="saleRecipient"><span class="label-text">Guest / Recipient <span class="optional-label">(optional)</span></span></label>
+              <input id="saleRecipient" name="serviceRecipient" placeholder="Walk-in guest" autocomplete="off" />
+            </div>
+            <div class="form-field-group" id="salePhoneGroup" hidden>
+              <label for="salePhone"><span class="label-text">Contact Number <span class="optional-label">(optional)</span></span></label>
+              <input id="salePhone" name="servicePhone" placeholder="09XX XXX XXXX" autocomplete="tel" />
+            </div>
+            <div class="form-field-group full-field" id="saleAddressGroup" hidden>
+              <label for="saleAddress"><span class="label-text">Delivery Address <span class="required">*</span></span></label>
+              <input id="saleAddress" name="serviceAddress" placeholder="Complete delivery address" autocomplete="street-address" />
+            </div>
+          </div>
+            </div>
+
+            <div class="sale-col-right">
+              <!-- Customer Selection -->
           <div class="form-field-group full-field sale-customer-group">
             <div class="sale-customer-head">
               <label for="saleCustomer"><span class="label-text">Customer</span></label>
@@ -582,6 +700,11 @@
                   </div>
                   <div class="sale-payment-radio"></div>
                 </div>
+              </label>
+
+              <label class="sale-payment-option">
+                <input type="radio" name="paymentType" value="split" />
+                <div class="sale-payment-card"><div class="sale-payment-icon credit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M7 4v6m10-6v6M6 17h5m2 0h5"/><rect width="20" height="14" x="2" y="5" rx="2"/></svg></div><div class="sale-payment-info"><span class="sale-payment-title">Cash + Credit</span><span class="sale-payment-sub">Cash now, balance to account</span></div><div class="sale-payment-radio"></div></div>
               </label>
             </div>
           </fieldset>
@@ -638,6 +761,8 @@
             <div class="sale-change-right">
               <strong class="sale-change-amount" id="saleHeroChange">PHP 0.00</strong>
               <input id="saleChange" type="hidden" readonly />
+            </div>
+          </div>
             </div>
           </div>
         </div>
@@ -831,6 +956,16 @@
                 <div class="receipt-meta-detail">
                   <span class="receipt-meta-label">Receipt No.</span>
                   <strong class="receipt-meta-value" id="receiptSaleId">SAL-EAC4F4A9</strong>
+                </div>
+              </div>
+
+              <div class="receipt-meta-card" id="receiptTableCard" hidden>
+                <div class="receipt-meta-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16"/><path d="M6 10v9M18 10v9M3 19h18"/><path d="M8 6a4 4 0 0 1 8 0v4H8Z"/></svg>
+                </div>
+                <div class="receipt-meta-detail">
+                  <span class="receipt-meta-label">Dining Table</span>
+                  <strong class="receipt-meta-value" id="receiptTable">Table</strong>
                 </div>
               </div>
 
