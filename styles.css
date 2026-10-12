@@ -295,11 +295,10 @@ body {
 }
 
 .auth-overlay.session-loading .auth-backdrop-glow {
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, rgba(0, 102, 245, 0.26) 0%, rgba(227, 41, 52, 0.08) 45%, transparent 70%);
-  filter: blur(48px);
+  display: none;
 }
+
+
 
 .splash-logo-wrap {
   position: relative;
@@ -314,7 +313,7 @@ body {
   position: absolute;
   inset: -6px;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0%, #0066f5 35%, #38bdf8 55%, #56b828 85%, transparent 100%);
+  background: conic-gradient(from 0deg, transparent 0%, #e52320 30%, #ff6a00 55%, #ffb703 85%, transparent 100%);
   animation: spinClockwise 1.8s linear infinite;
   filter: blur(3px);
   opacity: 0.85;
@@ -335,18 +334,18 @@ body {
   width: 64px;
   height: 64px;
   object-fit: contain;
-  filter: drop-shadow(0 0 16px rgba(0, 102, 245, 0.6)) drop-shadow(0 0 10px rgba(86, 184, 40, 0.4));
+  filter: drop-shadow(0 0 16px rgba(229, 35, 32, 0.65)) drop-shadow(0 0 10px rgba(255, 106, 0, 0.45));
   animation: splashBadgePulse 3s infinite ease-in-out;
 }
 
 @keyframes splashBadgePulse {
   0%, 100% {
     transform: scale(1);
-    filter: drop-shadow(0 0 16px rgba(0, 102, 245, 0.6));
+    filter: drop-shadow(0 0 16px rgba(229, 35, 32, 0.65));
   }
   50% {
     transform: scale(1.04);
-    filter: drop-shadow(0 0 24px rgba(56, 189, 248, 0.85));
+    filter: drop-shadow(0 0 24px rgba(255, 106, 0, 0.85)) drop-shadow(0 0 12px rgba(255, 183, 3, 0.6));
   }
 }
 
@@ -365,7 +364,7 @@ body {
   color: #ffffff;
   letter-spacing: -0.3px;
   line-height: 1.2;
-  text-shadow: 0 2px 14px rgba(0, 102, 245, 0.35);
+  text-shadow: 0 2px 14px rgba(229, 35, 32, 0.35);
 }
 
 .splash-brand-sub {
@@ -393,8 +392,8 @@ body {
   bottom: 0;
   width: 45%;
   border-radius: 100px;
-  background: linear-gradient(90deg, #0066f5 0%, #38bdf8 45%, #56b828 100%);
-  box-shadow: 0 0 12px rgba(86, 184, 40, 0.7);
+  background: linear-gradient(90deg, #e52320 0%, #ff6a00 50%, #ffb703 100%);
+  box-shadow: 0 0 12px rgba(255, 106, 0, 0.75);
   animation: splashGlide 1.6s infinite cubic-bezier(0.45, 0, 0.55, 1);
 }
 
@@ -4960,9 +4959,58 @@ dialog.credit-history-dialog {
 
 .product-cell {
   display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.product-thumb-frame {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: rgba(11, 20, 38, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.table-row:hover .product-thumb-frame {
+  border-color: rgba(56, 189, 248, 0.45);
+  transform: scale(1.04);
+}
+
+.product-photo-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.product-photo-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #64748b;
+  background: rgba(15, 28, 52, 0.5);
+}
+
+.product-photo-fallback svg {
+  width: 20px;
+  height: 20px;
+}
+
+.product-details-stack {
+  display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+
+
 }
 
 .product-name {
@@ -10054,6 +10102,135 @@ dialog.receipt-dialog {
   grid-column: 1 / -1;
 }
 
+/* ==========================================================================
+   PRODUCT PHOTO UPLOADER (REDESIGN)
+   ========================================================================== */
+.product-photo-upload-group {
+  margin-bottom: 6px;
+}
+
+.photo-upload-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.product-photo-dropzone {
+  position: relative;
+  border: 1.5px dashed rgba(56, 189, 248, 0.35);
+  border-radius: 14px;
+  background: rgba(10, 18, 34, 0.65);
+  padding: 14px 16px;
+  transition: all 0.2s var(--ease-smooth);
+  cursor: pointer;
+  outline: none;
+}
+
+.product-photo-dropzone:hover,
+.product-photo-dropzone:focus-visible,
+.product-photo-dropzone.dragover {
+  border-color: #38bdf8;
+  background: rgba(15, 28, 52, 0.85);
+  box-shadow: 0 0 16px rgba(0, 102, 245, 0.18);
+}
+
+.photo-placeholder-container {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.photo-upload-icon-ring {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(0, 102, 245, 0.18) 0%, rgba(56, 189, 248, 0.08) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  display: grid;
+  place-items: center;
+  color: #38bdf8;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.product-photo-dropzone:hover .photo-upload-icon-ring {
+  transform: scale(1.08);
+}
+
+.photo-upload-icon-ring svg {
+  width: 22px;
+  height: 22px;
+}
+
+.photo-upload-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.photo-upload-headline {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.photo-upload-details {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Photo Preview Active State */
+.photo-preview-container {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.photo-preview-image {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #060b14;
+  border: 1.5px solid rgba(56, 189, 248, 0.45);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+
+.photo-preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.photo-preview-filename {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.photo-preview-meta {
+  font-size: 11.5px;
+  color: #38bdf8;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.photo-preview-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .label-text {
   font-size: 12px;
   font-weight: 700;
@@ -10575,6 +10752,11 @@ dialog form .number-stepper input::placeholder {
   font-size: 12px;
   font-weight: 600;
   margin: 0;
+}
+
+.form-error::first-letter,
+.toast-message::first-letter {
+  text-transform: uppercase;
 }
 
 .form-error:empty {

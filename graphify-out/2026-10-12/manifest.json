@@ -18,9 +18,9 @@
     "semantic_hash": "85060dd50c382cc8aa0c77b96f7f5760"
   },
   "app.js": {
-    "mtime": 1791787491.9865882,
-    "seen": 1791787502.3020473,
-    "ast_hash": "5a83f3e0607af6c1853de30bb0b982a4",
+    "mtime": 1791792184.1631482,
+    "seen": 1791792207.5378666,
+    "ast_hash": "95af3fb8e41b184c0a44ae0d0a437940",
     "semantic_hash": ""
   },
   "deno.json": {
@@ -36,9 +36,9 @@
     "semantic_hash": ""
   },
   "service-worker.js": {
-    "mtime": 1791787219.653515,
-    "seen": 1791787406.4952803,
-    "ast_hash": "096e2967af11ce65f79505a8fe930a88",
+    "mtime": 1791790838.4548824,
+    "seen": 1791790870.8142123,
+    "ast_hash": "13da8d1f6fda78ef4bdab816ffa2d099",
     "semantic_hash": ""
   },
   "supabase-config.js": {
@@ -126,21 +126,21 @@
     "semantic_hash": ""
   },
   "index.html": {
-    "mtime": 1791787219.6093764,
-    "seen": 1791787406.4952803,
-    "ast_hash": "982ef309fd36c3299f71ef932e47e11e",
+    "mtime": 1791790838.4288795,
+    "seen": 1791790870.8167562,
+    "ast_hash": "001f14c14a6592ff3e36173ae69ac1a2",
     "semantic_hash": ""
   },
   "report.html": {
-    "mtime": 1791787219.630061,
-    "seen": 1791787406.4952803,
-    "ast_hash": "8afdb6f8898863f273ca644d0e03d4c7",
+    "mtime": 1791790675.5535207,
+    "seen": 1791790719.0365462,
+    "ast_hash": "30bfdaa0f61f73e0e1da73813d3be89a",
     "semantic_hash": ""
   },
   "favicon.svg": {
-    "mtime": 1791787246.8758883,
-    "seen": 1791787406.4952803,
-    "ast_hash": "cc861d52b25a159f1aa5b64c636dfcef",
+    "mtime": 1791790546.7404294,
+    "seen": 1791790719.0375464,
+    "ast_hash": "22cada24a5fe162526a23689dc818085",
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-09-29-daily-spot-cash-design.md": {
@@ -161,10 +161,10 @@
     "ast_hash": "a6394dd77ed2c2516764ca0839b60bc6",
     "semantic_hash": ""
   },
-  "supabase/.temp/linked-project.json": {
-    "mtime": 1791788372.2521574,
-    "seen": 1791788512.9180915,
-    "ast_hash": "2fd31939438987acd537417d442f0c5b",
+  "supabase/functions/manage-account/index.ts": {
+    "mtime": 1791790821.2256281,
+    "seen": 1791790870.8142123,
+    "ast_hash": "afd7ea4c5f649410bf4d274d8532aa33",
     "semantic_hash": ""
   }
 }

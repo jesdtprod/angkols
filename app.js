@@ -65,12 +65,30 @@ function backgroundRefresh() {
   refresh(false).catch(() => {});
 }
 
-const PRODUCT_CATEGORIES = ['Supplies', 'Rice', 'Water', 'Catering'];
-const PRODUCT_UNITS = ['bag', 'bottle', 'box', 'can', 'case', 'drum', 'g', 'gallon', 'kg', 'L', 'mL', 'pack', 'pc', 'sack', 'tray'];
+const PRODUCT_CATEGORIES = ['Grilled Foods', 'Rice Meals', 'Appetizers & Sides', 'Soups & Noodles', 'Beverages', 'Alcoholic Drinks', 'Desserts', 'Catering Packages', 'Ingredients / Raw Materials', 'Packaging & Supplies'];
+const PRODUCT_UNITS = ['bag', 'bottle', 'bucket', 'box', 'can', 'case', 'drum', 'g', 'gallon', 'kg', 'L', 'mL', 'pack', 'pc', 'sack', 'tray'];
+const PRODUCT_IMAGE_BUCKET = 'product-images';
+const PRODUCT_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
 const DAILY_EXPENSE_CATEGORIES = ['Rent', 'Utilities', 'Salaries & Wages', 'Transportation', 'Fuel', 'Supplies', 'Repairs & Maintenance', 'Marketing & Advertising', 'Delivery & Freight', 'Government Fees & Taxes', 'Professional Fees', 'Food & Refreshments', 'Miscellaneous'];
 
 const $ = (selector) => document.querySelector(selector);
 const money = (value) => `PHP ${Number(value).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+function productImageUrl_(path) {
+  if (!path) return '';
+  return requireSupabase_().storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl || '';
+}
+
+async function uploadProductImage_(file, productId) {
+  if (!(file instanceof File) || file.size === 0) return '';
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Use a JPG, PNG, or WebP product photo.');
+  if (file.size > PRODUCT_IMAGE_MAX_BYTES) throw new Error('Product photo must be 2 MB or smaller.');
+  const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+  const path = `${productId}/${crypto.randomUUID()}.${extension}`;
+  const { error } = await requireSupabase_().storage.from(PRODUCT_IMAGE_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
+  throwIfError_(error);
+  return path;
+}
 
 let badgeAlignmentFrame = 0;
 function alignTableBadges() {
@@ -1728,8 +1746,22 @@ function requireSupabase_() {
   return supabaseClient;
 }
 
+function formatAlertMessage(message) {
+  if (!message) return '';
+  let str = String(message).trim();
+  if (!str) return '';
+  if (str.includes('_') && !str.includes(' ')) {
+    str = str.replaceAll('_', ' ');
+  }
+  str = str.replace(/([a-zA-Z])/, (c) => c.toUpperCase());
+  if (!/[.!?]$/.test(str)) {
+    str += '.';
+  }
+  return str;
+}
+
 function throwIfError_(error) {
-  if (error) throw new Error(error.message || 'Supabase request failed.');
+  if (error) throw new Error(formatAlertMessage(error.message || 'Supabase request failed.'));
 }
 
 function withTimeout_(promise, milliseconds, message) {
@@ -1755,7 +1787,7 @@ async function throwIfFunctionError_(error) {
       } catch { /* Keep the original function error. */ }
     }
   }
-  throw new Error(message);
+  throw new Error(formatAlertMessage(message));
 }
 
 function newPosId_(prefix) {
@@ -1856,7 +1888,7 @@ async function getAppData_(branchId) {
   const products = productRows.map((row) => ({
     id: row.product_id, sku: row.sku || row.product_id, name: row.name, unit: row.unit,
     price: Number(row.price), category: row.category, lowStockLevel: Number(row.low_stock_level || 5), status: row.status || 'Active', archivedAt: row.archived_at || null,
-    productType: row.product_type || 'individual', bundlePrice: row.bundle_price === null ? null : Number(row.bundle_price), components: bundleComponentsByProduct[row.product_id] || [],
+    productType: row.product_type || 'individual', bundlePrice: row.bundle_price === null ? null : Number(row.bundle_price), imagePath: row.image_path || '', imageUrl: productImageUrl_(row.image_path || ''), components: bundleComponentsByProduct[row.product_id] || [],
   }));
   const batchesByProduct = sellingPriceBatchRows.reduce((groups, batch) => {
     (groups[batch.product_id] ||= []).push({ qty: Number(batch.qty_remaining), sellingPrice: Number(batch.selling_price) });
@@ -2155,7 +2187,9 @@ async function api(action, payload = {}) {
     const productType = payload.productType === 'bundle' ? 'bundle' : 'individual';
     const bundlePrice = productType === 'bundle' ? Number(payload.bundlePrice) : null;
     if (productType === 'bundle' && (!Number.isFinite(bundlePrice) || bundlePrice < 0)) throw new Error('Enter a valid bundle selling price.');
-    const product = { product_id: newPosId_('PRD'), sku: newSku_(), name: String(payload.name).trim(), unit: payload.unit, price: 0, category: payload.category, low_stock_level: Number(payload.lowStockLevel), status: payload.status || 'Active', product_type: productType, bundle_price: bundlePrice };
+    const productId = newPosId_('PRD');
+    const imagePath = payload.removeImage === 'true' ? null : (payload.imageFile instanceof File && payload.imageFile.size ? await uploadProductImage_(payload.imageFile, productId) : null);
+    const product = { product_id: productId, sku: newSku_(), name: String(payload.name).trim(), unit: payload.unit, price: 0, category: payload.category, low_stock_level: Number(payload.lowStockLevel), status: payload.status || 'Active', product_type: productType, bundle_price: bundlePrice, image_path: imagePath || null };
     const { data, error } = await client.from('products').insert(product).select().single();
     throwIfError_(error);
     const { error: branchError } = await client.from('branch_products').insert({ branch_id: payload.branchId, product_id: data.product_id, price_override: data.price, low_stock_level: data.low_stock_level, status: data.status });
@@ -2164,7 +2198,7 @@ async function api(action, payload = {}) {
       const { error: componentError } = await client.rpc('save_bundle_components', { target_bundle_product_id: data.product_id, components: payload.bundleComponents || [] });
       throwIfError_(componentError);
     }
-    return { id: data.product_id, sku: data.sku, name: data.name, unit: data.unit, price: Number(data.price), category: data.category, lowStockLevel: Number(data.low_stock_level), status: data.status, productType, bundlePrice, components: payload.bundleComponents || [] };
+    return { id: data.product_id, sku: data.sku, name: data.name, unit: data.unit, price: Number(data.price), category: data.category, lowStockLevel: Number(data.low_stock_level), status: data.status, productType, bundlePrice, imagePath: data.image_path || '', imageUrl: productImageUrl_(data.image_path || ''), components: payload.bundleComponents || [] };
   }
   if (action === 'addProductToBranch') {
     const product = allProducts.find((item) => item.id === payload.productId);
@@ -2179,7 +2213,8 @@ async function api(action, payload = {}) {
     const productType = payload.productType === 'bundle' ? 'bundle' : 'individual';
     const bundlePrice = productType === 'bundle' ? Number(payload.bundlePrice) : null;
     if (productType === 'bundle' && (!Number.isFinite(bundlePrice) || bundlePrice < 0)) throw new Error('Enter a valid bundle selling price.');
-    const { error: productError } = await client.from('products').update({ name: String(payload.name).trim(), category: payload.category, unit: payload.unit, bundle_price: bundlePrice }).eq('product_id', payload.productId);
+    const imagePath = payload.removeImage === 'true' ? null : (payload.imageFile instanceof File && payload.imageFile.size ? await uploadProductImage_(payload.imageFile, payload.productId) : payload.imagePath || null);
+    const { error: productError } = await client.from('products').update({ name: String(payload.name).trim(), category: payload.category, unit: payload.unit, bundle_price: bundlePrice, image_path: imagePath }).eq('product_id', payload.productId);
     throwIfError_(productError);
     if (productType === 'bundle') {
       const { error: componentError } = await client.rpc('save_bundle_components', { target_bundle_product_id: payload.productId, components: payload.bundleComponents || [] });
@@ -2187,7 +2222,7 @@ async function api(action, payload = {}) {
     }
     const { data, error } = await client.from('branch_products').update({ low_stock_level: Number(payload.lowStockLevel), status: payload.status || 'Active' }).eq('branch_id', payload.branchId).eq('product_id', payload.productId).select().single();
     throwIfError_(error);
-    return { id: payload.productId, name: String(payload.name).trim(), category: payload.category, unit: payload.unit, price: productType === 'bundle' ? bundlePrice : Number(data.price_override || 0), lowStockLevel: Number(data.low_stock_level), status: data.status, productType, bundlePrice, components: payload.bundleComponents || [] };
+    return { id: payload.productId, name: String(payload.name).trim(), category: payload.category, unit: payload.unit, price: productType === 'bundle' ? bundlePrice : Number(data.price_override || 0), lowStockLevel: Number(data.low_stock_level), status: data.status, productType, bundlePrice, imagePath: imagePath || '', imageUrl: productImageUrl_(imagePath || ''), components: payload.bundleComponents || [] };
   }
   if (action === 'setProductSellingPriceOverride') {
     const price = payload.price === '' || payload.price === undefined ? null : Number(payload.price);
@@ -2254,7 +2289,7 @@ function showToast(message, type = 'info') {
   };
 
   iconWrap.innerHTML = icons[type] || icons.info;
-  messageEl.textContent = message;
+  messageEl.textContent = formatAlertMessage(message);
   toast.className = `toast show ${type}`;
   if (typeof toast.showPopover === 'function' && !toast.matches(':popover-open')) toast.showPopover();
 
@@ -4643,8 +4678,16 @@ function renderInventory() {
 
     const productCell = `
       <div class="product-cell">
-        <strong class="product-name">${escapeHtml(product.name)}</strong>
-        <span class="product-meta">${escapeHtml(product.sku || product.id)} &bull; ${product.productType === 'bundle' ? `Bundle / Set &bull; ${product.components?.length || 0} components` : escapeHtml(product.unit)}</span>
+        <div class="product-thumb-frame">
+          ${product.imageUrl
+            ? `<img class="product-photo-thumb" src="${escapeHtml(product.imageUrl)}" alt="${escapeHtml(product.name)}" loading="lazy" />`
+            : `<div class="product-photo-fallback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>`
+          }
+        </div>
+        <div class="product-details-stack">
+          <strong class="product-name">${escapeHtml(product.name)}</strong>
+          <span class="product-meta">${escapeHtml(product.sku || product.id)} &bull; ${product.productType === 'bundle' ? `Bundle / Set &bull; ${product.components?.length || 0} components` : escapeHtml(product.unit)}</span>
+        </div>
       </div>
     `;
 
@@ -7294,6 +7337,104 @@ async function refresh(showSkeleton = true) {
    MODALS & FORMS
    (User Rule: Always use loading spinner on add and save within the modal)
    ========================================================================== */
+function initProductPhotoUploader(container) {
+  const dropzone = container.querySelector('#productPhotoDropzone');
+  const fileInput = container.querySelector('#modalProductImage');
+  const previewContainer = container.querySelector('#photoPreviewContainer');
+  const placeholderContainer = container.querySelector('#photoPlaceholderContainer');
+  const previewImg = container.querySelector('#photoPreviewImg');
+  const filenameEl = container.querySelector('#photoPreviewFilename');
+  const metaEl = container.querySelector('#photoPreviewMeta');
+  const removeInput = container.querySelector('#modalRemoveImage');
+  const changeBtn = container.querySelector('#photoChangeBtn');
+  const removeBtn = container.querySelector('#photoRemoveBtn');
+
+  if (!dropzone || !fileInput) return;
+
+  const handleFile = (file) => {
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      showToast('Please select a JPG, PNG, or WebP image.', 'error');
+      fileInput.value = '';
+      return;
+    }
+    if (file.size > PRODUCT_IMAGE_MAX_BYTES) {
+      showToast('Product photo must be 2 MB or smaller.', 'error');
+      fileInput.value = '';
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    previewImg.src = url;
+    filenameEl.textContent = file.name;
+    const sizeKb = (file.size / 1024).toFixed(1);
+    metaEl.textContent = `${sizeKb} KB • Ready to save`;
+    previewContainer.style.display = 'flex';
+    placeholderContainer.style.display = 'none';
+    if (removeInput) removeInput.value = 'false';
+  };
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files[0]) {
+      handleFile(fileInput.files[0]);
+    }
+  });
+
+  dropzone.addEventListener('click', (event) => {
+    if (event.target.closest('#photoRemoveBtn') || event.target.closest('#photoChangeBtn')) return;
+    fileInput.click();
+  });
+
+  dropzone.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  if (changeBtn) {
+    changeBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      fileInput.click();
+    });
+  }
+
+  if (removeBtn) {
+    removeBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      fileInput.value = '';
+      previewImg.src = '';
+      filenameEl.textContent = '';
+      metaEl.textContent = '';
+      previewContainer.style.display = 'none';
+      placeholderContainer.style.display = 'flex';
+      if (removeInput) removeInput.value = 'true';
+    });
+  }
+
+  dropzone.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.classList.remove('dragover');
+  });
+
+  dropzone.addEventListener('drop', (event) => {
+    event.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (event.dataTransfer?.files?.length) {
+      const file = event.dataTransfer.files[0];
+      try {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+      } catch { /* Fallback for browsers with strict DataTransfer */ }
+      handleFile(file);
+    }
+  });
+}
+
 function openForm(type, productId = '') {
   activeForm = type;
   $('#formError').textContent = '';
@@ -7435,6 +7576,43 @@ function openForm(type, productId = '') {
     </div>`).join('');
 
   const productFields = `
+    <div class="form-field-group full-field product-photo-upload-group">
+      <label class="photo-upload-label"><span class="label-text">Product Photo</span></label>
+      <div class="product-photo-dropzone" id="productPhotoDropzone" tabindex="0" role="button" aria-label="Upload product photo">
+        <div class="photo-preview-container" id="photoPreviewContainer"${product?.imageUrl ? '' : ' style="display:none;"'}>
+          <img id="photoPreviewImg" class="photo-preview-image" src="${escapeHtml(product?.imageUrl || '')}" alt="Product Photo" />
+          <div class="photo-preview-info">
+            <span class="photo-preview-filename" id="photoPreviewFilename">${product?.imageUrl ? escapeHtml(product?.name || 'Current photo') : ''}</span>
+            <span class="photo-preview-meta" id="photoPreviewMeta">${product?.imageUrl ? 'Active product photo' : ''}</span>
+            <div class="photo-preview-btn-group">
+              <button type="button" class="button button-sm button-secondary" id="photoChangeBtn">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <span>Change Photo</span>
+              </button>
+              <button type="button" class="button button-sm button-danger" id="photoRemoveBtn">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                <span>Remove</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="photo-placeholder-container" id="photoPlaceholderContainer"${product?.imageUrl ? ' style="display:none;"' : ''}>
+          <div class="photo-upload-icon-ring">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+              <circle cx="9" cy="9" r="2"/>
+              <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+            </svg>
+          </div>
+          <div class="photo-upload-prompt">
+            <strong class="photo-upload-headline">Click to browse or drag image</strong>
+            <span class="photo-upload-details">PNG, JPG, or WebP &bull; Maximum 2 MB</span>
+          </div>
+        </div>
+        <input id="modalProductImage" name="imageFile" type="file" accept="image/jpeg,image/png,image/webp" style="display:none;" />
+        <input type="hidden" name="removeImage" id="modalRemoveImage" value="false" />
+      </div>
+    </div>
     <div class="form-field-group full-field">
       <label for="modalProdName">
         <span class="label-text">Product Name <span class="required">*</span></span>
@@ -7958,6 +8136,9 @@ function openForm(type, productId = '') {
   // Initialize smooth dropdowns and custom datepickers for newly injected fields
   initCustomDropdowns(container);
   initCustomDatePickers(container);
+  if (type === 'product' || type === 'edit') {
+    initProductPhotoUploader(container);
+  }
 
   // Replace the delegated handler on every modal open; retaining old handlers
   // was appending two blank lines after the form had been opened before.
@@ -8772,7 +8953,7 @@ $('#modalForm').addEventListener('submit', async (event) => {
       showToast('Product added successfully.', 'success');
     } else if (activeForm === 'edit') {
       const current = products.find((p) => p.id === editingProductId);
-      const payload = { ...Object.fromEntries(form), productId: editingProductId };
+      const payload = { ...Object.fromEntries(form), productId: editingProductId, imagePath: current?.imagePath || '' };
       if (!payload.status) payload.status = current?.status || 'Active';
       const result = await api('updateProduct', { ...payload, bundleComponents: productBundleComponents, branchId: activeBranchId });
       products = products.map((p) => p.id === editingProductId ? { ...p, ...result } : p);
@@ -8883,7 +9064,7 @@ $('#modalForm').addEventListener('submit', async (event) => {
 
   } catch (error) {
     const isDuplicateUsername = /username is already in use/i.test(error.message || '');
-    $('#formError').textContent = isDuplicateUsername ? '' : error.message;
+    $('#formError').textContent = isDuplicateUsername ? '' : formatAlertMessage(error.message);
     showToast(error.message, 'error');
   } finally {
     submitBtn.disabled = false;
@@ -9139,7 +9320,7 @@ $('#creditPaymentForm').addEventListener('submit', async (event) => {
     showToast(`Payment recorded. Remaining balance: ${money(payment.balance)}.`, 'success');
     backgroundRefresh();
   } catch (requestError) {
-    error.textContent = requestError.message;
+    error.textContent = formatAlertMessage(requestError.message);
   } finally {
     submitBtn.disabled = false;
     submitBtn.innerHTML = originalContent;
@@ -9439,7 +9620,7 @@ $('#saleReturnForm')?.addEventListener('submit', async (event) => {
     openSaleReturnDialog(sale);
     showToast('Return received into quarantine. Complete the next action below.', 'success');
   } catch (requestError) {
-    error.textContent = requestError.message;
+    error.textContent = formatAlertMessage(requestError.message);
   } finally {
     submit.disabled = false;
     submit.innerHTML = original;
@@ -9534,7 +9715,7 @@ $('#saleForm').addEventListener('submit', async (event) => {
     showToast(`Sale #${sale.saleId || 'Completed'} recorded: ${money(sale.total)}`, 'success');
     backgroundRefresh();
   } catch (error) {
-    $('#saleFormError').textContent = error.message;
+    $('#saleFormError').textContent = formatAlertMessage(error.message);
   } finally {
     submitBtn.disabled = false;
     submitBtn.innerHTML = originalContent;
@@ -9620,7 +9801,7 @@ async function completeRequiredPasswordChange(temporaryPassword = '') {
         form.removeEventListener('submit', handleSubmit);
         resolve(true);
       } catch (changeError) {
-        error.textContent = changeError.message || 'Unable to change password.';
+        error.textContent = formatAlertMessage(changeError.message || 'Unable to change password.');
       } finally {
         submit.disabled = false;
         submit.innerHTML = '<span class="button-text">Save New Password</span>';
@@ -9720,7 +9901,7 @@ async function initAuth() {
     overlay.classList.remove('session-loading');
   } catch (error) {
     overlay.classList.remove('session-loading');
-    $('#authError').textContent = error.message || 'Unable to reach Supabase. Refresh and try again.';
+    $('#authError').textContent = formatAlertMessage(error.message || 'Unable to reach Supabase. Refresh and try again.');
   }
 }
 
@@ -9752,7 +9933,7 @@ $('#authForm').addEventListener('submit', async (event) => {
     if (requiresPasswordChange) await refresh();
     showToast(`Welcome, ${session.account.fullName}.`, 'success');
   } catch (error) {
-    $('#authError').textContent = error.message;
+    $('#authError').textContent = formatAlertMessage(error.message);
   } finally {
     submit.disabled = false;
     submit.textContent = label;

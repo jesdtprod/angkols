@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ce-pos-shell-v1';
+const CACHE_NAME = 'angkols-shell-v3';
 const APP_SHELL = [
   './',
   './index.html',
@@ -6,6 +6,7 @@ const APP_SHELL = [
   './styles.css',
   './app.js',
   './supabase-config.js',
+  './favicon.ico',
   './favicon.svg',
   './assets/angkols-logo.png',
   './manifest.webmanifest'

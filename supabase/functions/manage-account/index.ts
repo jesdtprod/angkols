@@ -14,15 +14,15 @@ Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') return fail('Method not allowed.', 405);
 
-  const authorization = request.headers.get('Authorization') || '';
-  const token = authorization.replace(/^Bearer\s+/i, '');
-  if (!token) return fail('Sign in is required.', 401);
-
   const admin = createClient(
     Deno.env.get('SUPABASE_URL') || '',
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
+
+  const authorization = request.headers.get('Authorization') || '';
+  const token = authorization.replace(/^Bearer\s+/i, '');
+  if (!token) return fail('Sign in is required.', 401);
   const { data: userData, error: userError } = await admin.auth.getUser(token);
   if (userError || !userData.user) return fail('Your session has expired.', 401);
   const actorId = userData.user.id;
