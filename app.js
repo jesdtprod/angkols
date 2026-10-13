@@ -35,6 +35,8 @@ let restaurantOrders = [];
 let restaurantOrderItems = [];
 let selectedRestaurantTableId = '';
 let pendingRestaurantOrderId = '';
+let operationalRealtimeChannel = null;
+let kitchenSoundEnabled = false;
 let cart = [];
 let activeForm = '';
 let activeView = 'pos';
@@ -68,6 +70,14 @@ function debounce(fn, wait = 150) {
 // Fire a silent background refresh (no skeleton, non-blocking)
 function backgroundRefresh() {
   refresh(false).catch(() => {});
+}
+
+function subscribeOperationalRealtime_() {
+  if (operationalRealtimeChannel) { requireSupabase_().removeChannel(operationalRealtimeChannel); operationalRealtimeChannel = null; }
+  if (!['waiterQueue', 'kitchenDisplay'].includes(activeView)) return;
+  operationalRealtimeChannel = requireSupabase_().channel(`angkols-${activeView}-${activeBranchId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: activeView === 'waiterQueue' ? 'table_order_requests' : 'kitchen_tickets', filter: `branch_id=eq.${activeBranchId}` }, () => renderInventory())
+    .subscribe();
 }
 
 const PRODUCT_CATEGORIES = ['Grilled Foods', 'Rice Meals', 'Appetizers & Sides', 'Soups & Noodles', 'Beverages', 'Alcoholic Drinks', 'Desserts', 'Catering Packages', 'Ingredients / Raw Materials', 'Packaging & Supplies'];
@@ -1896,7 +1906,7 @@ async function getAppData_(branchId) {
   const products = productRows.map((row) => ({
     id: row.product_id, sku: row.sku || row.product_id, name: row.name, unit: row.unit,
     price: Number(row.price), category: row.category, lowStockLevel: Number(row.low_stock_level || 5), status: row.status || 'Active', archivedAt: row.archived_at || null,
-    productType: row.product_type || 'individual', bundlePrice: row.bundle_price === null ? null : Number(row.bundle_price), imagePath: row.image_path || '', imageUrl: productImageUrl_(row.image_path || ''), components: bundleComponentsByProduct[row.product_id] || [],
+    productType: row.product_type || 'individual', bundlePrice: row.bundle_price === null ? null : Number(row.bundle_price), kitchenEnabled: row.kitchen_enabled !== false, imagePath: row.image_path || '', imageUrl: productImageUrl_(row.image_path || ''), components: bundleComponentsByProduct[row.product_id] || [],
   }));
   const batchesByProduct = sellingPriceBatchRows.reduce((groups, batch) => {
     (groups[batch.product_id] ||= []).push({ qty: Number(batch.qty_remaining), sellingPrice: Number(batch.selling_price) });
@@ -1958,7 +1968,7 @@ async function getAppData_(branchId) {
     openingCreditAccounts: openingCreditRows.map((row) => ({ creditId: row.credit_account_id, sourceType: row.source_type || 'previous_balance', customerId: row.customer_id, customerName: customerMap[row.customer_id]?.name || 'Unknown customer', date: row.occurred_at, total: Number(row.original_amount || 0), reference: row.migration_reference || '' })),
     creditPayments: paymentRows.map((row) => ({ id: row.payment_id, creditId: row.credit_account_id || row.sale_id, saleId: row.sale_id || '', customerId: row.customer_id, customerName: customerMap[row.customer_id]?.name || 'Unknown customer', amount: Number(row.amount || 0), date: row.occurred_at, notes: row.notes || '' })).sort((a, b) => new Date(b.date) - new Date(a.date)),
     salesHistory,
-    restaurantTables: tableRows.map((row) => ({ id: row.table_id, name: row.name, area: row.area || '', capacity: Number(row.capacity), status: row.status })),
+    restaurantTables: tableRows.map((row) => ({ id: row.table_id, name: row.name, area: row.area || '', capacity: Number(row.capacity), status: row.status, qrToken: row.qr_token || '' })),
     restaurantOrders: tableOrderRows.map((row) => ({ id: row.order_id, tableId: row.table_id, status: row.status, guestCount: Number(row.guest_count), customerName: row.customer_name || '', discount: Number(row.discount || 0), openedAt: row.opened_at })),
     restaurantOrderItems: tableOrderItemRows.map((row) => ({ orderId: row.order_id, productId: row.product_id, qty: Number(row.qty), price: Number(row.price), notes: row.notes || '' })),
     saleReturns: saleReturnRows.map((row) => ({
@@ -2205,7 +2215,7 @@ async function api(action, payload = {}) {
     if (productType === 'bundle' && (!Number.isFinite(bundlePrice) || bundlePrice < 0)) throw new Error('Enter a valid bundle selling price.');
     const productId = newPosId_('PRD');
     const imagePath = payload.removeImage === 'true' ? null : (payload.imageFile instanceof File && payload.imageFile.size ? await uploadProductImage_(payload.imageFile, productId) : null);
-    const product = { product_id: productId, sku: newSku_(), name: String(payload.name).trim(), unit: payload.unit, price: 0, category: payload.category, low_stock_level: Number(payload.lowStockLevel), status: payload.status || 'Active', product_type: productType, bundle_price: bundlePrice, image_path: imagePath || null };
+    const product = { product_id: productId, sku: newSku_(), name: String(payload.name).trim(), unit: payload.unit, price: 0, category: payload.category, low_stock_level: Number(payload.lowStockLevel), status: payload.status || 'Active', product_type: productType, bundle_price: bundlePrice, kitchen_enabled: payload.kitchenEnabled === 'on', image_path: imagePath || null };
     const { data, error } = await client.from('products').insert(product).select().single();
     throwIfError_(error);
     const { error: branchError } = await client.from('branch_products').insert({ branch_id: payload.branchId, product_id: data.product_id, price_override: data.price, low_stock_level: data.low_stock_level, status: data.status });
@@ -2214,7 +2224,7 @@ async function api(action, payload = {}) {
       const { error: componentError } = await client.rpc('save_bundle_components', { target_bundle_product_id: data.product_id, components: payload.bundleComponents || [] });
       throwIfError_(componentError);
     }
-    return { id: data.product_id, sku: data.sku, name: data.name, unit: data.unit, price: Number(data.price), category: data.category, lowStockLevel: Number(data.low_stock_level), status: data.status, productType, bundlePrice, imagePath: data.image_path || '', imageUrl: productImageUrl_(data.image_path || ''), components: payload.bundleComponents || [] };
+    return { id: data.product_id, sku: data.sku, name: data.name, unit: data.unit, price: Number(data.price), category: data.category, lowStockLevel: Number(data.low_stock_level), status: data.status, productType, bundlePrice, kitchenEnabled: data.kitchen_enabled === true, imagePath: data.image_path || '', imageUrl: productImageUrl_(data.image_path || ''), components: payload.bundleComponents || [] };
   }
   if (action === 'addProductToBranch') {
     const product = allProducts.find((item) => item.id === payload.productId);
@@ -2230,7 +2240,7 @@ async function api(action, payload = {}) {
     const bundlePrice = productType === 'bundle' ? Number(payload.bundlePrice) : null;
     if (productType === 'bundle' && (!Number.isFinite(bundlePrice) || bundlePrice < 0)) throw new Error('Enter a valid bundle selling price.');
     const imagePath = payload.removeImage === 'true' ? null : (payload.imageFile instanceof File && payload.imageFile.size ? await uploadProductImage_(payload.imageFile, payload.productId) : payload.imagePath || null);
-    const { error: productError } = await client.from('products').update({ name: String(payload.name).trim(), category: payload.category, unit: payload.unit, bundle_price: bundlePrice, image_path: imagePath }).eq('product_id', payload.productId);
+    const { error: productError } = await client.from('products').update({ name: String(payload.name).trim(), category: payload.category, unit: payload.unit, bundle_price: bundlePrice, kitchen_enabled: payload.kitchenEnabled === 'on', image_path: imagePath }).eq('product_id', payload.productId);
     throwIfError_(productError);
     if (productType === 'bundle') {
       const { error: componentError } = await client.rpc('save_bundle_components', { target_bundle_product_id: payload.productId, components: payload.bundleComponents || [] });
@@ -2238,7 +2248,7 @@ async function api(action, payload = {}) {
     }
     const { data, error } = await client.from('branch_products').update({ low_stock_level: Number(payload.lowStockLevel), status: payload.status || 'Active' }).eq('branch_id', payload.branchId).eq('product_id', payload.productId).select().single();
     throwIfError_(error);
-    return { id: payload.productId, name: String(payload.name).trim(), category: payload.category, unit: payload.unit, price: productType === 'bundle' ? bundlePrice : Number(data.price_override || 0), lowStockLevel: Number(data.low_stock_level), status: data.status, productType, bundlePrice, imagePath: imagePath || '', imageUrl: productImageUrl_(imagePath || ''), components: payload.bundleComponents || [] };
+    return { id: payload.productId, name: String(payload.name).trim(), category: payload.category, unit: payload.unit, price: productType === 'bundle' ? bundlePrice : Number(data.price_override || 0), lowStockLevel: Number(data.low_stock_level), status: data.status, productType, bundlePrice, kitchenEnabled: payload.kitchenEnabled === 'on', imagePath: imagePath || '', imageUrl: productImageUrl_(imagePath || ''), components: payload.bundleComponents || [] };
   }
   if (action === 'setProductSellingPriceOverride') {
     const price = payload.price === '' || payload.price === undefined ? null : Number(payload.price);
@@ -3727,7 +3737,8 @@ const STAFF_MENU_DEFS = {
     icon: '<svg class="menu-chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>'
   },
   dailySpotCash: { key: 'dailySpotCash', label: 'Spot Cash', fullName: 'Daily Spot Cash', icon: '<svg class="menu-chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18v12H3z"/><path d="M7 7V5a5 5 0 0 1 10 0v2"/></svg>' },
-  dailyExpenses: { key: 'dailyExpenses', label: 'Expenses', fullName: 'Daily Expenses', icon: '<svg class="menu-chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/></svg>' }
+  dailyExpenses: { key: 'dailyExpenses', label: 'Expenses', fullName: 'Daily Expenses', icon: '<svg class="menu-chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/></svg>' },
+  kitchenDisplay: { key: 'kitchenDisplay', label: 'Kitchen Display', fullName: 'Kitchen Display', icon: '<svg class="menu-chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3h8M12 3v7M5 21h14M7 21v-5a5 5 0 0 1 10 0v5"/><path d="M4 10h16"/></svg>' }
 };
 
 function renderStaffPermissions(permissions = []) {
@@ -4809,6 +4820,8 @@ function renderTableService() {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
                     <span>Payment In POS</span>
                   </button>
+                  <button class="button button-secondary table-action-btn" type="button" data-copy-table-order-link="${escapeHtml(selectedTable.id)}">Customer QR link</button>
+                  <button class="button button-secondary table-action-btn" type="button" data-view-table-qr="${escapeHtml(selectedTable.id)}">View QR code</button>
                 </div>`
               : `<button class="button button-primary table-action-btn table-open-btn" type="button" data-open-table="${escapeHtml(selectedTable.id)}" ${!['Vacant', 'Reserved'].includes(selectedTable.status) ? 'disabled' : ''}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
@@ -4925,6 +4938,18 @@ function renderTableService() {
   table.querySelector('[data-open-table]')?.addEventListener('click', () => openForm('restaurantTab', table.querySelector('[data-open-table]').dataset.openTable));
   table.querySelector('[data-table-payment]')?.addEventListener('click', () => beginRestaurantPayment_(table.querySelector('[data-table-payment]').dataset.tablePayment));
   table.querySelector('[data-transfer-table]')?.addEventListener('click', (event) => openTableTransferDialog_(event.currentTarget.dataset.transferTable, selectedTable.id));
+  table.querySelector('[data-copy-table-order-link]')?.addEventListener('click', async (event) => {
+    const diningTable = restaurantTables.find((item) => item.id === event.currentTarget.dataset.copyTableOrderLink);
+    if (!diningTable?.qrToken) return showToast('This table does not have a QR token yet. Refresh the page.', 'error');
+    const url = `${location.origin}${location.pathname.replace(/[^/]+$/, '')}table-order.html?table=${diningTable.qrToken}`;
+    try { await navigator.clipboard.writeText(url); showToast(`Customer ordering link for ${diningTable.name} copied. Use it to generate or print that table's QR code.`, 'success'); } catch (_) { window.prompt('Copy this customer ordering link:', url); }
+  });
+  table.querySelector('[data-view-table-qr]')?.addEventListener('click', (event) => {
+    const diningTable = restaurantTables.find((item) => item.id === event.currentTarget.dataset.viewTableQr);
+    if (!diningTable?.qrToken) return showToast('This table does not have a QR token yet. Refresh the page.', 'error');
+    const cardUrl = `${location.origin}${location.pathname.replace(/[^/]+$/, '')}table-qr-card.html?table=${encodeURIComponent(diningTable.qrToken)}&name=${encodeURIComponent(diningTable.name)}`;
+    window.open(cardUrl, '_blank', 'noopener');
+  });
   table.querySelector('[data-table-item-form]')?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const submitBtn = event.currentTarget.querySelector('button[type="submit"]');
@@ -4938,7 +4963,7 @@ function renderTableService() {
       submitBtn.innerHTML = '<span class="btn-spinner"></span> Adding...';
     }
     try {
-      const { error } = await requireSupabase_().rpc('add_restaurant_order_item', { target_order_id: event.currentTarget.dataset.orderId, target_product_id: product.id, qty_input: qty, price_input: displayedSellingPrice(product), notes_input: String(form.get('notes') || '') });
+      const { error } = await requireSupabase_().rpc('add_restaurant_order_item_with_ticket', { target_order_id: event.currentTarget.dataset.orderId, target_product_id: product.id, qty_input: qty, price_input: displayedSellingPrice(product), notes_input: String(form.get('notes') || '') });
       throwIfError_(error); showToast('Item added to table tab.', 'success'); await refresh(false);
     } catch (error) {
       showToast(error.message || 'Unable to add item.', 'error');
@@ -5032,9 +5057,41 @@ function openTableTransferDialog_(orderId, sourceTableId) {
   dialog.addEventListener('close', cleanup, { once: true });
 }
 
+async function renderWaiterQueue_() {
+  const root = $('#inventoryTable'); if (!root) return;
+  root.innerHTML = '<div class="empty-state"><p>Loading waiter requests…</p></div>';
+  try {
+    const client = requireSupabase_();
+    const [{ data: requests, error }, { data: lines, error: linesError }] = await Promise.all([client.from('table_order_requests').select('*').eq('branch_id', activeBranchId).in('status', ['Pending','Claimed']).order('created_at'), client.from('table_order_request_items').select('*')]);
+    throwIfError_(error); throwIfError_(linesError);
+    const names = Object.fromEntries(products.map((p) => [p.id,p.name])); const tables = Object.fromEntries(restaurantTables.map((t) => [t.id,t.name])); const currentUserId = currentSession?.account?.id || currentSession?.account?.userId || '';
+    root.innerHTML = `<section class="table-service-shell"><header class="table-service-toolbar"><div><span class="table-service-kicker">REALTIME WAITER QUEUE</span><h3>Customer QR requests</h3><p>Requests are ordered by arrival. Claiming is exclusive to one waiter.</p></div></header><div class="restaurant-table-grid">${requests.length ? requests.map((r) => `<article class="restaurant-table-card"><span class="restaurant-table-status status-${r.status.toLowerCase()}">${r.status}</span><strong>${escapeHtml(tables[r.table_id] || r.table_id)}</strong><span>${new Date(r.created_at).toLocaleTimeString('en-PH',{hour:'numeric',minute:'2-digit'})}</span><small>${lines.filter((i)=>i.request_id===r.request_id).map((i)=>`${i.qty}× ${escapeHtml(names[i.product_id]||'Item')}`).join('<br>')}</small><button class="button button-primary" data-claim-request="${r.request_id}">${r.status==='Pending'?'Accept request':'Confirm to kitchen'}</button></article>`).join(''):'<div class="empty-state"><p>No waiting requests</p><small>New QR orders will appear here automatically.</small></div>'}</div></section>`;
+    root.querySelectorAll('[data-claim-request]').forEach((button) => {
+      const request = requests.find((item) => item.request_id === button.dataset.claimRequest);
+      if (request?.status === 'Claimed' && request.claimed_by !== currentUserId) { button.replaceWith(Object.assign(document.createElement('span'), { className: 'restaurant-table-area', textContent: 'Claimed by another waiter' })); return; }
+      button.addEventListener('click', async () => { try { const action = button.textContent.includes('Accept') ? 'claim_table_order_request' : 'confirm_table_order_request'; const { error } = await client.rpc(action, { target_request_id: button.dataset.claimRequest }); throwIfError_(error); showToast(action.startsWith('claim')?'Request assigned to you.':'Order confirmed and sent to kitchen.','success'); renderWaiterQueue_(); } catch (e) { showToast(e.message,'error'); } });
+    });
+  } catch (e) { root.innerHTML = `<div class="empty-state"><p>Unable to load waiter queue</p><small>${escapeHtml(e.message)}</small></div>`; }
+}
+
+async function renderKitchenDisplay_() {
+  const root = $('#inventoryTable'); if (!root) return; root.innerHTML='<div class="empty-state"><p>Loading kitchen tickets…</p></div>';
+  try { const client=requireSupabase_(); const [{data:tickets,error},{data:items,error:itemsError}]=await Promise.all([client.from('kitchen_tickets').select('*').eq('branch_id',activeBranchId).in('status',['New','Preparing','Ready']).order('created_at'),client.from('kitchen_ticket_items').select('*')]); throwIfError_(error);throwIfError_(itemsError); const names=Object.fromEntries(products.map(p=>[p.id,p.name]));const tables=Object.fromEntries(restaurantTables.map(t=>[t.id,t.name])); root.innerHTML=`<section class="table-service-shell"><header class="table-service-toolbar"><div><span class="table-service-kicker">KITCHEN DISPLAY</span><h3>Food preparation</h3><p>New tickets appear in arrival order. Mark ready tickets served after handoff.</p></div><button class="button button-secondary" data-enable-kitchen-sound>${kitchenSoundEnabled ? 'Sound enabled' : 'Enable sound'}</button></header><div class="restaurant-table-grid">${tickets.length?tickets.map(t=>`<article class="restaurant-table-card"><span class="restaurant-table-status status-${t.status.toLowerCase()}">${t.status}</span><strong>${escapeHtml(tables[t.table_id]||t.table_id)}</strong><small>${items.filter(i=>i.ticket_id===t.ticket_id).map(i=>t.status==='Ready'?`${i.qty}× ${escapeHtml(names[i.product_id]||'Item')}`:`<button class="button button-secondary" data-kitchen-item="${i.item_id}" data-next-status="${i.status==='New'?'Preparing':'Ready'}">${i.status==='New'?'Start':'Ready'}: ${i.qty}× ${escapeHtml(names[i.product_id]||'Item')}</button>`).join('')}</small>${t.status==='Ready'?`<button class="button button-primary" data-serve-ticket="${t.ticket_id}">Mark served</button>`:''}</article>`).join(''):'<div class="empty-state"><p>No active kitchen tickets</p></div>'}</div></section>`; root.querySelector('[data-enable-kitchen-sound]')?.addEventListener('click',()=>{kitchenSoundEnabled=true;renderKitchenDisplay_();}); root.querySelectorAll('[data-kitchen-item]').forEach(b=>b.addEventListener('click',async()=>{const {data,error}=await client.rpc('update_kitchen_ticket_item',{target_item_id:b.dataset.kitchenItem,status_input:b.dataset.nextStatus});throwIfError_(error);if(data?.ticketStatus==='Ready')playKitchenReadyChime_();renderKitchenDisplay_();})); root.querySelectorAll('[data-serve-ticket]').forEach(b=>b.addEventListener('click',async()=>{const {error}=await client.rpc('mark_kitchen_ticket_served',{target_ticket_id:b.dataset.serveTicket});throwIfError_(error);showToast('Ticket marked served.','success');renderKitchenDisplay_();})); } catch(e){root.innerHTML=`<div class="empty-state"><p>Unable to load kitchen display</p><small>${escapeHtml(e.message)}</small></div>`;}
+}
+
+function playKitchenReadyChime_() {
+  if (!kitchenSoundEnabled || !window.AudioContext) return;
+  const audio = new AudioContext(); const oscillator = audio.createOscillator(); const gain = audio.createGain();
+  oscillator.connect(gain); gain.connect(audio.destination); oscillator.frequency.value = 880;
+  gain.gain.setValueAtTime(0.12, audio.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.45);
+  oscillator.start(); oscillator.stop(audio.currentTime + 0.45);
+}
+
 function renderInventory() {
   if (activeView === 'dashboard') { renderDashboard(); return; }
   if (activeView === 'tableService') { renderTableService(); return; }
+  if (activeView === 'waiterQueue') { renderWaiterQueue_(); return; }
+  if (activeView === 'kitchenDisplay') { renderKitchenDisplay_(); return; }
   if (activeView === 'bundleMonitoring') { renderBundleMonitoring(); return; }
   if (activeView === 'quarantine') { renderQuarantinedItems(); return; }
   if (activeView === 'quarantineReport') { renderQuarantineReport(); return; }
@@ -8091,6 +8148,9 @@ function openForm(type, productId = '') {
       ${type === 'edit' ? `<input type="hidden" name="productType" value="${productType}" /><select id="modalProductType" disabled><option value="${productType}">${isBundle ? 'Bundle / Set' : 'Individual Item'}</option></select>` : `<select id="modalProductType" name="productType" required><option value="individual"${selected(productType, 'individual')}>Individual Item</option><option value="bundle"${selected(productType, 'bundle')}>Bundle / Set</option></select>`}
       ${type === 'edit' ? '<p class="field-hint">Product type is locked after creation to preserve stock history.</p>' : ''}
     </div>
+    <div class="form-field-group full-field">
+      <label class="checkbox-row"><input name="kitchenEnabled" type="checkbox"${product?.kitchenEnabled === false ? '' : ' checked'}> <span><strong>Send to kitchen when ordered</strong><small class="field-hint">Turn this off for items that do not need preparation, such as bottled drinks or packaged goods.</small></span></label>
+    </div>
     <div class="form-field-group" data-bundle-field${isBundle ? '' : ' hidden'}>
       <label for="modalBundlePrice"><span class="label-text">Bundle Selling Price (PHP) <span class="required">*</span></span></label>
       <div class="input-with-prefix"><span class="input-prefix">PHP</span><input id="modalBundlePrice" name="bundlePrice" type="number" min="0" step="0.01" value="${isBundle ? escapeHtml(product?.bundlePrice ?? '') : ''}" ${isBundle ? 'required' : 'disabled'} placeholder="0.00" /></div>
@@ -8327,7 +8387,8 @@ function openForm(type, productId = '') {
     ['customers', 'Customers'],
     ['credits', 'Credit History'],
     ['sales', 'Sales History'],
-    ['inventoryReports', 'Inventory Reports']
+    ['inventoryReports', 'Inventory Reports'],
+    ['kitchenDisplay', 'Kitchen Display']
   ];
   const menuIcons = {
     pos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
@@ -8794,16 +8855,17 @@ async function deleteProduct(productId) {
    NAVIGATION & VIEWS
    ========================================================================== */
 function setView(view, preserveSidebarOpen = false) {
-  const validViews = ['dashboard', 'pos', 'tableService', 'products', 'bundleMonitoring', 'inventory', 'quarantine', 'quarantineReport', 'branches', 'transfers', 'dailySpotCash', 'dailyExpenses', 'customers', 'credits', 'sales', 'inventoryReports', 'staffAccounts', 'adminAccount'];
+  const validViews = ['dashboard', 'pos', 'tableService', 'waiterQueue', 'kitchenDisplay', 'products', 'bundleMonitoring', 'inventory', 'quarantine', 'quarantineReport', 'branches', 'transfers', 'dailySpotCash', 'dailyExpenses', 'customers', 'credits', 'sales', 'inventoryReports', 'staffAccounts', 'adminAccount'];
   const permissions = currentSession?.account?.permissions || ['*'];
   const dailySpotCashNav = document.querySelector('[data-view="dailySpotCash"]');
   if (dailySpotCashNav) dailySpotCashNav.hidden = !permissions.includes('*') && !permissions.includes('dailySpotCash');
   const dailyExpensesNav = document.querySelector('[data-view="dailyExpenses"]');
   if (dailyExpensesNav) dailyExpensesNav.hidden = !permissions.includes('*') && !permissions.includes('dailyExpenses');
-  const requiredPermission = ['quarantine', 'quarantineReport'].includes(view) ? 'inventory' : ['bundleMonitoring'].includes(view) ? 'products' : view === 'tableService' ? 'pos' : view;
+  const requiredPermission = ['quarantine', 'quarantineReport'].includes(view) ? 'inventory' : ['bundleMonitoring'].includes(view) ? 'products' : ['tableService','waiterQueue'].includes(view) ? 'pos' : view;
   if (view !== 'dashboard' && !permissions.includes('*') && !permissions.includes(requiredPermission)) view = permissions[0] || 'pos';
   if (!validViews.includes(view)) view = 'pos';
   activeView = view;
+  subscribeOperationalRealtime_();
   if (view !== 'pos') {
     productsCurrentPage = 1;
     viewCurrentPages[view] = 1;
@@ -8816,6 +8878,8 @@ function setView(view, preserveSidebarOpen = false) {
     dashboard: ['WORKSPACE', 'Dashboard', 'BRANCH OVERVIEW', 'Operational Snapshot'],
     pos: ['WORKSPACE', 'Point of Sale', 'INVENTORY', 'Available Products'],
     tableService: ['SERVICE FLOOR', 'Table Service', 'DINING TABLES', 'Open Tabs and Guest Orders'],
+    waiterQueue: ['SERVICE FLOOR', 'Waiter Queue', 'CUSTOMER REQUESTS', 'QR Orders Awaiting Confirmation'],
+    kitchenDisplay: ['KITCHEN', 'Kitchen Display', 'FOOD PREPARATION', 'Active Kitchen Tickets'],
     products: ['CATALOG', 'Product Registration', 'PRODUCT CATALOG', 'Registered Products'],
     bundleMonitoring: ['CATALOG', 'Bundles Monitoring', 'BUNDLE INVENTORY', 'Sellable Bundle Availability'],
     inventory: ['BRANCH INVENTORY', 'Inventory Stock', 'STOCK CONTROL', 'Main Branch Stock'],
@@ -10445,7 +10509,7 @@ function applySession(session, useRoleDefaultView = false) {
   const account = session.account;
   const permittedViews = account.permissions || [];
   document.querySelectorAll('[data-view]').forEach((item) => {
-    const requiredPermission = ['quarantine', 'quarantineReport'].includes(item.dataset.view) ? 'inventory' : item.dataset.view === 'bundleMonitoring' ? 'products' : item.dataset.view === 'tableService' ? 'pos' : item.dataset.view;
+    const requiredPermission = ['quarantine', 'quarantineReport'].includes(item.dataset.view) ? 'inventory' : item.dataset.view === 'bundleMonitoring' ? 'products' : ['tableService','waiterQueue'].includes(item.dataset.view) ? 'pos' : item.dataset.view;
     const allowed = item.dataset.view === 'dashboard' || permittedViews.includes('*') || permittedViews.includes(requiredPermission);
     item.hidden = !allowed;
   });

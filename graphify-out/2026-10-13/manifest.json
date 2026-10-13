@@ -18,9 +18,9 @@
     "semantic_hash": "85060dd50c382cc8aa0c77b96f7f5760"
   },
   "app.js": {
-    "mtime": 1791830686.629727,
-    "seen": 1791830698.6014433,
-    "ast_hash": "d2506f4e800ba9f94d7ed2f1630b5793",
+    "mtime": 1791832388.915234,
+    "seen": 1791832410.550075,
+    "ast_hash": "92c7c717fef59123892adf75c516e104",
     "semantic_hash": ""
   },
   "deno.json": {
@@ -126,9 +126,9 @@
     "semantic_hash": ""
   },
   "index.html": {
-    "mtime": 1791830564.2918148,
-    "seen": 1791830612.3651881,
-    "ast_hash": "5e9829b47f445079a010b384a419f719",
+    "mtime": 1791831735.6245136,
+    "seen": 1791832121.229826,
+    "ast_hash": "1d99d86a5c6a138244c480c66ef5936b",
     "semantic_hash": ""
   },
   "report.html": {
@@ -165,6 +165,12 @@
     "mtime": 1791790821.2256281,
     "seen": 1791790870.8142123,
     "ast_hash": "afd7ea4c5f649410bf4d274d8532aa33",
+    "semantic_hash": ""
+  },
+  "table-order.html": {
+    "mtime": 1791832056.2701492,
+    "seen": 1791832121.229826,
+    "ast_hash": "c9f24c8a8aa63c07f56279c55959e5e6",
     "semantic_hash": ""
   }
 }

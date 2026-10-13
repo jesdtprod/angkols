@@ -1,29 +1,30 @@
 # Graph Report - angkols  (2026-10-13)
 
 ## Corpus Check
-- 72 files · ~124,597 words
+- 75 files · ~126,870 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 12 file(s) not represented in the graph (top: (none) 3, .css 3, .graphify-bak 1)
 
 ## Summary
-- 319 nodes · 789 edges · 26 communities (19 shown, 7 thin omitted)
+- 323 nodes · 808 edges · 27 communities (20 shown, 7 thin omitted)
 - Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 23 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `24a2441d`
+- Built from commit: `4672d4a9`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - app.js
-- setView
-- initCustomDatePickers
+- renderBranchSelector
+- initCustomDropdowns
 - renderCart
 - showToast
 - FR Merchandise POS
 - Review Focus
 - What You Must Do When Invoked
+- initCustomDatePickers
 - index.ts
 - check-pos.mjs
 - isMobileScreen
@@ -40,12 +41,12 @@
 - graphify reference: GitHub clone and cross-repo merge
 - graphify reference: transcribe video and audio
 - extraction-spec.md
-- buildSalesPdfReport_
+- setView
 
 ## God Nodes (most connected - your core abstractions)
-1. `escapeHtml()` - 49 edges
-2. `renderInventory()` - 38 edges
-3. `showToast()` - 33 edges
+1. `escapeHtml()` - 51 edges
+2. `renderInventory()` - 41 edges
+3. `showToast()` - 34 edges
 4. `api()` - 28 edges
 5. `money()` - 27 edges
 6. `refresh()` - 23 edges
@@ -72,27 +73,27 @@
 ## Hyperedges (group relationships)
 - **FIFO Auditability Workflow** — readme_fifo_selling_price_batches, tasks_bundle_sales, docs_operations_backup_and_restore [INFERRED 0.75]
 
-## Communities (26 total, 7 thin omitted)
+## Communities (27 total, 7 thin omitted)
 
 ### Community 0 - "app.js"
 Cohesion: 0.03
 Nodes (63): actionConfirmDialog, actionConfirmSubmitBtn, adminAccounts, allProducts, appShell, backdrop, bindQuarantineFilterChips_(), branches (+55 more)
 
-### Community 1 - "setView"
-Cohesion: 0.42
-Nodes (10): ensureCreditsDateDefaults(), ensureDailyExpensesDateDefaults(), ensureDailySpotCashDateDefaults(), ensureQuarantineDateDefaults(), ensureSalesDateDefaults(), ensureTransfersDateDefaults(), formatDateInput(), setView() (+2 more)
+### Community 1 - "renderBranchSelector"
+Cohesion: 0.83
+Nodes (4): renderBranchSelector(), renderSidebarBranchMenu(), setActiveBranch(), updateActiveBranchLabels()
 
-### Community 2 - "initCustomDatePickers"
-Cohesion: 0.25
-Nodes (8): closeDatePicker(), closeDropdown(), initCustomDatePickers(), initSidebarBranchSwitcher(), openDatePicker(), openDropdown(), positionDropdownMenu(), repositionOpenDropdowns()
+### Community 2 - "initCustomDropdowns"
+Cohesion: 0.28
+Nodes (9): closeDropdown(), initCustomDropdowns(), initSidebarBranchSwitcher(), openDropdown(), positionDropdownMenu(), repositionOpenDropdowns(), sortSelectOptionsAtoZ_(), syncSaleCustomerOptions() (+1 more)
 
 ### Community 3 - "renderCart"
-Cohesion: 0.13
-Nodes (23): addToCart(), beginRestaurantPayment_(), cartItemTotal(), displayedSellingPrice(), getCartPriceBreakdown(), hasSellingPriceOverride(), initCustomDropdowns(), openProductPriceOverride() (+15 more)
+Cohesion: 0.27
+Nodes (10): addToCart(), cartItemTotal(), displayedSellingPrice(), getCartPriceBreakdown(), hasSellingPriceOverride(), openProductPriceOverride(), renderCart(), saleSubtotal() (+2 more)
 
 ### Community 4 - "showToast"
-Cohesion: 0.11
-Nodes (42): api(), applySession(), askConfirmation(), changeOwnPassword(), completeRequiredPasswordChange(), downloadOperationalBackup(), enforcePasswordResetLogout_(), formatAlertMessage() (+34 more)
+Cohesion: 0.09
+Nodes (54): api(), applySession(), askConfirmation(), backgroundRefresh(), beginRestaurantPayment_(), calculateOutstandingCreditAccounts(), changeOwnPassword(), completeRequiredPasswordChange() (+46 more)
 
 ### Community 5 - "FR Merchandise POS"
 Cohesion: 0.20
@@ -105,6 +106,10 @@ Nodes (6): Daily Spot Cash Implementation Plan, Global Constraints, Review Focus
 ### Community 7 - "What You Must Do When Invoked"
 Cohesion: 0.08
 Nodes (24): For /graphify add and --watch, For /graphify query, For the commit hook and native CLAUDE.md integration, For --update and --cluster-only, /graphify, Honesty Rules, Interpreter guard for subcommands, Part A - Structural extraction for code files (+16 more)
+
+### Community 8 - "initCustomDatePickers"
+Cohesion: 0.67
+Nodes (3): closeDatePicker(), initCustomDatePickers(), openDatePicker()
 
 ### Community 9 - "index.ts"
 Cohesion: 0.40
@@ -119,8 +124,8 @@ Cohesion: 0.50
 Nodes (4): handleMenuToggle(), handleSidebarCollapse(), initSidebarState(), isMobileScreen()
 
 ### Community 14 - "escapeHtml"
-Cohesion: 0.20
-Nodes (41): backgroundRefresh(), bindPaginationEvents_(), calculateOutstandingCreditAccounts(), deleteCreditPayment(), deleteDailyExpense(), deleteDailySpotCash(), deleteProduct(), displayCustomerName() (+33 more)
+Cohesion: 0.22
+Nodes (38): bindPaginationEvents_(), deleteCreditPayment(), deleteDailyExpense(), deleteDailySpotCash(), displayCustomerName(), escapeHtml(), formatDateTime(), getCustomerInitials() (+30 more)
 
 ### Community 17 - "graphify reference: extra exports and benchmark"
 Cohesion: 0.22
@@ -146,9 +151,9 @@ Nodes (3): For git commit hook, For native CLAUDE.md integration, graphify refer
 Cohesion: 0.50
 Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphify reference: incremental update and cluster-only
 
-### Community 26 - "buildSalesPdfReport_"
-Cohesion: 0.16
-Nodes (18): buildSalesPdfReport_(), exportSalesPdf(), formatTransferQuantity(), generateInventoryReportPdf(), generateQuarantinePdf(), generateSalesPdf(), getInventoryReportMovement(), getInventoryReportRows() (+10 more)
+### Community 26 - "setView"
+Cohesion: 0.12
+Nodes (28): buildSalesPdfReport_(), ensureCreditsDateDefaults(), ensureDailyExpensesDateDefaults(), ensureDailySpotCashDateDefaults(), ensureQuarantineDateDefaults(), ensureSalesDateDefaults(), ensureTransfersDateDefaults(), exportSalesPdf() (+20 more)
 
 ## Knowledge Gaps
 - **119 isolated node(s):** `products`, `allProducts`, `branches`, `customers`, `transfers` (+114 more)
@@ -166,9 +171,9 @@ _Questions this graph is uniquely positioned to answer:_
   _119 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `app.js` be split into smaller, more focused modules?**
   _Cohesion score 0.029411764705882353 - nodes in this community are weakly interconnected._
-- **Should `renderCart` be split into smaller, more focused modules?**
-  _Cohesion score 0.13438735177865613 - nodes in this community are weakly interconnected._
 - **Should `showToast` be split into smaller, more focused modules?**
-  _Cohesion score 0.11498257839721254 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.08735150244584207 - nodes in this community are weakly interconnected._
 - **Should `What You Must Do When Invoked` be split into smaller, more focused modules?**
   _Cohesion score 0.08 - nodes in this community are weakly interconnected._
+- **Should `setView` be split into smaller, more focused modules?**
+  _Cohesion score 0.12169312169312169 - nodes in this community are weakly interconnected._

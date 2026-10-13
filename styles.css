@@ -16731,3 +16731,7 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
     font-size: 12px;
   }
 }
+/* Kitchen ticket setting in Product Registration */
+.checkbox-row { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; color: var(--text-primary); }
+.checkbox-row input { width: 18px; height: 18px; margin-top: 2px; accent-color: #1687ff; }
+.checkbox-row small { display: block; margin-top: 4px; }
