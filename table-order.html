@@ -1,6 +1,1129 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Angkol's Table Order</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script><script src="supabase-config.js"></script><style>body{margin:0;background:#071326;color:#edf6ff;font:16px Arial,sans-serif}.wrap{max-width:620px;margin:auto;padding:24px}.brand{color:#26b6ff;font-weight:800;letter-spacing:.08em}.card{background:#0d1d35;border:1px solid #194a83;border-radius:16px;padding:16px;margin:12px 0}.row{display:flex;justify-content:space-between;gap:12px;align-items:center}.price{color:#30c7ff;font-weight:bold}button,input,textarea{font:inherit;border-radius:10px;padding:10px;border:1px solid #27588f;background:#071326;color:#fff}button{background:#087df4;border:0;font-weight:bold;cursor:pointer}textarea{width:100%;box-sizing:border-box}small{color:#9fb2ca}</style></head><body><main class="wrap"><p class="brand">ANGKOL'S GRILL &amp; RESTOBAR</p><h1 id="title">Loading menu…</h1><p id="status">Please wait.</p><section id="menu"></section><section class="card"><h3>Your order</h3><div id="cart">No items selected.</div><textarea id="note" maxlength="180" placeholder="Notes for the waiter (optional)"></textarea><p><button id="submit" disabled>Send request to waiter</button></p></section></main><script>
-const token=new URLSearchParams(location.search).get('table');const client=window.supabase.createClient(window.CE_POS_SUPABASE.url,window.CE_POS_SUPABASE.publishableKey);let menu=[],cart=[];const peso=n=>'PHP '+Number(n).toLocaleString('en-PH',{minimumFractionDigits:2});const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-function draw(){document.querySelector('#menu').innerHTML=menu.map(p=>`<article class="card"><div class="row"><div><strong>${esc(p.name)}</strong><br><small>${esc(p.category||'Menu')}</small></div><div class="price">${peso(p.price)}</div><button data-id="${p.id}">Add</button></div></article>`).join('');document.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{const id=b.dataset.id;const item=cart.find(x=>x.productId===id);if(item)item.qty++;else cart.push({productId:id,qty:1});drawCart()})}function drawCart(){document.querySelector('#cart').innerHTML=cart.length?cart.map(x=>{const p=menu.find(y=>y.id===x.productId);return `<div class="row"><span>${x.qty} × ${esc(p.name)}</span><button data-remove="${x.productId}">Remove</button></div>`}).join(''):'No items selected.';document.querySelector('#submit').disabled=!cart.length;document.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{cart=cart.filter(x=>x.productId!==b.dataset.remove);drawCart()})}
-(async()=>{if(!token){document.querySelector('#status').textContent='Missing table QR code.';return}const {data,error}=await client.rpc('public_table_menu',{token_input:token});if(error){document.querySelector('#status').textContent=error.message;return}menu=data.products||[];document.querySelector('#title').textContent=data.tableName;document.querySelector('#status').textContent='Add items, then send the request to your waiter.';draw()})();document.querySelector('#submit').onclick=async()=>{const button=document.querySelector('#submit');button.disabled=true;const {error}=await client.rpc('submit_table_order_request',{token_input:token,lines:cart,note_input:document.querySelector('#note').value});if(error){alert(error.message);button.disabled=false;return}cart=[];document.querySelector('#note').value='';drawCart();alert('Request sent. Your waiter will confirm it shortly.');};
-</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <title>Angkol's Grill &amp; Restobar — Table Dining Order</title>
+  
+  <link rel="icon" type="image/x-icon" href="favicon.ico?v=2">
+  <link rel="shortcut icon" href="favicon.ico?v=2">
+  <link rel="icon" type="image/png" href="assets/angkols-logo.png?v=2">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=2">
+  
+  <link rel="stylesheet" href="table-order.css?v=4">
+  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="supabase-config.js"></script>
+</head>
+<body>
+  <!-- Centralized Floating Toast Container -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="header-container">
+      <div class="brand-wrapper">
+        <div class="brand-logo-badge">
+          <img src="assets/angkols-logo.png" alt="Angkol's Logo" class="brand-logo-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none; width: 22px; height: 22px;">
+            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+          </svg>
+        </div>
+        <div class="brand-info">
+          <span class="brand-name">Angkol's Grill &amp; Restobar</span>
+          <span class="brand-subtitle">Digital Table Self-Order</span>
+        </div>
+      </div>
+
+      <button class="header-cart-btn" id="headerCartBtn" type="button" aria-label="View Cart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+          <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>
+        </svg>
+        <span id="headerCartTotal">₱0.00</span>
+        <span class="header-cart-badge" id="headerCartCount">0</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-wrapper">
+    <!-- Hero / Table Status Banner -->
+    <section class="table-hero-card" id="tableHeroCard">
+      <!-- Skeleton Header shown initially -->
+      <div id="heroSkeleton" class="hero-skeleton-wrap">
+        <div class="skeleton-pulse hero-skeleton-title"></div>
+        <div class="skeleton-pulse hero-skeleton-desc"></div>
+      </div>
+
+      <!-- Populated dynamically -->
+      <div id="heroContent" style="display: none;">
+        <div class="table-hero-header">
+          <div class="table-title-group">
+            <span class="table-kicker">DINING TABLE SELF-SERVICE</span>
+            <h1 class="table-name-title" id="heroTableName">Table</h1>
+          </div>
+          <div class="table-status-pill" id="heroStatusPill">
+            <span class="status-beacon"></span>
+            <span id="heroStatusText">Checking Status...</span>
+          </div>
+        </div>
+        <p class="table-hero-desc" id="heroTableDesc">
+          Browse dishes &amp; drinks below, customize quantities, and send your order request straight to your waiter for fast kitchen preparation.
+        </p>
+        <div id="heroVacantNotice" class="table-notice-box" style="display: none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <div>
+            <strong>Table Tab Not Open Yet:</strong> Please notify your server or waiter to open the tab for this table in the POS before sending mobile orders.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Order Layout (2 columns on Desktop, 1 on mobile) -->
+    <div class="order-layout">
+      <!-- Menu Catalog Area -->
+      <section class="menu-catalog-area">
+        <!-- Toolbar & Search -->
+        <div class="menu-toolbar">
+          <div class="search-box-wrap">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="menuSearchInput" class="menu-search-input" placeholder="Search menu items, drinks, appetizers..." autocomplete="off">
+            <button type="button" id="searchClearBtn" class="search-clear-btn" aria-label="Clear search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+
+          <!-- Category Pills -->
+          <div class="category-pills-row" id="categoryPillsRow">
+            <button class="cat-pill active" type="button" data-cat="ALL">
+              <span>All Dishes</span>
+              <span class="cat-count-badge" id="catCountAll">0</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Section Header with Count -->
+        <div class="menu-section-header">
+          <h2 class="menu-section-title">
+            <span id="activeCategoryTitle">All Dishes</span>
+          </h2>
+          <span class="menu-results-count" id="menuResultsCount">Loading menu items…</span>
+        </div>
+
+        <!-- Menu Grid -->
+        <div class="menu-grid" id="menuGrid">
+          <!-- Skeletons (4 cards) -->
+          <div class="card-skeleton">
+            <div class="skeleton-pulse card-skeleton-thumb"></div>
+            <div class="card-skeleton-body">
+              <div class="skeleton-pulse" style="height: 12px; width: 40%; margin-bottom: 8px;"></div>
+              <div class="skeleton-pulse" style="height: 18px; width: 85%; margin-bottom: 12px;"></div>
+              <div class="skeleton-pulse" style="height: 20px; width: 50%;"></div>
+            </div>
+          </div>
+          <div class="card-skeleton">
+            <div class="skeleton-pulse card-skeleton-thumb"></div>
+            <div class="card-skeleton-body">
+              <div class="skeleton-pulse" style="height: 12px; width: 40%; margin-bottom: 8px;"></div>
+              <div class="skeleton-pulse" style="height: 18px; width: 85%; margin-bottom: 12px;"></div>
+              <div class="skeleton-pulse" style="height: 20px; width: 50%;"></div>
+            </div>
+          </div>
+          <div class="card-skeleton">
+            <div class="skeleton-pulse card-skeleton-thumb"></div>
+            <div class="card-skeleton-body">
+              <div class="skeleton-pulse" style="height: 12px; width: 40%; margin-bottom: 8px;"></div>
+              <div class="skeleton-pulse" style="height: 18px; width: 85%; margin-bottom: 12px;"></div>
+              <div class="skeleton-pulse" style="height: 20px; width: 50%;"></div>
+            </div>
+          </div>
+          <div class="card-skeleton">
+            <div class="skeleton-pulse card-skeleton-thumb"></div>
+            <div class="card-skeleton-body">
+              <div class="skeleton-pulse" style="height: 12px; width: 40%; margin-bottom: 8px;"></div>
+              <div class="skeleton-pulse" style="height: 18px; width: 85%; margin-bottom: 12px;"></div>
+              <div class="skeleton-pulse" style="height: 20px; width: 50%;"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Desktop Sidebar Cart Panel -->
+      <aside class="cart-sidebar-panel" id="cartSidebar">
+        <div class="cart-header">
+          <div class="cart-title-wrap">
+            <h3>Your Order</h3>
+            <span class="cart-items-counter" id="desktopCartItemBadge">0 items</span>
+          </div>
+          <button type="button" class="btn-clear-cart" id="desktopBtnClearCart" style="display: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Clear</button>
+        </div>
+
+        <div class="cart-scroll-area" id="desktopCartItemList">
+          <div class="cart-empty-message">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+            </svg>
+            <p>Your order is currently empty.<br>Tap "+ Add" on any dish to begin.</p>
+          </div>
+        </div>
+
+        <div class="cart-footer">
+          <div class="order-note-wrap">
+            <label class="order-note-label" for="desktopWaiterNote">
+              <span>Note for Waiter</span>
+              <span id="desktopNoteCounter" style="color: var(--text-muted); font-size: 11px;">0/180</span>
+            </label>
+            <textarea id="desktopWaiterNote" class="order-note-textarea" maxlength="180" placeholder="Special instructions (e.g., drinks first, extra ice, no onions)..."></textarea>
+          </div>
+
+          <div class="cart-summary-totals">
+            <span class="summary-label">Estimated Total:</span>
+            <span class="summary-amount" id="desktopCartTotalAmount">₱0.00</span>
+          </div>
+
+          <button type="button" class="btn-submit-order" id="desktopBtnSubmitOrder" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            <span>Send Request to Waiter</span>
+          </button>
+
+          <p class="order-guarantee-note">
+            Your waiter will confirm and activate your ticket at your table before cooking starts.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Mobile Sticky Bottom Floating Bar -->
+  <div class="mobile-bottom-bar" id="mobileBottomBar">
+    <div class="mobile-bar-inner">
+      <div class="mobile-bar-summary">
+        <span class="mobile-bar-count" id="mobileBarCount">0 items</span>
+        <span class="mobile-bar-total" id="mobileBarTotal">₱0.00</span>
+      </div>
+      <button type="button" class="btn-mobile-view-cart" id="btnOpenMobileDrawer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+          <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/>
+        </svg>
+        <span>View Order</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile Cart Drawer & Backdrop -->
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <div class="cart-drawer" id="cartDrawer" role="dialog" aria-modal="true" aria-label="Mobile Order Cart">
+    <div class="drawer-drag-handle"></div>
+    <button type="button" class="drawer-close-btn" id="btnCloseDrawer" aria-label="Close cart">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+
+    <div class="cart-header">
+      <div class="cart-title-wrap">
+        <h3>Your Order</h3>
+        <span class="cart-items-counter" id="mobileDrawerCountBadge">0 items</span>
+      </div>
+      <button type="button" class="btn-clear-cart" id="mobileBtnClearCart" style="display: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Clear</button>
+    </div>
+
+    <div class="cart-scroll-area" id="mobileCartItemList">
+      <div class="cart-empty-message">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+        </svg>
+        <p>Your order is currently empty.<br>Tap "+ Add" on any dish to begin.</p>
+      </div>
+    </div>
+
+    <div class="cart-footer">
+      <div class="order-note-wrap">
+        <label class="order-note-label" for="mobileWaiterNote">
+          <span>Note for Waiter</span>
+          <span id="mobileNoteCounter" style="color: var(--text-muted); font-size: 11px;">0/180</span>
+        </label>
+        <textarea id="mobileWaiterNote" class="order-note-textarea" maxlength="180" placeholder="Special instructions (e.g., drinks first, extra ice)..."></textarea>
+      </div>
+
+      <div class="cart-summary-totals">
+        <span class="summary-label">Estimated Total:</span>
+        <span class="summary-amount" id="mobileCartTotalAmount">₱0.00</span>
+      </div>
+
+      <button type="button" class="btn-submit-order" id="mobileBtnSubmitOrder" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+        <span>Send Request to Waiter</span>
+      </button>
+
+      <p class="order-guarantee-note">
+        Your waiter will confirm and activate your ticket at your table before cooking starts.
+      </p>
+    </div>
+  </div>
+
+  <!-- Order Sent Confirmation Modal -->
+  <div class="modal-backdrop" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+    <div class="confirm-card">
+      <div class="confirm-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width: 36px; height: 36px;">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+
+      <h3 class="confirm-title" id="confirmModalTitle">Order Request Sent!</h3>
+      <p class="confirm-subtitle">
+        Your order has been transmitted directly to the waiter queue. A waiter will confirm it at your table.
+      </p>
+
+      <div class="request-id-badge">
+        <span>Request ID:</span>
+        <strong id="confirmRequestId">QOR-0000</strong>
+      </div>
+
+      <!-- Live Tracking Stepper -->
+      <div class="tracking-stepper">
+        <div class="step-node completed" id="trackStepSent">
+          <div class="step-circle">&#10003;</div>
+          <span class="step-label">Sent</span>
+        </div>
+        <div class="step-node active" id="trackStepClaimed">
+          <div class="step-circle">2</div>
+          <span class="step-label">Waiter</span>
+        </div>
+        <div class="step-node" id="trackStepKitchen">
+          <div class="step-circle">3</div>
+          <span class="step-label">Kitchen</span>
+        </div>
+      </div>
+
+      <div style="background: rgba(8, 19, 36, 0.7); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px; margin-bottom: 20px; text-align: left; max-height: 140px; overflow-y: auto;" id="confirmItemsSummary">
+        <!-- Summarized items -->
+      </div>
+
+      <button type="button" class="btn-order-more" id="btnOrderMore">
+        Order More Items
+      </button>
+    </div>
+  </div>
+
+  <!-- Application Script -->
+  <script>
+    (function () {
+      'use strict';
+
+      // 1. URL & Supabase Initialization
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('table');
+
+      if (!window.CE_POS_SUPABASE || !window.supabase) {
+        console.error('Supabase configuration missing');
+        return;
+      }
+
+      const client = window.supabase.createClient(
+        window.CE_POS_SUPABASE.url,
+        window.CE_POS_SUPABASE.publishableKey
+      );
+
+      // 2. State
+      let tableData = null;
+      let menuItems = [];
+      let cart = []; // Array of { productId, qty, notes }
+      let activeCategory = 'ALL';
+      let searchQuery = '';
+      let isSubmitting = false;
+      let realtimeSubscription = null;
+
+      // 3. Helper Functions
+      const peso = (val) => 'PHP ' + Number(val || 0).toLocaleString('en-PH', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+      const pesoShort = (val) => '₱' + Number(val || 0).toLocaleString('en-PH', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+      const escapeHtml = (str) => String(str || '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      }[c]));
+
+      function getProductImageUrl(path) {
+        if (!path) return '';
+        try {
+          return client.storage.from('product-images').getPublicUrl(path).data.publicUrl || '';
+        } catch {
+          return '';
+        }
+      }
+
+      // 4. Centralized Toast Notifications
+      function showToast(message, type = 'info', duration = 3000) {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.className = `floating-toast toast-${type}`;
+
+        const iconSvg = type === 'success'
+          ? '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
+          : type === 'error'
+          ? '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+          : '<svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+
+        toast.innerHTML = `
+          ${iconSvg}
+          <div class="toast-message">${escapeHtml(message)}</div>
+          <button type="button" class="toast-close-btn" aria-label="Dismiss">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        `;
+
+        const closeBtn = toast.querySelector('.toast-close-btn');
+        const dismiss = () => {
+          toast.classList.add('toast-leave');
+          setTimeout(() => toast.remove(), 250);
+        };
+
+        closeBtn.onclick = dismiss;
+        setTimeout(dismiss, duration);
+        container.appendChild(toast);
+      }
+
+      // 5. Category Icons Generator
+      function getCategoryIcon(cat) {
+        const c = String(cat || '').toLowerCase();
+        if (c.includes('grill') || c.includes('barbecue') || c.includes('bbq')) {
+          return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>';
+        }
+        if (c.includes('drink') || c.includes('alcohol') || c.includes('beer') || c.includes('beverage')) {
+          return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 11h1a3 3 0 0 1 0 6h-1"/><path d="M9 12v6"/><path d="M13 12v6"/><path d="M14 7.5a6.5 6.5 0 1 1-7 0"/><path d="M5 21h12"/></svg>';
+        }
+        if (c.includes('soup') || c.includes('noodle')) {
+          return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z"/><path d="M7 8V3"/><path d="M12 8V3"/><path d="M17 8V3"/></svg>';
+        }
+        if (c.includes('rice') || c.includes('meal')) {
+          return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11h18a8 8 0 0 1-8 8h-2a8 8 0 0 1-8-8Z"/><path d="m12 3 2 4h-4z"/></svg>';
+        }
+        if (c.includes('dessert') || c.includes('sweet')) {
+          return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="7" r="4"/><path d="M6 13h12a4 4 0 0 1 4 4v3H2v-3a4 4 0 0 1 4-4z"/></svg>';
+        }
+        // Generic plate/cutlery
+        return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v10"/><path d="M8 12h8"/></svg>';
+      }
+
+      // 6. Render Functions
+      function renderHero(table) {
+        const skeleton = document.getElementById('heroSkeleton');
+        const content = document.getElementById('heroContent');
+        const tableName = document.getElementById('heroTableName');
+        const statusPill = document.getElementById('heroStatusPill');
+        const statusText = document.getElementById('heroStatusText');
+        const vacantNotice = document.getElementById('heroVacantNotice');
+
+        if (skeleton) skeleton.style.display = 'none';
+        if (content) content.style.display = 'block';
+
+        if (tableName) tableName.textContent = table.tableName || 'Dining Table';
+
+        const isOccupied = table.status === 'Occupied';
+        if (statusPill) {
+          statusPill.className = `table-status-pill status-${(table.status || 'vacant').toLowerCase()}`;
+        }
+        if (statusText) {
+          statusText.textContent = isOccupied ? 'Active Tab' : (table.status || 'Vacant');
+        }
+
+        if (vacantNotice) {
+          vacantNotice.style.display = isOccupied ? 'none' : 'flex';
+        }
+
+        // Enable or disable submit buttons based on occupancy
+        syncSubmitButtonState();
+      }
+
+      function renderCategories() {
+        const container = document.getElementById('categoryPillsRow');
+        if (!container) return;
+
+        // Group categories with counts
+        const catCounts = { ALL: menuItems.length };
+        menuItems.forEach((p) => {
+          const cat = p.category || 'General';
+          catCounts[cat] = (catCounts[cat] || 0) + 1;
+        });
+
+        const allCountBadge = document.getElementById('catCountAll');
+        if (allCountBadge) allCountBadge.textContent = menuItems.length;
+
+        // Get unique sorted categories
+        const categories = Object.keys(catCounts).filter((c) => c !== 'ALL').sort();
+
+        let html = `
+          <button class="cat-pill ${activeCategory === 'ALL' ? 'active' : ''}" type="button" data-cat="ALL">
+            <span>All Dishes</span>
+            <span class="cat-count-badge">${menuItems.length}</span>
+          </button>
+        `;
+
+        categories.forEach((cat) => {
+          const isActive = activeCategory === cat;
+          html += `
+            <button class="cat-pill ${isActive ? 'active' : ''}" type="button" data-cat="${escapeHtml(cat)}">
+              <span>${escapeHtml(cat)}</span>
+              <span class="cat-count-badge">${catCounts[cat]}</span>
+            </button>
+          `;
+        });
+
+        container.innerHTML = html;
+
+        // Attach listeners
+        container.querySelectorAll('.cat-pill').forEach((btn) => {
+          btn.onclick = () => {
+            activeCategory = btn.dataset.cat;
+            container.querySelectorAll('.cat-pill').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            const activeTitle = document.getElementById('activeCategoryTitle');
+            if (activeTitle) {
+              activeTitle.textContent = activeCategory === 'ALL' ? 'All Dishes' : activeCategory;
+            }
+
+            renderMenuGrid();
+          };
+        });
+      }
+
+      function renderMenuGrid() {
+        const grid = document.getElementById('menuGrid');
+        const countSpan = document.getElementById('menuResultsCount');
+        if (!grid) return;
+
+        const q = searchQuery.trim().toLowerCase();
+        const filtered = menuItems.filter((p) => {
+          const matchCat = activeCategory === 'ALL' || (p.category || 'General') === activeCategory;
+          const matchSearch = !q || p.name.toLowerCase().includes(q) || (p.category && p.category.toLowerCase().includes(q));
+          return matchCat && matchSearch;
+        });
+
+        if (countSpan) {
+          countSpan.textContent = `${filtered.length} dish${filtered.length === 1 ? '' : 'es'} available`;
+        }
+
+        if (!filtered.length) {
+          grid.innerHTML = `
+            <div class="menu-empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <h3>No dishes found</h3>
+              <p>Try searching with another keyword or pick a different category.</p>
+            </div>
+          `;
+          return;
+        }
+
+        grid.innerHTML = filtered.map((product) => {
+          const cartItem = cart.find((x) => x.productId === product.id);
+          const currentQty = cartItem ? cartItem.qty : 0;
+          const imgUrl = getProductImageUrl(product.imagePath);
+
+          return `
+            <article class="product-card ${currentQty > 0 ? 'is-in-cart' : ''}" data-product-card="${escapeHtml(product.id)}" role="button" tabindex="0" aria-label="Add ${escapeHtml(product.name)} to order">
+              <div class="product-thumb-wrap">
+                ${imgUrl ? `
+                  <img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(product.name)}" class="product-thumb-img" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                  <div class="product-thumb-placeholder" style="display: none;">
+                    ${getCategoryIcon(product.category)}
+                  </div>
+                ` : `
+                  <div class="product-thumb-placeholder">
+                    ${getCategoryIcon(product.category)}
+                  </div>
+                `}
+                ${currentQty > 0 ? `
+                  <div class="thumb-qty-indicator" title="${currentQty} currently in order">
+                    <span>${currentQty}</span>
+                  </div>
+                ` : ''}
+              </div>
+
+              <div class="product-details">
+                <div class="product-top-info">
+                  <div class="product-meta-row">
+                    <span class="product-cat-tag">${escapeHtml(product.category || 'Dishes')}</span>
+                  </div>
+                  <strong class="product-name" title="${escapeHtml(product.name)}">${escapeHtml(product.name)}</strong>
+                </div>
+
+                <div class="product-bottom-row">
+                  <div class="product-price-container">
+                    <span class="product-price-symbol">₱</span>
+                    <span class="product-price-value">${Number(product.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+
+                  <div class="product-action-box">
+                    <button type="button" class="btn-card-add ${currentQty > 0 ? 'is-active' : ''}" data-action="card-add" data-id="${escapeHtml(product.id)}" aria-label="Add ${escapeHtml(product.name)} to cart">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="btn-add-icon">
+                        <path d="M12 5v14"/><path d="M5 12h14"/>
+                      </svg>
+                      <span>Add</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          `;
+        }).join('');
+
+        // Clicking anywhere on the card (or the Add button) adds to cart
+        grid.querySelectorAll('.product-card').forEach((card) => {
+          const triggerAdd = () => {
+            const id = card.dataset.productCard;
+            if (!id) return;
+            const item = cart.find((x) => x.productId === id);
+            const nextQty = (item ? item.qty : 0) + 1;
+
+            // Trigger tap micro-animation
+            card.classList.remove('card-tap-pulse');
+            void card.offsetWidth; // trigger reflow
+            card.classList.add('card-tap-pulse');
+
+            updateItemQuantity(id, nextQty, true);
+          };
+
+          card.onclick = () => {
+            triggerAdd();
+          };
+
+          card.onkeydown = (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              triggerAdd();
+            }
+          };
+        });
+      }
+
+      function updateItemQuantity(productId, newQty, triggerToast = false) {
+        const product = menuItems.find((p) => p.id === productId);
+        if (!product) return;
+
+        const existing = cart.find((x) => x.productId === productId);
+
+        if (newQty <= 0) {
+          if (existing) {
+            cart = cart.filter((x) => x.productId !== productId);
+            if (triggerToast) showToast(`Removed ${product.name} from order`, 'info');
+          }
+        } else {
+          if (existing) {
+            existing.qty = newQty;
+            if (triggerToast) showToast(`Added another ${product.name} (${newQty} in order)`, 'success');
+          } else {
+            cart.push({ productId, qty: newQty, notes: '' });
+            if (triggerToast) showToast(`Added ${product.name} to order`, 'success');
+          }
+        }
+
+        renderCart();
+        renderMenuGrid(); // Keep card states synchronized
+      }
+
+      function renderCart() {
+        const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+        const totalPrice = cart.reduce((sum, item) => {
+          const product = menuItems.find((p) => p.id === item.productId);
+          return sum + ((product ? product.price : 0) * item.qty);
+        }, 0);
+
+        // Header and Floating Bars
+        const headerCount = document.getElementById('headerCartCount');
+        const headerTotal = document.getElementById('headerCartTotal');
+        const mobileBarCount = document.getElementById('mobileBarCount');
+        const mobileBarTotal = document.getElementById('mobileBarTotal');
+        const desktopBadge = document.getElementById('desktopCartItemBadge');
+        const mobileDrawerBadge = document.getElementById('mobileDrawerCountBadge');
+
+        if (headerCount) headerCount.textContent = totalItems;
+        if (headerTotal) headerTotal.textContent = pesoShort(totalPrice);
+        if (mobileBarCount) mobileBarCount.textContent = `${totalItems} item${totalItems === 1 ? '' : 's'}`;
+        if (mobileBarTotal) mobileBarTotal.textContent = pesoShort(totalPrice);
+        if (desktopBadge) desktopBadge.textContent = `${totalItems} item${totalItems === 1 ? '' : 's'}`;
+        if (mobileDrawerBadge) mobileDrawerBadge.textContent = `${totalItems} item${totalItems === 1 ? '' : 's'}`;
+
+        const desktopTotal = document.getElementById('desktopCartTotalAmount');
+        const mobileTotal = document.getElementById('mobileCartTotalAmount');
+        if (desktopTotal) desktopTotal.textContent = peso(totalPrice);
+        if (mobileTotal) mobileTotal.textContent = peso(totalPrice);
+
+        // Clear buttons visibility
+        const desktopClear = document.getElementById('desktopBtnClearCart');
+        const mobileClear = document.getElementById('mobileBtnClearCart');
+        if (desktopClear) desktopClear.style.display = cart.length ? 'block' : 'none';
+        if (mobileClear) mobileClear.style.display = cart.length ? 'block' : 'none';
+
+        // Render Cart Items into both Desktop and Mobile containers
+        const renderContainer = (containerId) => {
+          const container = document.getElementById(containerId);
+          if (!container) return;
+
+          if (!cart.length) {
+            container.innerHTML = `
+              <div class="cart-empty-message">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+                </svg>
+                <p>Your order is currently empty.<br>Tap "+ Add" on any dish to begin.</p>
+              </div>
+            `;
+            return;
+          }
+
+          container.innerHTML = cart.map((item) => {
+            const product = menuItems.find((p) => p.id === item.productId);
+            const lineTotal = (product ? product.price : 0) * item.qty;
+
+            return `
+              <div class="cart-line-item" data-cart-item="${escapeHtml(item.productId)}">
+                <div class="cart-line-top">
+                  <div>
+                    <strong class="cart-line-name">${escapeHtml(product ? product.name : 'Item')}</strong>
+                    <div class="cart-line-unit-price">${peso(product ? product.price : 0)} &times; ${item.qty}</div>
+                  </div>
+                  <strong class="cart-line-total">${pesoShort(lineTotal)}</strong>
+                </div>
+
+                <div class="cart-line-bottom">
+                  <div class="card-stepper">
+                    <button type="button" class="stepper-btn" data-cart-act="minus" data-id="${escapeHtml(item.productId)}" aria-label="Decrease">&minus;</button>
+                    <span class="stepper-qty">${item.qty}</span>
+                    <button type="button" class="stepper-btn" data-cart-act="plus" data-id="${escapeHtml(item.productId)}" aria-label="Increase">&plus;</button>
+                  </div>
+
+                  <button type="button" class="cart-btn-trash" data-cart-act="trash" data-id="${escapeHtml(item.productId)}" aria-label="Remove item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </button>
+                </div>
+
+                <input type="text" class="cart-item-note-input" data-cart-note="${escapeHtml(item.productId)}" value="${escapeHtml(item.notes || '')}" placeholder="Special request for this item (optional)">
+              </div>
+            `;
+          }).join('');
+
+          // Wire up event listeners
+          container.querySelectorAll('[data-cart-act="plus"]').forEach((btn) => {
+            btn.onclick = () => {
+              const id = btn.dataset.id;
+              const item = cart.find((x) => x.productId === id);
+              updateItemQuantity(id, item ? item.qty + 1 : 1);
+            };
+          });
+
+          container.querySelectorAll('[data-cart-act="minus"]').forEach((btn) => {
+            btn.onclick = () => {
+              const id = btn.dataset.id;
+              const item = cart.find((x) => x.productId === id);
+              if (item) updateItemQuantity(id, item.qty - 1);
+            };
+          });
+
+          container.querySelectorAll('[data-cart-act="trash"]').forEach((btn) => {
+            btn.onclick = () => {
+              const id = btn.dataset.id;
+              updateItemQuantity(id, 0, true);
+            };
+          });
+
+          container.querySelectorAll('[data-cart-note]').forEach((input) => {
+            input.oninput = () => {
+              const id = input.dataset.cartNote;
+              const item = cart.find((x) => x.productId === id);
+              if (item) item.notes = input.value;
+            };
+          });
+        };
+
+        renderContainer('desktopCartItemList');
+        renderContainer('mobileCartItemList');
+
+        syncSubmitButtonState();
+      }
+
+      function syncSubmitButtonState() {
+        const isOccupied = tableData && tableData.status === 'Occupied';
+        const hasCart = cart.length > 0;
+        const canSubmit = isOccupied && hasCart && !isSubmitting;
+
+        const desktopBtn = document.getElementById('desktopBtnSubmitOrder');
+        const mobileBtn = document.getElementById('mobileBtnSubmitOrder');
+
+        [desktopBtn, mobileBtn].forEach((btn) => {
+          if (!btn) return;
+          btn.disabled = !canSubmit;
+
+          if (isSubmitting) {
+            btn.innerHTML = `
+              <span class="btn-spinner"></span>
+              <span>Sending Order Request…</span>
+            `;
+          } else if (!isOccupied && tableData) {
+            btn.innerHTML = `
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span>Waiter Tab Required to Send</span>
+            `;
+          } else {
+            btn.innerHTML = `
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+              <span>Send Request to Waiter (${cart.length})</span>
+            `;
+          }
+        });
+      }
+
+      // 7. Order Submission & Realtime Tracking
+      async function submitOrder() {
+        if (!token) {
+          showToast('Missing table QR token.', 'error');
+          return;
+        }
+        if (!cart.length) {
+          showToast('Please add at least one item to your order.', 'warning');
+          return;
+        }
+        if (!tableData || tableData.status !== 'Occupied') {
+          showToast('This table tab is not active yet. Please ask your waiter to open the tab.', 'error');
+          return;
+        }
+
+        isSubmitting = true;
+        syncSubmitButtonState();
+
+        const desktopNote = document.getElementById('desktopWaiterNote')?.value || '';
+        const mobileNote = document.getElementById('mobileWaiterNote')?.value || '';
+        const generalNote = (desktopNote || mobileNote).trim();
+
+        // Format lines for RPC: array of { productId, qty, notes }
+        const linesPayload = cart.map((item) => ({
+          productId: item.productId,
+          qty: item.qty,
+          notes: (item.notes || '').trim()
+        }));
+
+        try {
+          const { data, error } = await client.rpc('submit_table_order_request', {
+            token_input: token,
+            lines: linesPayload,
+            note_input: generalNote
+          });
+
+          if (error) {
+            throw error;
+          }
+
+          const requestId = data.requestId || 'QOR-PENDING';
+          showToast('Order sent! Your waiter will confirm it shortly.', 'success', 4000);
+
+          // Close mobile drawer if open
+          closeMobileDrawer();
+
+          // Open Order Sent Confirmation Modal
+          openConfirmationModal(requestId, cart, generalNote);
+
+          // Clear cart
+          cart = [];
+          if (document.getElementById('desktopWaiterNote')) document.getElementById('desktopWaiterNote').value = '';
+          if (document.getElementById('mobileWaiterNote')) document.getElementById('mobileWaiterNote').value = '';
+          renderCart();
+          renderMenuGrid();
+
+          // Subscribe to Realtime status updates for this request
+          subscribeToRequestStatus(requestId);
+
+        } catch (err) {
+          console.error('Error submitting table order:', err);
+          showToast(err.message || 'Failed to submit order request. Please notify your waiter.', 'error', 5000);
+        } finally {
+          isSubmitting = false;
+          syncSubmitButtonState();
+        }
+      }
+
+      function openConfirmationModal(requestId, submittedCart, note) {
+        const modal = document.getElementById('confirmModal');
+        const reqIdSpan = document.getElementById('confirmRequestId');
+        const summaryBox = document.getElementById('confirmItemsSummary');
+        const stepSent = document.getElementById('trackStepSent');
+        const stepClaimed = document.getElementById('trackStepClaimed');
+        const stepKitchen = document.getElementById('trackStepKitchen');
+
+        if (reqIdSpan) reqIdSpan.textContent = requestId;
+
+        // Reset tracking steps
+        if (stepSent) {
+          stepSent.className = 'step-node completed';
+          stepSent.querySelector('.step-circle').innerHTML = '&#10003;';
+        }
+        if (stepClaimed) {
+          stepClaimed.className = 'step-node active';
+          stepClaimed.querySelector('.step-circle').innerHTML = '2';
+        }
+        if (stepKitchen) {
+          stepKitchen.className = 'step-node';
+          stepKitchen.querySelector('.step-circle').innerHTML = '3';
+        }
+
+        if (summaryBox) {
+          summaryBox.innerHTML = `
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--accent-cyan); font-weight: 700; margin-bottom: 6px;">Submitted Items (${submittedCart.length})</div>
+            ${submittedCart.map((item) => {
+              const product = menuItems.find((p) => p.id === item.productId);
+              return `
+                <div style="display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; border-bottom: 1px dashed rgba(255,255,255,0.08);">
+                  <span>${item.qty} &times; ${escapeHtml(product?.name || 'Item')}${item.notes ? ` <em style="font-size:11px;color:var(--text-muted);">(${escapeHtml(item.notes)})</em>` : ''}</span>
+                  <strong style="color:var(--accent-cyan);">${pesoShort((product?.price || 0) * item.qty)}</strong>
+                </div>
+              `;
+            }).join('')}
+            ${note ? `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px;"><em>Note: ${escapeHtml(note)}</em></div>` : ''}
+          `;
+        }
+
+        if (modal) modal.classList.add('open');
+      }
+
+      function subscribeToRequestStatus(requestId) {
+        if (realtimeSubscription) {
+          client.removeChannel(realtimeSubscription);
+          realtimeSubscription = null;
+        }
+
+        const channel = client.channel(`table-order-${requestId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'table_order_requests',
+              filter: `request_id=eq.${requestId}`
+            },
+            (payload) => {
+              const newStatus = payload.new?.status;
+              const stepClaimed = document.getElementById('trackStepClaimed');
+              const stepKitchen = document.getElementById('trackStepKitchen');
+
+              if (newStatus === 'Claimed') {
+                showToast('A waiter has claimed your order request!', 'info', 3500);
+                if (stepClaimed) {
+                  stepClaimed.className = 'step-node completed';
+                  stepClaimed.querySelector('.step-circle').innerHTML = '&#10003;';
+                }
+                if (stepKitchen) {
+                  stepKitchen.className = 'step-node active';
+                }
+              } else if (newStatus === 'Confirmed') {
+                showToast('Order confirmed! Sent to the kitchen.', 'success', 4000);
+                if (stepClaimed) {
+                  stepClaimed.className = 'step-node completed';
+                  stepClaimed.querySelector('.step-circle').innerHTML = '&#10003;';
+                }
+                if (stepKitchen) {
+                  stepKitchen.className = 'step-node completed';
+                  stepKitchen.querySelector('.step-circle').innerHTML = '&#10003;';
+                }
+              }
+            }
+          )
+          .subscribe();
+
+        realtimeSubscription = channel;
+      }
+
+      // 8. Mobile Drawer Controls
+      const drawer = document.getElementById('cartDrawer');
+      const backdrop = document.getElementById('drawerBackdrop');
+      const btnOpenDrawer = document.getElementById('btnOpenMobileDrawer');
+      const btnCloseDrawer = document.getElementById('btnCloseDrawer');
+      const headerCartBtn = document.getElementById('headerCartBtn');
+
+      function openMobileDrawer() {
+        if (drawer) drawer.classList.add('open');
+        if (backdrop) backdrop.classList.add('open');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeMobileDrawer() {
+        if (drawer) drawer.classList.remove('open');
+        if (backdrop) backdrop.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+
+      if (btnOpenDrawer) btnOpenDrawer.onclick = openMobileDrawer;
+      if (btnCloseDrawer) btnCloseDrawer.onclick = closeMobileDrawer;
+      if (backdrop) backdrop.onclick = closeMobileDrawer;
+
+      if (headerCartBtn) {
+        headerCartBtn.onclick = () => {
+          if (window.innerWidth < 1024) {
+            openMobileDrawer();
+          } else {
+            const sidebar = document.getElementById('cartSidebar');
+            if (sidebar) sidebar.scrollIntoView({ behavior: 'smooth' });
+          }
+        };
+      }
+
+      // Clear Cart Handlers
+      const handleClearCart = () => {
+        if (!cart.length) return;
+        cart = [];
+        renderCart();
+        renderMenuGrid();
+        showToast('Cart cleared', 'info');
+      };
+
+      const desktopClear = document.getElementById('desktopBtnClearCart');
+      const mobileClear = document.getElementById('mobileBtnClearCart');
+      if (desktopClear) desktopClear.onclick = handleClearCart;
+      if (mobileClear) mobileClear.onclick = handleClearCart;
+
+      // Submit Buttons
+      const desktopSubmit = document.getElementById('desktopBtnSubmitOrder');
+      const mobileSubmit = document.getElementById('mobileBtnSubmitOrder');
+      if (desktopSubmit) desktopSubmit.onclick = submitOrder;
+      if (mobileSubmit) mobileSubmit.onclick = submitOrder;
+
+      // Close Confirmation Modal & Order More
+      const btnOrderMore = document.getElementById('btnOrderMore');
+      if (btnOrderMore) {
+        btnOrderMore.onclick = () => {
+          const modal = document.getElementById('confirmModal');
+          if (modal) modal.classList.remove('open');
+        };
+      }
+
+      // Search Input & Clear
+      const searchInput = document.getElementById('menuSearchInput');
+      const searchClear = document.getElementById('searchClearBtn');
+
+      if (searchInput) {
+        searchInput.oninput = () => {
+          searchQuery = searchInput.value;
+          if (searchClear) searchClear.style.display = searchQuery ? 'block' : 'none';
+          renderMenuGrid();
+        };
+      }
+
+      if (searchClear) {
+        searchClear.onclick = () => {
+          searchInput.value = '';
+          searchQuery = '';
+          searchClear.style.display = 'none';
+          renderMenuGrid();
+          searchInput.focus();
+        };
+      }
+
+      // Textarea Character Counters
+      const desktopNote = document.getElementById('desktopWaiterNote');
+      const mobileNote = document.getElementById('mobileWaiterNote');
+      const desktopCounter = document.getElementById('desktopNoteCounter');
+      const mobileCounter = document.getElementById('mobileNoteCounter');
+
+      const bindCounter = (input, counter, peerInput) => {
+        if (!input || !counter) return;
+        input.oninput = () => {
+          const len = input.value.length;
+          counter.textContent = `${len}/180`;
+          if (peerInput) peerInput.value = input.value;
+        };
+      };
+
+      bindCounter(desktopNote, desktopCounter, mobileNote);
+      bindCounter(mobileNote, mobileCounter, desktopNote);
+
+      // 9. Initial Menu Fetch
+      (async () => {
+        if (!token) {
+          const skeleton = document.getElementById('heroSkeleton');
+          if (skeleton) skeleton.style.display = 'none';
+          const content = document.getElementById('heroContent');
+          if (content) {
+            content.style.display = 'block';
+            content.innerHTML = `
+              <div class="table-notice-box" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <div>
+                  <strong>Missing Dining Table QR Code:</strong> Please scan the QR code located on your dining table stand or ask a staff member for assistance.
+                </div>
+              </div>
+            `;
+          }
+          const grid = document.getElementById('menuGrid');
+          if (grid) grid.innerHTML = '';
+          const count = document.getElementById('menuResultsCount');
+          if (count) count.textContent = 'Menu unavailable';
+          return;
+        }
+
+        try {
+          const { data, error } = await client.rpc('public_table_menu', { token_input: token });
+
+          if (error) {
+            throw error;
+          }
+
+          tableData = data;
+          menuItems = data.products || [];
+
+          renderHero(tableData);
+          renderCategories();
+          renderMenuGrid();
+          renderCart();
+
+        } catch (err) {
+          console.error('Failed to load table menu:', err);
+          showToast(err.message || 'Error loading dining menu.', 'error', 5000);
+
+          const skeleton = document.getElementById('heroSkeleton');
+          if (skeleton) skeleton.style.display = 'none';
+          const content = document.getElementById('heroContent');
+          if (content) {
+            content.style.display = 'block';
+            content.innerHTML = `
+              <div class="table-notice-box" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
+                  <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                <div>
+                  <strong>Could not load table menu:</strong> ${escapeHtml(err.message || 'Please check your connection and refresh.')}
+                </div>
+              </div>
+            `;
+          }
+          const grid = document.getElementById('menuGrid');
+          if (grid) grid.innerHTML = '';
+          const count = document.getElementById('menuResultsCount');
+          if (count) count.textContent = 'Menu unavailable';
+        }
+      })();
+
+    })();
+  </script>
+</body>
+</html>

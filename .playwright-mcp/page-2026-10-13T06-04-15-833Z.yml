@@ -1,0 +1,90 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary:
+      - generic:
+        - generic:
+          - paragraph: ANGKOL'S GRILL & RESTOBAR
+          - strong: Operations POS
+        - button "Collapse navigation"
+      - navigation "Primary navigation":
+        - paragraph: WORKSPACE
+        - button "Dashboard"
+        - button "Point of Sale"
+        - button "Table Service"
+        - button "Waiter Queue"
+        - button "Kitchen Display"
+        - paragraph: CATALOG AND STOCK
+        - button "Product Registration"
+        - button "Bundles Monitoring"
+        - button "Inventory Stock"
+        - button "Quarantined Items"
+        - paragraph: BRANCH OPERATIONS
+        - button "Stock Transfers"
+        - button "Daily Spot Cash"
+        - button "Daily Expenses"
+        - paragraph: CUSTOMER ACCOUNTS
+        - button "Customers"
+        - button "Credit History"
+        - paragraph: ADMINISTRATION
+        - button "Staff Accounts"
+        - button "Admin Account"
+        - paragraph: REPORTING
+        - button "Sales History"
+        - button "Inventory Reports"
+        - button "Quarantine Report"
+      - generic:
+        - generic:
+          - button "ACTIVE LOCATION Main Branch Online":
+            - generic:
+              - generic: ACTIVE LOCATION
+              - strong: Main Branch
+            - generic: Online
+    - generic [ref=e3]:
+      - banner [ref=e4]:
+        - generic [ref=e5]:
+          - button "Open navigation" [ref=e6] [cursor=pointer]
+          - generic [ref=e7]:
+            - paragraph [ref=e8]: WORKSPACE
+            - heading "Point of Sale" [level=1] [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]:
+            - combobox "Active branch":
+              - option "Main Branch" [selected]
+            - button "Main Branch" [ref=e12] [cursor=pointer]
+          - button "Logout" [ref=e17] [cursor=pointer]
+      - main [ref=e18]:
+        - generic [ref=e19]:
+          - generic [ref=e26]:
+            - paragraph [ref=e27]: INVENTORY
+            - heading "Available Products" [level=2] [ref=e28]
+          - searchbox "Search product name, SKU, or category..." [ref=e31]
+          - generic [ref=e33]:
+            - generic [ref=e34]:
+              - generic [ref=e35]: Product
+              - generic [ref=e36]: Selling price
+              - generic [ref=e37]: Stock
+              - generic [ref=e38]: Action
+            - generic [ref=e39]:
+              - paragraph [ref=e40]: No products found
+              - generic [ref=e41]: Try adjusting your search query
+        - complementary [ref=e42]:
+          - generic [ref=e43]:
+            - generic [ref=e50]:
+              - paragraph [ref=e51]: CURRENT SALE
+              - heading "Sales Checkout" [level=2] [ref=e52]
+            - button "Clear" [ref=e53] [cursor=pointer]
+          - generic [ref=e58]:
+            - paragraph [ref=e63]: Cart is empty
+            - generic [ref=e64]: Select items from the catalog
+          - generic [ref=e65]:
+            - generic [ref=e66]:
+              - generic [ref=e67]: Total Amount
+              - strong [ref=e68]: PHP 0.00
+            - button "Complete Sale" [ref=e69] [cursor=pointer]
+  - generic "Loading session" [ref=e74]:
+    - img "Angkol's Grill & Restobar" [ref=e77]
+    - generic [ref=e78]:
+      - heading "ANGKOL'S GRILL & RESTOBAR" [level=2] [ref=e79]
+      - paragraph [ref=e80]: Sales and Inventory System
+    - paragraph [ref=e83]: Restoring secure session...
+  - status

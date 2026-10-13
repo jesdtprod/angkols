@@ -1,1 +1,914 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Angkol's Table QR</title><style>body{margin:0;background:#071326;color:#eef7ff;font-family:Arial,sans-serif}.card{width:360px;margin:32px auto;text-align:center;background:#0d1d35;border:2px solid #1687ff;border-radius:24px;padding:28px}.brand{color:#35c6ff;font-weight:800;letter-spacing:.08em}.qr{width:280px;height:280px;background:#fff;padding:12px;border-radius:14px;margin:18px auto}.qr img{width:100%;height:100%}h1{margin:10px 0;font-size:32px}p{color:#a9bcd3}button{border:0;border-radius:10px;background:#1687ff;color:#fff;padding:12px 20px;font-weight:bold;cursor:pointer}@media print{body{background:#fff;color:#071326}.card{margin:0;border-color:#071326}.brand{color:#071326}p{color:#334155}button{display:none}}</style></head><body><main class="card"><div class="brand">ANGKOL'S GRILL &amp; RESTOBAR</div><p>Scan to order from your table</p><h1 id="tableName">Dining Table</h1><div class="qr"><img id="qr" alt="Table ordering QR code"></div><p>Orders are confirmed by your waiter before preparation.</p><button onclick="print()">Print QR Card</button></main><script>const q=new URLSearchParams(location.search),table=q.get('table')||'',name=q.get('name')||'Dining Table',url=`${location.origin}${location.pathname.replace(/[^/]+$/,'')}table-order.html?table=${encodeURIComponent(table)}`;document.querySelector('#tableName').textContent=name;document.querySelector('#qr').src='https://api.qrserver.com/v1/create-qr-code/?size=560x560&data='+encodeURIComponent(url);</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Angkol's Table QR Stand Card</title>
+
+  <link rel="icon" type="image/x-icon" href="favicon.ico?v=2">
+  <link rel="shortcut icon" href="favicon.ico?v=2">
+  <link rel="icon" type="image/png" href="assets/angkols-logo.png?v=2">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=2">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="assets/html2canvas.min.js"></script>
+
+  <style>
+    :root {
+      --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --bg-base: #060e1a;
+      --bg-card: #0b1a30;
+      --bg-glass: rgba(13, 29, 53, 0.82);
+      --border-subtle: rgba(43, 84, 136, 0.4);
+      --border-active: rgba(38, 182, 255, 0.6);
+      --primary: #087df4;
+      --primary-gradient: linear-gradient(135deg, #087df4 0%, #00b4d8 100%);
+      --accent-cyan: #00d2ff;
+      --accent-gold: #f59e0b;
+      --success: #10b981;
+      --text-white: #ffffff;
+      --text-primary: #edf5ff;
+      --text-secondary: #9cb5d1;
+      --text-muted: #627d9f;
+      --shadow-card: 0 20px 50px -10px rgba(0, 0, 0, 0.7), 0 0 30px rgba(8, 125, 244, 0.15);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-xl: 28px;
+      --radius-full: 9999px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: radial-gradient(circle at 50% 15%, #0d274c 0%, #060e1a 65%, #03070f 100%);
+      background-attachment: fixed;
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Centralized Floating Toast (User Rule) */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+      width: calc(100% - 32px);
+      max-width: 400px;
+    }
+
+    .floating-toast {
+      pointer-events: auto;
+      background: rgba(9, 23, 44, 0.95);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(0, 210, 255, 0.4);
+      border-radius: var(--radius-md);
+      padding: 11px 15px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 600;
+      animation: toast-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      transition: opacity 0.25s, transform 0.25s;
+    }
+
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateY(-16px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .floating-toast.toast-leave {
+      opacity: 0;
+      transform: translateY(-12px) scale(0.92);
+    }
+
+    .floating-toast.toast-success {
+      border-color: rgba(16, 185, 129, 0.6);
+    }
+    .floating-toast.toast-success svg {
+      color: var(--success);
+    }
+
+    /* Stand Card Container - Balanced Vertical Proportions */
+    .qr-stand-card {
+      width: 100%;
+      max-width: 375px;
+      background: var(--bg-card);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1.5px solid var(--border-active);
+      border-radius: var(--radius-xl);
+      padding: 20px 22px;
+      text-align: center;
+      box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s ease;
+    }
+
+    .qr-stand-card::before {
+      content: '';
+      position: absolute;
+      top: -70px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 200px;
+      height: 150px;
+      background: radial-gradient(circle, rgba(0, 210, 255, 0.2) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* Brand Header */
+    .stand-brand-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 12px;
+      position: relative;
+    }
+
+    .stand-logo-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, rgba(8, 125, 244, 0.25), rgba(0, 210, 255, 0.15));
+      border: 1px solid rgba(0, 210, 255, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 16px rgba(0, 210, 255, 0.25);
+      overflow: hidden;
+      margin-bottom: 1px;
+    }
+
+    .stand-logo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .stand-brand-name {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent-cyan);
+      line-height: 1.2;
+    }
+
+    .stand-kicker-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(8, 125, 244, 0.15);
+      border: 1px solid rgba(8, 125, 244, 0.35);
+      color: var(--text-secondary);
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 2.5px 9px;
+      border-radius: var(--radius-full);
+      line-height: 1.2;
+    }
+
+    /* Table Heading */
+    .table-display-group {
+      margin-bottom: 12px;
+    }
+
+    .table-main-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text-white);
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+
+    .table-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 3px;
+      font-weight: 500;
+      line-height: 1.3;
+    }
+
+    /* QR Code Display Frame - Elevated Scanner Viewfinder */
+    .qr-target-frame {
+      position: relative;
+      background: linear-gradient(165deg, rgba(13, 27, 54, 0.92) 0%, rgba(7, 16, 34, 0.98) 100%);
+      border: 1.5px solid rgba(56, 189, 248, 0.35);
+      border-radius: 22px;
+      padding: 12px 12px 10px;
+      width: 226px;
+      margin: 0 auto 12px;
+      box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.8), 0 0 24px rgba(0, 102, 245, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: all 0.3s ease;
+    }
+
+
+    /* Inner Crisp White QR Card Plate */
+    .qr-card-plate {
+      position: relative;
+      background: #ffffff;
+      border-radius: 15px;
+      padding: 10px;
+      width: 202px;
+      height: 202px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .qr-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 4px;
+      display: block;
+    }
+
+    /* Branded Center Emblem */
+    .qr-center-emblem {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 2px solid #0066f5;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5px;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .qr-center-logo {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 50%;
+    }
+
+    /* Scanner Prompt Pill */
+    .qr-scan-prompt {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      margin-top: 8px;
+      color: #38bdf8;
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      opacity: 0.95;
+    }
+
+    .qr-scan-prompt svg {
+      width: 12px;
+      height: 12px;
+      flex-shrink: 0;
+      color: #38bdf8;
+    }
+
+    /* Skeleton Loading Placeholder (User Rule) */
+    @keyframes skeleton-shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    .qr-skeleton {
+      position: absolute;
+      inset: 10px;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%);
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.5s infinite linear;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 600;
+      gap: 5px;
+      z-index: 2;
+    }
+    .qr-skeleton svg {
+      width: 24px;
+      height: 24px;
+      opacity: 0.6;
+    }
+
+    /* Instruction Steps */
+    .stand-instructions {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 10px;
+      background: rgba(6, 14, 26, 0.65);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 9px 12px;
+      text-align: left;
+    }
+
+    .instruction-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      line-height: 1.3;
+    }
+
+    .inst-num {
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: rgba(8, 125, 244, 0.25);
+      color: var(--accent-cyan);
+      font-size: 9.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .inst-text strong {
+      color: var(--text-white);
+    }
+
+    .stand-footer-notice {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
+    /* Action Toolbar (Screen only) */
+    .screen-actions-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      max-width: 375px;
+      margin-top: 10px;
+    }
+
+    .btn-action-primary {
+      background: var(--primary-gradient);
+      color: #ffffff;
+      padding: 11px 18px;
+      border: none;
+      border-radius: var(--radius-md);
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: none;
+      transition: background 0.2s ease, opacity 0.2s ease;
+    }
+    .btn-action-primary:hover {
+      background: linear-gradient(135deg, #0ba0ff 0%, #00c6f5 100%);
+      box-shadow: none;
+      transform: none;
+    }
+    .btn-action-primary:active {
+      opacity: 0.92;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .secondary-action-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+    }
+
+    .btn-action-secondary {
+      background: rgba(13, 29, 53, 0.85);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 8px 6px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+    .btn-action-secondary:hover {
+      background: rgba(22, 45, 78, 0.9);
+      color: var(--text-white);
+      border-color: var(--accent-cyan);
+    }
+    .btn-action-secondary svg {
+      width: 15px;
+      height: 15px;
+      color: var(--accent-cyan);
+    }
+    .btn-action-secondary:disabled {
+      opacity: 0.72;
+      cursor: wait;
+      pointer-events: none;
+    }
+    .btn-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      border-top-color: var(--accent-cyan);
+      border-radius: 50%;
+      animation: btn-spinner-rotate 0.65s linear infinite;
+    }
+    @keyframes btn-spinner-rotate {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ==========================================================================
+       Print Optimization Styles (@media print)
+       ========================================================================== */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #071326 !important;
+        padding: 0 !important;
+        min-height: auto !important;
+        display: block !important;
+      }
+
+      .toast-container,
+      .screen-actions-bar {
+        display: none !important;
+      }
+
+      .qr-stand-card {
+        max-width: 100% !important;
+        width: 380px !important;
+        margin: 20px auto !important;
+        background: #ffffff !important;
+        border: 2px solid #0f2747 !important;
+        border-radius: 20px !important;
+        box-shadow: none !important;
+        padding: 24px 20px !important;
+        page-break-inside: avoid !important;
+        color: #071326 !important;
+      }
+
+      .qr-stand-card::before {
+        display: none !important;
+      }
+
+      .stand-logo-badge {
+        background: #f1f5f9 !important;
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: none !important;
+      }
+
+      .stand-brand-name {
+        color: #071326 !important;
+      }
+
+      .stand-kicker-pill {
+        background: #f1f5f9 !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #475569 !important;
+      }
+
+      .table-main-title {
+        color: #071326 !important;
+      }
+
+      .table-subtitle {
+        color: #475569 !important;
+      }
+
+      .qr-target-frame {
+        border: 2px solid #0f2747 !important;
+        background: #ffffff !important;
+        box-shadow: none !important;
+        width: 220px !important;
+        padding: 8px 8px 6px !important;
+        margin-bottom: 12px !important;
+        border-radius: 16px !important;
+      }
+
+
+      .qr-card-plate {
+        width: 196px !important;
+        height: 196px !important;
+        box-shadow: none !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 10px !important;
+        padding: 6px !important;
+      }
+
+      .qr-center-emblem {
+        border-color: #0f2747 !important;
+        box-shadow: none !important;
+      }
+
+      .qr-scan-prompt {
+        color: #071326 !important;
+      }
+
+      .qr-scan-prompt svg {
+        color: #071326 !important;
+      }
+
+      .stand-instructions {
+        background: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #334155 !important;
+        margin-bottom: 10px !important;
+        padding: 9px 12px !important;
+      }
+
+      .instruction-row {
+        color: #334155 !important;
+      }
+
+      .inst-num {
+        background: #0f2747 !important;
+        color: #ffffff !important;
+      }
+
+      .inst-text strong {
+        color: #071326 !important;
+      }
+
+      .stand-footer-notice {
+        color: #64748b !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Centralized Floating Toast (User Rule) -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- Main Table QR Stand Card -->
+  <main class="qr-stand-card" id="qrStandCard">
+    <!-- Brand Header -->
+    <header class="stand-brand-header">
+      <div class="stand-logo-badge">
+        <img src="assets/angkols-logo.png" alt="Angkol's Logo" class="stand-logo-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none; width: 26px; height: 26px; color: #087df4;">
+          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+        </svg>
+      </div>
+      <span class="stand-brand-name">Angkol's Grill &amp; Restobar</span>
+      <span class="stand-kicker-pill">Table Service &bull; Self-Ordering</span>
+    </header>
+
+    <!-- Table Identifier -->
+    <div class="table-display-group">
+      <h1 class="table-main-title" id="tableName">Table 2</h1>
+      <p class="table-subtitle">Scan to order food &amp; drinks from your seat</p>
+    </div>
+
+    <!-- QR Target Frame with Viewfinder HUD -->
+    <div class="qr-target-frame">
+
+      <!-- Inner Crisp White Card Plate -->
+      <div class="qr-card-plate">
+        <!-- Skeleton Loading Pulse (User Rule) -->
+        <div class="qr-skeleton" id="qrSkeleton">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h.01M7 17h.01M17 7h.01M17 17h.01"/>
+          </svg>
+          <span>Generating QR…</span>
+        </div>
+
+        <img id="qr" class="qr-image" alt="Dining Table Order QR Code" style="display: none;">
+
+        <!-- Branded Center Emblem Badge -->
+        <div class="qr-center-emblem" id="qrCenterEmblem" style="display: none;">
+          <img src="assets/angkols-logo.png" alt="Angkol's" class="qr-center-logo">
+        </div>
+      </div>
+
+      <!-- Scanner Status Guide -->
+      <div class="qr-scan-prompt">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        <span>Point Camera to Scan</span>
+      </div>
+    </div>
+
+    <!-- Instruction Steps -->
+    <div class="stand-instructions">
+      <div class="instruction-row">
+        <span class="inst-num">1</span>
+        <span class="inst-text"><strong>Scan QR code</strong> with your phone camera</span>
+      </div>
+      <div class="instruction-row">
+        <span class="inst-num">2</span>
+        <span class="inst-text"><strong>Browse menu</strong> &amp; customize dishes</span>
+      </div>
+      <div class="instruction-row">
+        <span class="inst-num">3</span>
+        <span class="inst-text"><strong>Send request</strong> &bull; waiter activates ticket</span>
+      </div>
+    </div>
+
+    <p class="stand-footer-notice">
+      Orders are confirmed by your table server before kitchen cooking starts.
+    </p>
+  </main>
+
+  <!-- Screen Actions Toolbar (Hidden on Print) -->
+  <section class="screen-actions-bar">
+    <button type="button" class="btn-action-primary" id="btnPrintCard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;">
+        <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>
+      </svg>
+      <span>Print Stand Card</span>
+    </button>
+
+    <div class="secondary-action-row">
+      <button type="button" class="btn-action-secondary" id="btnCopyLink">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+        </svg>
+        <span>Copy Link</span>
+      </button>
+
+      <button type="button" class="btn-action-secondary" id="btnDownloadQr">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span>Save QR</span>
+      </button>
+
+      <button type="button" class="btn-action-secondary" id="btnTestOrder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+        <span>Open Menu</span>
+      </button>
+    </div>
+  </section>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // 1. URL Parameter Parsing
+      const q = new URLSearchParams(window.location.search);
+      const tableToken = q.get('table') || '';
+      const tableName = q.get('name') || 'Dining Table';
+
+      const tableNameEl = document.getElementById('tableName');
+      if (tableNameEl) {
+        tableNameEl.textContent = tableName;
+        document.title = `${tableName} — Angkol's Table QR Stand`;
+      }
+
+      // Generate Target Customer Order URL
+      const orderUrl = `${location.origin}${location.pathname.replace(/[^/]+$/, '')}table-order.html?table=${encodeURIComponent(tableToken)}`;
+
+      // 2. High-Resolution QR Generation with High Error Correction
+      const qrImg = document.getElementById('qr');
+      const qrSkeleton = document.getElementById('qrSkeleton');
+      const qrCenterEmblem = document.getElementById('qrCenterEmblem');
+      const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&ecc=H&margin=4&data=${encodeURIComponent(orderUrl)}`;
+
+      if (qrImg) {
+        // Pre-fetch QR as Blob -> Data URL so canvas capture never faces CORS or tainting
+        (async function initQrCode() {
+          try {
+            const resp = await fetch(qrApiUrl);
+            const blob = await resp.blob();
+            const reader = new FileReader();
+            reader.onloadend = function () {
+              qrImg.onload = function () {
+                if (qrSkeleton) qrSkeleton.style.display = 'none';
+                qrImg.style.display = 'block';
+                if (qrCenterEmblem) qrCenterEmblem.style.display = 'flex';
+              };
+              qrImg.src = reader.result;
+            };
+            reader.readAsDataURL(blob);
+          } catch (_) {
+            qrImg.crossOrigin = 'anonymous';
+            qrImg.onload = function () {
+              if (qrSkeleton) qrSkeleton.style.display = 'none';
+              qrImg.style.display = 'block';
+              if (qrCenterEmblem) qrCenterEmblem.style.display = 'flex';
+            };
+            qrImg.onerror = function () {
+              if (qrSkeleton) qrSkeleton.innerHTML = '<span>Failed to load QR</span>';
+              if (qrCenterEmblem) qrCenterEmblem.style.display = 'none';
+            };
+            qrImg.src = qrApiUrl;
+          }
+        })();
+      }
+
+      // 3. Centralized Floating Toast Notification (User Rule)
+      function showToast(message, type = 'success', duration = 3000) {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.className = `floating-toast toast-${type}`;
+
+        const iconSvg = type === 'success'
+          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:18px;height:18px;"><polyline points="20 6 9 17 4 12"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+
+        toast.innerHTML = `
+          ${iconSvg}
+          <span>${String(message).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]))}</span>
+        `;
+
+        const dismiss = () => {
+          toast.classList.add('toast-leave');
+          setTimeout(() => toast.remove(), 250);
+        };
+
+        setTimeout(dismiss, duration);
+        container.appendChild(toast);
+      }
+
+      // Helper to guarantee html2canvas availability
+      async function ensureHtml2Canvas() {
+        if (window.html2canvas) return window.html2canvas;
+        return new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'assets/html2canvas.min.js';
+          s.onload = () => resolve(window.html2canvas);
+          s.onerror = () => {
+            const s2 = document.createElement('script');
+            s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+            s2.onload = () => resolve(window.html2canvas);
+            s2.onerror = () => reject(new Error('Unable to load html2canvas library'));
+            document.head.appendChild(s2);
+          };
+          document.head.appendChild(s);
+        });
+      }
+
+      // 4. Action Handlers
+      const btnPrint = document.getElementById('btnPrintCard');
+      if (btnPrint) {
+        btnPrint.onclick = () => window.print();
+      }
+
+      const btnCopy = document.getElementById('btnCopyLink');
+      if (btnCopy) {
+        btnCopy.onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(orderUrl);
+            showToast(`Order link copied for ${tableName}!`, 'success');
+          } catch {
+            window.prompt('Copy table order URL:', orderUrl);
+          }
+        };
+      }
+
+      const btnDownload = document.getElementById('btnDownloadQr');
+      if (btnDownload) {
+        btnDownload.onclick = async () => {
+          const cardEl = document.getElementById('qrStandCard');
+          if (!cardEl) return;
+
+          if (qrSkeleton && qrSkeleton.style.display !== 'none') {
+            showToast('Please wait for the QR code to finish generating.', 'info');
+            return;
+          }
+
+          const originalHtml = btnDownload.innerHTML;
+          btnDownload.disabled = true;
+          btnDownload.innerHTML = `
+            <span class="btn-spinner"></span>
+            <span>Saving...</span>
+          `;
+
+          try {
+            const html2canvasLib = await ensureHtml2Canvas();
+            if (!html2canvasLib) throw new Error('Export engine unavailable.');
+
+            if (document.fonts && document.fonts.ready) {
+              await document.fonts.ready;
+            }
+
+            // High-resolution capture of the entire stand card panel (scale 3 = ultra-sharp HD)
+            const canvas = await html2canvasLib(cardEl, {
+              scale: 3,
+              useCORS: true,
+              allowTaint: true,
+              backgroundColor: null,
+              logging: false,
+              imageTimeout: 8000,
+              onclone: (clonedDoc) => {
+                const clonedCard = clonedDoc.getElementById('qrStandCard');
+                if (clonedCard) {
+                  clonedCard.style.transform = 'none';
+                  clonedCard.style.boxShadow = 'none';
+                  clonedCard.style.margin = '0 auto';
+                  clonedCard.style.background = 'linear-gradient(180deg, #0e203c 0%, #071324 100%)';
+                }
+              }
+            });
+
+            const cleanName = (tableName || 'Table').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+            const filename = `${cleanName}_QR_Card.png`;
+
+            const triggerDataUrlDownload = (dataUrl) => {
+              const a = document.createElement('a');
+              a.href = dataUrl;
+              a.download = filename;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+            };
+
+            if (canvas.toBlob) {
+              canvas.toBlob((blob) => {
+                if (!blob) {
+                  triggerDataUrlDownload(canvas.toDataURL('image/png'));
+                } else {
+                  const blobUrl = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = blobUrl;
+                  a.download = filename;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+                }
+                showToast(`Downloaded ${tableName} stand card image!`, 'success');
+              }, 'image/png');
+            } else {
+              triggerDataUrlDownload(canvas.toDataURL('image/png'));
+              showToast(`Downloaded ${tableName} stand card image!`, 'success');
+            }
+          } catch (error) {
+            console.error('Failed to save stand card as image:', error);
+            showToast('Unable to save panel image: ' + (error.message || 'Error'), 'error');
+          } finally {
+            btnDownload.disabled = false;
+            btnDownload.innerHTML = originalHtml;
+          }
+        };
+      }
+
+      const btnTest = document.getElementById('btnTestOrder');
+      if (btnTest) {
+        btnTest.onclick = () => {
+          window.open(orderUrl, '_blank', 'noopener');
+        };
+      }
+
+    })();
+  </script>
+</body>
+</html>

@@ -18,9 +18,9 @@
     "semantic_hash": "85060dd50c382cc8aa0c77b96f7f5760"
   },
   "app.js": {
-    "mtime": 1791832388.915234,
-    "seen": 1791832410.550075,
-    "ast_hash": "92c7c717fef59123892adf75c516e104",
+    "mtime": 1791873132.711406,
+    "seen": 1791873662.9129877,
+    "ast_hash": "05ebf6b8132cd9d4da714fcddc2bf594",
     "semantic_hash": ""
   },
   "deno.json": {
@@ -36,9 +36,9 @@
     "semantic_hash": ""
   },
   "service-worker.js": {
-    "mtime": 1791790838.4548824,
-    "seen": 1791790870.8142123,
-    "ast_hash": "13da8d1f6fda78ef4bdab816ffa2d099",
+    "mtime": 1791871352.5996976,
+    "seen": 1791871368.8888545,
+    "ast_hash": "7e51e491a4bddbd5a2a20e76cdecd9f7",
     "semantic_hash": ""
   },
   "supabase-config.js": {
@@ -126,9 +126,9 @@
     "semantic_hash": ""
   },
   "index.html": {
-    "mtime": 1791831735.6245136,
-    "seen": 1791832121.229826,
-    "ast_hash": "1d99d86a5c6a138244c480c66ef5936b",
+    "mtime": 1791871644.2086267,
+    "seen": 1791871654.6999307,
+    "ast_hash": "1f633fa8d063e209b1e7438ff268df39",
     "semantic_hash": ""
   },
   "report.html": {
@@ -162,15 +162,33 @@
     "semantic_hash": ""
   },
   "supabase/functions/manage-account/index.ts": {
-    "mtime": 1791790821.2256281,
-    "seen": 1791790870.8142123,
-    "ast_hash": "afd7ea4c5f649410bf4d274d8532aa33",
+    "mtime": 1791867105.7994783,
+    "seen": 1791867135.3975017,
+    "ast_hash": "446e57476072680120ada915ee677206",
     "semantic_hash": ""
   },
   "table-order.html": {
-    "mtime": 1791832056.2701492,
-    "seen": 1791832121.229826,
-    "ast_hash": "c9f24c8a8aa63c07f56279c55959e5e6",
+    "mtime": 1791872311.1576743,
+    "seen": 1791872321.9121158,
+    "ast_hash": "e6ca63b688b3c4235cc9417dc2373898",
+    "semantic_hash": ""
+  },
+  "table-qr-card.html": {
+    "mtime": 1791872627.383465,
+    "seen": 1791872657.1158986,
+    "ast_hash": "3c15af8b06cb3568193a22897665bfb9",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-10-13T06-04-15-833Z.yml": {
+    "mtime": 1791871455.8465314,
+    "seen": 1791871518.0216937,
+    "ast_hash": "c0ae47b32ce9090dc458c65d9d41109b",
+    "semantic_hash": ""
+  },
+  "product-kitchen-restored.png": {
+    "mtime": 1791871503.9330611,
+    "seen": 1791871518.0246892,
+    "ast_hash": "cf32e21bed40867a1167faf73422363f",
     "semantic_hash": ""
   }
 }
