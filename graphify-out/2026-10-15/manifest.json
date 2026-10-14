@@ -1,0 +1,200 @@
+{
+  ".codex/hooks.json": {
+    "mtime": 1790559372.0789456,
+    "seen": 1790560080.8434715,
+    "ast_hash": "5ebef3dd159986e465ab65e4014107ec",
+    "semantic_hash": "5ebef3dd159986e465ab65e4014107ec"
+  },
+  ".vscode/extensions.json": {
+    "mtime": 1789665310.3972666,
+    "seen": 1790559026.2461517,
+    "ast_hash": "4ae972c7f82bc588281dd2ada293ea8f",
+    "semantic_hash": "4ae972c7f82bc588281dd2ada293ea8f"
+  },
+  ".vscode/settings.json": {
+    "mtime": 1789665310.4022808,
+    "seen": 1790559026.2461517,
+    "ast_hash": "85060dd50c382cc8aa0c77b96f7f5760",
+    "semantic_hash": "85060dd50c382cc8aa0c77b96f7f5760"
+  },
+  "app.js": {
+    "mtime": 1792009913.9694927,
+    "seen": 1792009926.4429457,
+    "ast_hash": "84a91156b83c7534a2ab3d85c6bcd3ce",
+    "semantic_hash": ""
+  },
+  "deno.json": {
+    "mtime": 1789665310.3932662,
+    "seen": 1790559026.2461517,
+    "ast_hash": "95a618367181f1e65ad002d51664c8b6",
+    "semantic_hash": "95a618367181f1e65ad002d51664c8b6"
+  },
+  "scripts/check-pos.mjs": {
+    "mtime": 1790861368.523795,
+    "seen": 1790861842.280065,
+    "ast_hash": "fb0ae6739436ffbcf8cfa8cd99cd9fb7",
+    "semantic_hash": ""
+  },
+  "service-worker.js": {
+    "mtime": 1791871352.5996976,
+    "seen": 1791871368.8888545,
+    "ast_hash": "7e51e491a4bddbd5a2a20e76cdecd9f7",
+    "semantic_hash": ""
+  },
+  "supabase-config.js": {
+    "mtime": 1791788487.3038979,
+    "seen": 1791788512.9180915,
+    "ast_hash": "bf46ccda3be6334c27fcc9569df26689",
+    "semantic_hash": ""
+  },
+  "AGENTS.md": {
+    "mtime": 1790558972.7566273,
+    "seen": 1790560080.8434715,
+    "ast_hash": "21ceb6533048be51308e69e7b74a35cf",
+    "semantic_hash": "21ceb6533048be51308e69e7b74a35cf"
+  },
+  "README.md": {
+    "mtime": 1791787219.6925142,
+    "seen": 1791787406.4952803,
+    "ast_hash": "ed50a81cae91426d1f4080484463f075",
+    "semantic_hash": ""
+  },
+  "TASKS.md": {
+    "mtime": 1791787219.7090392,
+    "seen": 1791787406.4952803,
+    "ast_hash": "a58cf0ff6f5ec856e86da5721b55368c",
+    "semantic_hash": ""
+  },
+  "docs/OPERATIONS.md": {
+    "mtime": 1791787219.7162063,
+    "seen": 1791787406.4952803,
+    "ast_hash": "83e236d1898a3ea14db001662a9b190d",
+    "semantic_hash": ""
+  },
+  ".codex/skills/graphify/SKILL.md": {
+    "mtime": 1790559423.3646033,
+    "seen": 1790560426.4235773,
+    "ast_hash": "0f57b61141afe7b743273aec47c49dcc",
+    "semantic_hash": ""
+  },
+  ".codex/skills/graphify/references/add-watch.md": {
+    "mtime": 1790558873.2847743,
+    "seen": 1790560426.4235773,
+    "ast_hash": "c1f65eb4102ad515149303c7f296b718",
+    "semantic_hash": ""
+  },
+  ".codex/skills/graphify/references/exports.md": {
+    "mtime": 1790558873.2852893,
+    "seen": 1790560426.4235773,
+    "ast_hash": "9da2a2152e60a22f07f05fed5158f287",
+    "semantic_hash": ""
+  },
+  ".codex/skills/graphify/references/extraction-spec.md": {
+    "mtime": 1790558873.2863138,
+    "seen": 1790560426.4235773,
+    "ast_hash": "bf895ec4d4e40f5f66f7d31c2a9bd4a7",
+    "semantic_hash": ""
+  },
+  ".codex/skills/graphify/references/github-and-merge.md": {
+    "mtime": 1790558873.2863138,
+    "seen": 1790560426.4235773,
+    "ast_hash": "cde13df085e4c492aeb7ba298a996d0d",
+    "semantic_hash": ""
+  },
+  ".codex/skills/graphify/references/hooks.md": {
+    "mtime": 1790558873.2873125,
+    "seen": 1790560426.4235773,
+    "ast_hash": "3f545db6ce646650bb9de588f5512a27",
+    "semantic_hash": ""
+  },
+  ".codex/skills/graphify/references/query.md": {
+    "mtime": 1790558873.288315,
+    "seen": 1790560426.4235773,
+    "ast_hash": "3c46f8ad006874260614ed8657d02307",
+    "semantic_hash": ""
+  },
+  ".codex/skills/graphify/references/transcribe.md": {
+    "mtime": 1790558873.2893074,
+    "seen": 1790560426.4235773,
+    "ast_hash": "67b6a5fa6c0974e18f60db9f8932fbd8",
+    "semantic_hash": ""
+  },
+  ".codex/skills/graphify/references/update.md": {
+    "mtime": 1790558873.290315,
+    "seen": 1790560426.4235773,
+    "ast_hash": "9378bd03d56baaf78bd738ab3848f142",
+    "semantic_hash": ""
+  },
+  "index.html": {
+    "mtime": 1792008335.229558,
+    "seen": 1792008360.9406068,
+    "ast_hash": "cbb941fc48a3471f1c2483725a99a15f",
+    "semantic_hash": ""
+  },
+  "report.html": {
+    "mtime": 1791790675.5535207,
+    "seen": 1791790719.0365462,
+    "ast_hash": "30bfdaa0f61f73e0e1da73813d3be89a",
+    "semantic_hash": ""
+  },
+  "favicon.svg": {
+    "mtime": 1791790546.7404294,
+    "seen": 1791790719.0375464,
+    "ast_hash": "22cada24a5fe162526a23689dc818085",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/specs/2026-09-29-daily-spot-cash-design.md": {
+    "mtime": 1790684564.2027073,
+    "seen": 1790684614.8318968,
+    "ast_hash": "018617f1270f471e0d9743bdc7d7c87e",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/plans/2026-09-29-daily-spot-cash.md": {
+    "mtime": 1790684784.9133642,
+    "seen": 1790684796.4465935,
+    "ast_hash": "b1cc487d6c5859bb8843c1fde3983b4e",
+    "semantic_hash": ""
+  },
+  "assets/angkols-logo.png": {
+    "mtime": 1791786459.3520808,
+    "seen": 1791787406.4952803,
+    "ast_hash": "a6394dd77ed2c2516764ca0839b60bc6",
+    "semantic_hash": ""
+  },
+  "supabase/functions/manage-account/index.ts": {
+    "mtime": 1791867105.7994783,
+    "seen": 1791867135.3975017,
+    "ast_hash": "446e57476072680120ada915ee677206",
+    "semantic_hash": ""
+  },
+  "table-order.html": {
+    "mtime": 1792008611.5604088,
+    "seen": 1792008632.1426926,
+    "ast_hash": "19c69cce894d3a7b53e20449bb62b059",
+    "semantic_hash": ""
+  },
+  "table-qr-card.html": {
+    "mtime": 1791874317.9754448,
+    "seen": 1791874341.2391634,
+    "ast_hash": "f59c086de830655dc966805484950d87",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-10-13T06-04-15-833Z.yml": {
+    "mtime": 1791871455.8465314,
+    "seen": 1791871518.0216937,
+    "ast_hash": "c0ae47b32ce9090dc458c65d9d41109b",
+    "semantic_hash": ""
+  },
+  "product-kitchen-restored.png": {
+    "mtime": 1791871503.9330611,
+    "seen": 1791871518.0246892,
+    "ast_hash": "cf32e21bed40867a1167faf73422363f",
+    "semantic_hash": ""
+  },
+  "assets/html2canvas.min.js": {
+    "mtime": 1791873894.7631986,
+    "seen": 1791874199.6582785,
+    "ast_hash": "d7530aa0b7587e627484c49fdf8f13f2",
+    "semantic_hash": ""
+  }
+}

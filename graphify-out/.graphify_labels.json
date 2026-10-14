@@ -1,7 +1,7 @@
 {
   "0": "app.js",
-  "1": "renderBranchSelector",
-  "2": "initCustomDatePickers",
+  "1": "setView",
+  "2": "initCustomDropdowns",
   "3": "renderCart",
   "4": "showToast",
   "5": "FR Merchandise POS",
@@ -25,9 +25,9 @@
   "23": "graphify reference: GitHub clone and cross-repo merge",
   "24": "graphify reference: transcribe video and audio",
   "25": "extraction-spec.md",
-  "26": "setView",
+  "26": "renderBranchSelector",
   "27": "wA",
-  "28": "initCustomDropdowns",
+  "28": "renderInventoryReports",
   "29": "te",
   "30": "gs",
   "31": "UA",
@@ -36,5 +36,7 @@
   "34": "Be",
   "35": "dA",
   "36": "Kr",
-  "37": "Lr"
+  "37": "Lr",
+  "38": "ref_node_child_process",
+  "39": "openReportInNewPage_"
 }

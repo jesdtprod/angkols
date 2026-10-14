@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" href="assets/angkols-logo.png?v=2">
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=2">
   
-  <link rel="stylesheet" href="table-order.css?v=4">
+  <link rel="stylesheet" href="table-order.css?v=14">
   
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="supabase-config.js"></script>
@@ -78,6 +78,8 @@
             <strong>Table Tab Not Open Yet:</strong> Please notify your server or waiter to open the tab for this table in the POS before sending mobile orders.
           </div>
         </div>
+        <div id="currentTableOrder" class="recent-orders" aria-live="polite" hidden></div>
+        <div id="recentOrders" class="recent-orders" aria-live="polite" hidden></div>
       </div>
     </section>
 
@@ -342,6 +344,32 @@
       let searchQuery = '';
       let isSubmitting = false;
       let realtimeSubscription = null;
+      let orderStatusPollTimer = null;
+      const seenOrderNotices = new Set();
+      const tableMenuCacheKey = token ? `angkols-table-menu:${token}` : '';
+
+      const pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+      async function loadTableMenu_() {
+        let lastError;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            const { data, error } = await client.rpc('public_table_menu', { token_input: token });
+            if (error) throw error;
+            if (!data) throw new Error('The table menu is unavailable.');
+            try { if (tableMenuCacheKey) sessionStorage.setItem(tableMenuCacheKey, JSON.stringify(data)); } catch (_) {}
+            return data;
+          } catch (error) {
+            lastError = error;
+            if (attempt < 2) await pause(800 * (attempt + 1));
+          }
+        }
+        throw lastError;
+      }
+
+      function getCachedTableMenu_() {
+        try { return tableMenuCacheKey ? JSON.parse(sessionStorage.getItem(tableMenuCacheKey) || 'null') : null; } catch (_) { return null; }
+      }
 
       // 3. Helper Functions
       const peso = (val) => 'PHP ' + Number(val || 0).toLocaleString('en-PH', {
@@ -452,6 +480,287 @@
         syncSubmitButtonState();
       }
 
+      function getOrderStatusMeta(status, ticketStatus) {
+        const s = String(ticketStatus || status || '').trim().toLowerCase();
+        if (s === 'cancelled' || status === 'Cancelled') {
+          return {
+            slug: 'cancelled',
+            label: 'Cancelled',
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+          };
+        }
+        if (s === 'preparing' || s === 'cooking') {
+          return {
+            slug: 'cooking',
+            label: 'Cooking in Kitchen',
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>'
+          };
+        }
+        if (s === 'ready') {
+          return {
+            slug: 'ready',
+            label: 'Ready to Serve',
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'
+          };
+        }
+        if (s === 'served') {
+          return {
+            slug: 'served',
+            label: 'Served to Table',
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 12 5 5L20 7"/></svg>'
+          };
+        }
+        if (s === 'partially served') {
+          return {
+            slug: 'partially-served',
+            label: 'Partially Served',
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 12 4 4L19 6"/><path d="M5 5h7"/></svg>'
+          };
+        }
+        if (s === 'confirmed' || s === 'new') {
+          return {
+            slug: 'confirmed',
+            label: 'Confirmed by Waiter',
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
+          };
+        }
+        if (s === 'claimed') {
+          return {
+            slug: 'claimed',
+            label: 'Accepted by Waiter',
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+          };
+        }
+        return {
+          slug: 'pending',
+          label: 'Waiting for Waiter',
+          icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+        };
+      }
+
+      function renderRecentOrders(orders, staffAddedOrder) {
+        const container = document.getElementById('recentOrders');
+        if (!container) return;
+        if (!orders?.length && !staffAddedOrder?.items?.length) {
+          container.innerHTML = '';
+          container.hidden = true;
+          return;
+        }
+        container.hidden = false;
+
+        // Sort: Active / running orders first, cancelled / served orders last
+        const sortedOrders = [...orders].sort((a, b) => {
+          const aStatus = String(a.ticketStatus || a.status || '').toLowerCase();
+          const bStatus = String(b.ticketStatus || b.status || '').toLowerCase();
+          const aInactive = (aStatus === 'cancelled' || aStatus === 'served') ? 1 : 0;
+          const bInactive = (bStatus === 'cancelled' || bStatus === 'served') ? 1 : 0;
+          if (aInactive !== bInactive) return aInactive - bInactive;
+          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        });
+
+        const activeCount = orders.filter((o) => {
+          const s = String(o.ticketStatus || o.status || '').toLowerCase();
+          return s !== 'cancelled' && s !== 'served';
+        }).length;
+
+        // Calculate the QR-request total plus staff/POS additions exactly once.
+        let grandTotal = 0;
+        orders.forEach((order) => {
+          const statusMeta = getOrderStatusMeta(order.status, order.ticketStatus);
+          if (statusMeta.slug === 'cancelled') return;
+          (order.items || []).forEach((item) => {
+            const prod = menuItems.find((p) => (item.productId && p.id === item.productId) || (p.name && item.name && p.name.trim().toLowerCase() === item.name.trim().toLowerCase()));
+            const unitPrice = Number(item.price != null && !isNaN(item.price) ? item.price : (prod?.price || 0));
+            grandTotal += unitPrice * Number(item.qty || 1);
+          });
+        });
+        const staffAddedTotal = (staffAddedOrder?.items || []).reduce((sum, item) => sum + Number(item.total || 0), 0);
+        grandTotal += staffAddedTotal;
+
+        container.innerHTML = `
+          <div class="recent-orders-heading">
+            <div class="recent-orders-title-wrap">
+              <span class="live-status-dot ${activeCount > 0 ? 'is-active' : 'is-idle'}"></span>
+              <strong class="recent-orders-title">Your Table Orders</strong>
+              ${activeCount > 0 ? `
+                <span class="recent-orders-count-badge is-active" title="${activeCount} active running order${activeCount === 1 ? '' : 's'}">${activeCount} active</span>
+              ` : `
+                <span class="recent-orders-count-badge is-idle">${orders.length}</span>
+              `}
+            </div>
+            <div class="recent-orders-meta-wrap">
+              <span class="recent-orders-subtext">Live order updates</span>
+              <div class="recent-orders-grand-total-pill" title="Total amount of all QR and staff-added table items">
+                <span class="grand-total-pill-label">Total:</span>
+                <strong class="grand-total-pill-amount">${pesoShort(grandTotal)}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="recent-orders-grid">
+            ${sortedOrders.map((order) => {
+              const statusMeta = getOrderStatusMeta(order.status, order.ticketStatus);
+              const isCancelled = statusMeta.slug === 'cancelled';
+              const totalPcs = (order.items || []).reduce((sum, i) => sum + Number(i.qty || 0), 0);
+              const refId = escapeHtml(String(order.requestId || order.ticketId || '').slice(-8).toUpperCase());
+
+              let orderSubtotal = 0;
+              const enrichedItems = (order.items || []).map((item) => {
+                const prod = menuItems.find((p) => (item.productId && p.id === item.productId) || (p.name && item.name && p.name.trim().toLowerCase() === item.name.trim().toLowerCase()));
+                const unitPrice = Number(item.price != null && !isNaN(item.price) ? item.price : (prod?.price || 0));
+                const qty = Number(item.qty || 1);
+                const lineTotal = unitPrice * qty;
+                orderSubtotal += lineTotal;
+                return {
+                  ...item,
+                  unitPrice,
+                  lineTotal
+                };
+              });
+
+              return `
+                <article class="recent-order-card status-${statusMeta.slug}">
+                  <div class="recent-order-card-header">
+                    <span class="recent-order-status-badge status-${statusMeta.slug}">
+                      ${statusMeta.icon}
+                      <span>${statusMeta.label}</span>
+                    </span>
+                    <span class="recent-order-ref">#${refId}</span>
+                  </div>
+
+                  ${order.customerNotice ? `
+                    <div class="recent-order-notice-box ${isCancelled ? 'is-cancelled-notice' : 'is-active-notice'}">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      <span>${escapeHtml(order.customerNotice)}</span>
+                    </div>
+                  ` : ''}
+
+                  <div class="recent-order-items-box">
+                    <ul class="recent-order-items-list">
+                      ${enrichedItems.map((item) => `
+                        <li class="recent-order-item-row">
+                          <div class="recent-item-main">
+                            <span class="recent-item-qty">${item.qty}&times;</span>
+                            <div class="recent-item-info">
+                              <span class="recent-item-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+                              ${item.notes ? `<small class="recent-item-note">&ldquo;${escapeHtml(item.notes)}&rdquo;</small>` : ''}
+                            </div>
+                          </div>
+                          <div class="recent-item-pricing">
+                            ${Number(item.qty || 1) > 1 && item.unitPrice > 0 ? `<span class="recent-item-unit-price">(${pesoShort(item.unitPrice)} each)</span>` : ''}
+                            <span class="recent-item-total-price">${pesoShort(item.lineTotal)}</span>
+                          </div>
+                        </li>
+                      `).join('')}
+                    </ul>
+                  </div>
+
+                  <div class="recent-order-card-footer">
+                    <span class="recent-order-total-count">${(order.items || []).length} items &bull; ${totalPcs} pcs</span>
+                    <div class="recent-order-subtotal-wrap">
+                      <span class="recent-order-subtotal-label">Subtotal:</span>
+                      <strong class="recent-order-subtotal-val ${isCancelled ? 'is-cancelled' : ''}">
+                        ${isCancelled ? `<span class="cancelled-tag">(Cancelled)</span> <span class="cancelled-strikethrough">${pesoShort(orderSubtotal)}</span>` : pesoShort(orderSubtotal)}
+                      </strong>
+                    </div>
+                  </div>
+                </article>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }
+
+      function renderCurrentTableOrder(order) {
+        const container = document.getElementById('currentTableOrder');
+        if (!container) return;
+        if (!order?.items?.length) {
+          container.innerHTML = '';
+          container.hidden = true;
+          return;
+        }
+        container.hidden = false;
+        const totalPcs = order.items.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+        const total = order.items.reduce((sum, item) => sum + Number(item.total || 0), 0);
+
+        const isAllServed = order.items.length > 0 && order.items.every((item) => String(item.kitchenStatus || '').toLowerCase() === 'served');
+        const isAnyCooking = order.items.some((item) => ['preparing', 'cooking'].includes(String(item.kitchenStatus || '').toLowerCase()));
+        const isAnyReady = order.items.some((item) => String(item.kitchenStatus || '').toLowerCase() === 'ready');
+        const statusSlug = isAllServed ? 'served' : (isAnyReady ? 'ready' : (isAnyCooking ? 'cooking' : 'confirmed'));
+        const statusMeta = getOrderStatusMeta(statusSlug);
+
+        container.innerHTML = `
+          <div class="recent-orders-heading">
+            <div class="recent-orders-title-wrap">
+              <span class="live-status-dot ${isAllServed ? 'is-idle' : 'is-active'}"></span>
+              <strong class="recent-orders-title">Added by Staff / POS</strong>
+              <span class="recent-orders-count-badge ${isAllServed ? 'is-idle' : 'is-active'}">${order.items.length}</span>
+            </div>
+            <div class="recent-orders-meta-wrap">
+              <span class="recent-orders-subtext">Items added outside this QR page</span>
+              <div class="recent-orders-grand-total-pill"><span class="grand-total-pill-label">Total:</span><strong class="grand-total-pill-amount">${pesoShort(total)}</strong></div>
+            </div>
+          </div>
+          <div class="recent-orders-grid">
+            <article class="recent-order-card status-${statusMeta.slug}">
+              <div class="recent-order-card-header">
+                <span class="recent-order-status-badge status-${statusMeta.slug}">
+                  ${statusMeta.icon}
+                  <span>${statusMeta.label}</span>
+                </span>
+                <span class="recent-order-ref">#${escapeHtml(String(order.orderId || '').slice(-8).toUpperCase())}</span>
+              </div>
+              <div class="recent-order-items-box"><ul class="recent-order-items-list">
+                ${order.items.map((item) => {
+                  const qty = Number(item.qty || 0);
+                  const lineTotal = Number(item.total || 0);
+                  const unitPrice = qty ? lineTotal / qty : 0;
+                  return `<li class="recent-order-item-row">
+                    <div class="recent-item-main">
+                      <span class="recent-item-qty">${qty}&times;</span>
+                      <div class="recent-item-info">
+                        <span class="recent-item-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+                        ${item.notes ? `<small class="recent-item-note">&ldquo;${escapeHtml(item.notes)}&rdquo;</small>` : ''}
+                      </div>
+                    </div>
+                    <div class="recent-item-pricing">
+                      ${qty > 1 && unitPrice > 0 ? `<span class="recent-item-unit-price">(${pesoShort(unitPrice)} each)</span>` : ''}
+                      <span class="recent-item-total-price">${pesoShort(lineTotal)}</span>
+                    </div>
+                  </li>`;
+                }).join('')}
+              </ul></div>
+              <div class="recent-order-card-footer">
+                <span class="recent-order-total-count">${order.items.length} items &bull; ${totalPcs} pcs</span>
+                <div class="recent-order-subtotal-wrap"><span class="recent-order-subtotal-label">Subtotal:</span><strong class="recent-order-subtotal-val">${pesoShort(total)}</strong></div>
+              </div>
+            </article>
+          </div>
+        `;
+      }
+
+      function showSubmittedOrderOnTablePage(requestId, submittedCart) {
+        if (!tableData) return;
+        const submittedOrder = {
+          requestId,
+          status: 'Pending',
+          createdAt: new Date().toISOString(),
+          items: submittedCart.map((item) => {
+            const prod = menuItems.find((product) => product.id === item.productId);
+            return {
+              productId: item.productId,
+              name: prod?.name || 'Item',
+              price: Number(prod?.price || 0),
+              qty: item.qty,
+              notes: item.notes || ''
+            };
+          })
+        };
+        const currentOrders = tableData.orderUpdates || tableData.recentOrders || [];
+        tableData.orderUpdates = [submittedOrder, ...currentOrders.filter((order) => order.requestId !== requestId)];
+        renderRecentOrders(tableData.orderUpdates, tableData.currentOrder);
+      }
+
       function renderCategories() {
         const container = document.getElementById('categoryPillsRow');
         if (!container) return;
@@ -505,6 +814,36 @@
         });
       }
 
+      function isProductOutOfStock(product) {
+        if (!product) return true;
+        if (product.isAvailable === false || product.available === false) return true;
+        if (product.status === 'Unavailable' || product.status === 'OutOfStock' || product.status === 'Inactive') return true;
+        if (product.inStock === false) return true;
+
+        // Check explicit stock counts
+        if (product.stock !== undefined && product.stock !== null) {
+          if (Number(product.stock) <= 0) return true;
+        }
+        if (product.qty !== undefined && product.qty !== null) {
+          if (Number(product.qty) <= 0) return true;
+        }
+        if (product.quantity !== undefined && product.quantity !== null) {
+          if (Number(product.quantity) <= 0) return true;
+        }
+
+        // In POS and QR ordering, items requiring stock-in have price 0 or null
+        if (product.price === undefined || product.price === null || Number(product.price) <= 0) {
+          return true;
+        }
+
+        return false;
+      }
+
+      function getProductStockLimit(product) {
+        const stock = Number(product?.stock);
+        return Number.isFinite(stock) && stock >= 0 ? Math.floor(stock) : Infinity;
+      }
+
       function renderMenuGrid() {
         const grid = document.getElementById('menuGrid');
         const countSpan = document.getElementById('menuResultsCount');
@@ -517,8 +856,13 @@
           return matchCat && matchSearch;
         });
 
+        const availableCount = filtered.filter((p) => !isProductOutOfStock(p)).length;
         if (countSpan) {
-          countSpan.textContent = `${filtered.length} dish${filtered.length === 1 ? '' : 'es'} available`;
+          if (availableCount === filtered.length) {
+            countSpan.textContent = `${filtered.length} dish${filtered.length === 1 ? '' : 'es'} available`;
+          } else {
+            countSpan.textContent = `${availableCount} of ${filtered.length} available`;
+          }
         }
 
         if (!filtered.length) {
@@ -538,9 +882,12 @@
           const cartItem = cart.find((x) => x.productId === product.id);
           const currentQty = cartItem ? cartItem.qty : 0;
           const imgUrl = getProductImageUrl(product.imagePath);
+          const isOutOfStock = isProductOutOfStock(product);
+          const isAtStockLimit = currentQty >= getProductStockLimit(product);
+          const hasPrice = Number(product.price || 0) > 0;
 
           return `
-            <article class="product-card ${currentQty > 0 ? 'is-in-cart' : ''}" data-product-card="${escapeHtml(product.id)}" role="button" tabindex="0" aria-label="Add ${escapeHtml(product.name)} to order">
+            <article class="product-card ${currentQty > 0 ? 'is-in-cart' : ''} ${isOutOfStock ? 'is-out-of-stock' : ''}" data-product-card="${escapeHtml(product.id)}" data-out-of-stock="${isOutOfStock ? 'true' : 'false'}" role="${isOutOfStock ? 'region' : 'button'}" tabindex="${isOutOfStock ? '-1' : '0'}" aria-disabled="${isOutOfStock ? 'true' : 'false'}" aria-label="${isOutOfStock ? `${escapeHtml(product.name)} (Unavailable)` : `Add ${escapeHtml(product.name)} to order`}">
               <div class="product-thumb-wrap">
                 ${imgUrl ? `
                   <img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(product.name)}" class="product-thumb-img" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -557,29 +904,48 @@
                     <span>${currentQty}</span>
                   </div>
                 ` : ''}
+                ${isOutOfStock ? `
+                  <div class="thumb-unavailable-overlay">
+                    <span>Unavailable</span>
+                  </div>
+                ` : ''}
               </div>
 
               <div class="product-details">
                 <div class="product-top-info">
                   <div class="product-meta-row">
                     <span class="product-cat-tag">${escapeHtml(product.category || 'Dishes')}</span>
+                    ${isOutOfStock ? `<span class="product-unavailable-pill">Unavailable</span>` : ''}
                   </div>
                   <strong class="product-name" title="${escapeHtml(product.name)}">${escapeHtml(product.name)}</strong>
                 </div>
 
                 <div class="product-bottom-row">
-                  <div class="product-price-container">
-                    <span class="product-price-symbol">₱</span>
-                    <span class="product-price-value">${Number(product.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <div class="product-price-container ${isOutOfStock ? 'is-unavailable' : ''}">
+                    ${hasPrice ? `
+                      <span class="product-price-symbol">₱</span>
+                      <span class="product-price-value">${Number(product.price).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    ` : `
+                      <span class="product-price-unavailable">Unavailable</span>
+                    `}
                   </div>
 
                   <div class="product-action-box">
-                    <button type="button" class="btn-card-add ${currentQty > 0 ? 'is-active' : ''}" data-action="card-add" data-id="${escapeHtml(product.id)}" aria-label="Add ${escapeHtml(product.name)} to cart">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="btn-add-icon">
-                        <path d="M12 5v14"/><path d="M5 12h14"/>
-                      </svg>
-                      <span>Add</span>
-                    </button>
+                    ${isOutOfStock ? `
+                      <button type="button" class="btn-card-add is-out-of-stock" disabled aria-disabled="true" tabindex="-1">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-add-icon">
+                          <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                        </svg>
+                        <span>Unavailable</span>
+                      </button>
+                    ` : `
+                      <button type="button" class="btn-card-add ${currentQty > 0 ? 'is-active' : ''}" data-action="card-add" data-id="${escapeHtml(product.id)}" ${isAtStockLimit ? 'disabled aria-disabled="true"' : ''} aria-label="${isAtStockLimit ? `${escapeHtml(product.name)} maximum quantity reached` : `Add ${escapeHtml(product.name)} to cart`}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="btn-add-icon">
+                          <path d="M12 5v14"/><path d="M5 12h14"/>
+                        </svg>
+                        <span>${isAtStockLimit ? 'Maximum reached' : 'Add'}</span>
+                      </button>
+                    `}
                   </div>
                 </div>
               </div>
@@ -589,6 +955,20 @@
 
         // Clicking anywhere on the card (or the Add button) adds to cart
         grid.querySelectorAll('.product-card').forEach((card) => {
+          if (card.dataset.outOfStock === 'true') {
+            card.onclick = (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            };
+            card.onkeydown = (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            };
+            return;
+          }
+
           const triggerAdd = () => {
             const id = card.dataset.productCard;
             if (!id) return;
@@ -619,6 +999,19 @@
       function updateItemQuantity(productId, newQty, triggerToast = false) {
         const product = menuItems.find((p) => p.id === productId);
         if (!product) return;
+
+        if (isProductOutOfStock(product) && newQty > 0) {
+          if (triggerToast) {
+            showToast(`${product.name} is currently out of stock.`, 'warning');
+          }
+          return;
+        }
+
+        const stockLimit = getProductStockLimit(product);
+        if (newQty > stockLimit) {
+          if (triggerToast) showToast(`Only ${stockLimit} ${product.name} available.`, 'warning');
+          return;
+        }
 
         const existing = cart.find((x) => x.productId === productId);
 
@@ -674,6 +1067,16 @@
         if (desktopClear) desktopClear.style.display = cart.length ? 'block' : 'none';
         if (mobileClear) mobileClear.style.display = cart.length ? 'block' : 'none';
 
+        // Toggle Floating Mobile Bottom Bar
+        const mobileBottomBar = document.getElementById('mobileBottomBar');
+        if (mobileBottomBar) {
+          if (totalItems > 0) {
+            mobileBottomBar.classList.add('visible');
+          } else {
+            mobileBottomBar.classList.remove('visible');
+          }
+        }
+
         // Render Cart Items into both Desktop and Mobile containers
         const renderContainer = (containerId) => {
           const container = document.getElementById(containerId);
@@ -694,6 +1097,7 @@
           container.innerHTML = cart.map((item) => {
             const product = menuItems.find((p) => p.id === item.productId);
             const lineTotal = (product ? product.price : 0) * item.qty;
+            const isAtStockLimit = item.qty >= getProductStockLimit(product);
 
             return `
               <div class="cart-line-item" data-cart-item="${escapeHtml(item.productId)}">
@@ -709,7 +1113,7 @@
                   <div class="card-stepper">
                     <button type="button" class="stepper-btn" data-cart-act="minus" data-id="${escapeHtml(item.productId)}" aria-label="Decrease">&minus;</button>
                     <span class="stepper-qty">${item.qty}</span>
-                    <button type="button" class="stepper-btn" data-cart-act="plus" data-id="${escapeHtml(item.productId)}" aria-label="Increase">&plus;</button>
+                    <button type="button" class="stepper-btn" data-cart-act="plus" data-id="${escapeHtml(item.productId)}" ${isAtStockLimit ? 'disabled aria-disabled="true"' : ''} aria-label="${isAtStockLimit ? 'Maximum available quantity reached' : 'Increase'}">&plus;</button>
                   </div>
 
                   <button type="button" class="cart-btn-trash" data-cart-act="trash" data-id="${escapeHtml(item.productId)}" aria-label="Remove item">
@@ -762,9 +1166,9 @@
       }
 
       function syncSubmitButtonState() {
-        const isOccupied = tableData && tableData.status === 'Occupied';
+        const canOrderAtTable = tableData && ['Vacant', 'Occupied'].includes(tableData.status);
         const hasCart = cart.length > 0;
-        const canSubmit = isOccupied && hasCart && !isSubmitting;
+        const canSubmit = canOrderAtTable && hasCart && !isSubmitting;
 
         const desktopBtn = document.getElementById('desktopBtnSubmitOrder');
         const mobileBtn = document.getElementById('mobileBtnSubmitOrder');
@@ -778,10 +1182,10 @@
               <span class="btn-spinner"></span>
               <span>Sending Order Request…</span>
             `;
-          } else if (!isOccupied && tableData) {
+          } else if (!canOrderAtTable && tableData) {
             btn.innerHTML = `
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              <span>Waiter Tab Required to Send</span>
+              <span>Table Unavailable for Ordering</span>
             `;
           } else {
             btn.innerHTML = `
@@ -804,8 +1208,14 @@
           showToast('Please add at least one item to your order.', 'warning');
           return;
         }
-        if (!tableData || tableData.status !== 'Occupied') {
-          showToast('This table tab is not active yet. Please ask your waiter to open the tab.', 'error');
+        if (!tableData || !['Vacant', 'Occupied'].includes(tableData.status)) {
+          showToast('This table is not accepting orders right now. Please ask your waiter for assistance.', 'error');
+          return;
+        }
+        const overStockItem = cart.find((item) => item.qty > getProductStockLimit(menuItems.find((product) => product.id === item.productId)));
+        if (overStockItem) {
+          const product = menuItems.find((item) => item.id === overStockItem.productId);
+          showToast(`Only ${getProductStockLimit(product)} ${product?.name || 'item'} available. Please reduce the quantity.`, 'warning');
           return;
         }
 
@@ -815,6 +1225,23 @@
         const desktopNote = document.getElementById('desktopWaiterNote')?.value || '';
         const mobileNote = document.getElementById('mobileWaiterNote')?.value || '';
         const generalNote = (desktopNote || mobileNote).trim();
+
+        if (token === 'demo' || params.get('demo') === 'true' || params.get('mock') === 'true') {
+          await new Promise((r) => setTimeout(r, 700));
+          const requestId = 'QOR-DEMO-04';
+          showToast('Order request submitted to waiter!', 'success', 4000);
+          closeMobileDrawer();
+          showSubmittedOrderOnTablePage(requestId, cart);
+          openConfirmationModal(requestId, cart, generalNote);
+          cart = [];
+          if (document.getElementById('desktopWaiterNote')) document.getElementById('desktopWaiterNote').value = '';
+          if (document.getElementById('mobileWaiterNote')) document.getElementById('mobileWaiterNote').value = '';
+          renderCart();
+          renderMenuGrid();
+          isSubmitting = false;
+          syncSubmitButtonState();
+          return;
+        }
 
         // Format lines for RPC: array of { productId, qty, notes }
         const linesPayload = cart.map((item) => ({
@@ -841,6 +1268,7 @@
           closeMobileDrawer();
 
           // Open Order Sent Confirmation Modal
+          showSubmittedOrderOnTablePage(requestId, cart);
           openConfirmationModal(requestId, cart, generalNote);
 
           // Clear cart
@@ -905,6 +1333,36 @@
         if (modal) modal.classList.add('open');
       }
 
+      async function refreshTableOrderStatuses() {
+        if (!token || !client) return;
+        let data;
+        try { data = await loadTableMenu_(); } catch (_) { return; }
+        tableData = { ...tableData, ...data };
+        renderHero(tableData);
+        renderCurrentTableOrder(data.currentOrder);
+        renderRecentOrders(data.orderUpdates || data.recentOrders || [], data.currentOrder);
+      }
+
+      async function checkWaiterOrderNotices(showNewNotices = false) {
+        if (!token || !client || token === 'demo') return;
+        const { data, error } = await client.rpc('public_table_order_notifications', { token_input: token });
+        if (error || !Array.isArray(data)) return;
+        data.forEach((notice) => {
+          const key = `${notice.requestId}:${notice.createdAt}:${notice.message}`;
+          if (showNewNotices && !seenOrderNotices.has(key)) showToast(notice.message, 'warning', 6000);
+          seenOrderNotices.add(key);
+        });
+      }
+
+      function startOrderStatusPolling() {
+        if (orderStatusPollTimer) clearInterval(orderStatusPollTimer);
+        checkWaiterOrderNotices(false);
+        orderStatusPollTimer = setInterval(() => {
+          refreshTableOrderStatuses();
+          checkWaiterOrderNotices(true);
+        }, 4000);
+      }
+
       function subscribeToRequestStatus(requestId) {
         if (realtimeSubscription) {
           client.removeChannel(realtimeSubscription);
@@ -922,8 +1380,12 @@
             },
             (payload) => {
               const newStatus = payload.new?.status;
+              const customerNotice = payload.new?.customer_notice;
               const stepClaimed = document.getElementById('trackStepClaimed');
               const stepKitchen = document.getElementById('trackStepKitchen');
+              if (customerNotice && payload.old?.customer_notice !== customerNotice) {
+                showToast(customerNotice, 'warning', 6000);
+              }
 
               if (newStatus === 'Claimed') {
                 showToast('A waiter has claimed your order request!', 'info', 3500);
@@ -944,8 +1406,22 @@
                   stepKitchen.className = 'step-node completed';
                   stepKitchen.querySelector('.step-circle').innerHTML = '&#10003;';
                 }
+              } else if (newStatus === 'Cancelled') {
+                if (!customerNotice) showToast('Your order was cancelled by the waiter. Please speak with your waiter if you need help.', 'warning', 6000);
+                if (stepKitchen) stepKitchen.className = 'step-node';
               }
+              refreshTableOrderStatuses();
             }
+          )
+          .on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'kitchen_tickets', filter: `table_id=eq.${tableData?.tableId || ''}` },
+            () => refreshTableOrderStatuses()
+          )
+          .on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'restaurant_tables', filter: `table_id=eq.${tableData?.tableId || ''}` },
+            () => refreshTableOrderStatuses()
           )
           .subscribe();
 
@@ -1057,6 +1533,46 @@
 
       // 9. Initial Menu Fetch
       (async () => {
+        const isDemo = token === 'demo' || params.get('demo') === 'true' || params.get('mock') === 'true';
+        if (isDemo) {
+          tableData = {
+            tableId: 'DEMO-T4',
+            tableName: 'Table 04 — Main Dining',
+            status: 'Occupied',
+            products: [
+              { id: 'DEMO-1', name: 'Angkol’s Sizzling Pork Sisig', price: 295.00, category: 'Sizzling & Mains', imagePath: '', stock: 15 },
+              { id: 'DEMO-2', name: 'Signature Chicken Inasal (Paa)', price: 185.00, category: 'Grill Specialties', imagePath: '', stock: 12 },
+              { id: 'DEMO-3', name: 'Pork Barbecue Skewers (3pcs)', price: 165.00, category: 'Grill Specialties', imagePath: '', stock: 20 },
+              { id: 'DEMO-4', name: 'Lumpiang Shanghai', price: 140.00, category: 'Appetizers & Sides', imagePath: '', stock: 0 },
+              { id: 'DEMO-5', name: 'Crispy Pata Special', price: 680.00, category: 'Sizzling & Mains', imagePath: '', stock: 0 },
+              { id: 'DEMO-6', name: 'Garlic Fried Rice Platter', price: 120.00, category: 'Rice & Sides', imagePath: '', stock: 30 },
+              { id: 'DEMO-7', name: 'Red Horse Stallion', price: 75.00, category: 'Alcoholic Drinks', imagePath: '', stock: 24 },
+              { id: 'DEMO-8', name: 'Red Horse Stallion Bucket', price: 400.00, category: 'Alcoholic Drinks', imagePath: '', stock: 8 },
+              { id: 'DEMO-9', name: 'Special Halo-Halo Overload', price: 150.00, category: 'Desserts', imagePath: '', stock: 8 }
+            ],
+            recentOrders: [
+              {
+                ticketId: 'KT-104',
+                status: 'Preparing',
+                createdAt: new Date().toISOString(),
+                items: [
+                  { name: 'Signature Chicken Inasal (Paa)', qty: 2, notes: 'Extra chicken oil' },
+                  { name: 'Garlic Fried Rice Platter', qty: 1, notes: '' }
+                ]
+              }
+            ]
+          };
+          menuItems = (tableData.products || []).filter((item) => item.category !== 'Ingredients / Raw Materials');
+          renderHero(tableData);
+          renderCurrentTableOrder(tableData.currentOrder);
+          renderRecentOrders(tableData.orderUpdates || tableData.recentOrders, tableData.currentOrder);
+          startOrderStatusPolling();
+          renderCategories();
+          renderMenuGrid();
+          renderCart();
+          return;
+        }
+
         if (!token) {
           const skeleton = document.getElementById('heroSkeleton');
           if (skeleton) skeleton.style.display = 'none';
@@ -1082,22 +1598,35 @@
         }
 
         try {
-          const { data, error } = await client.rpc('public_table_menu', { token_input: token });
-
-          if (error) {
-            throw error;
-          }
+          const data = await loadTableMenu_();
 
           tableData = data;
-          menuItems = data.products || [];
+          menuItems = (data.products || []).filter((item) => item.category !== 'Ingredients / Raw Materials');
 
           renderHero(tableData);
+          renderCurrentTableOrder(data.currentOrder);
+          renderRecentOrders(data.orderUpdates || data.recentOrders || [], data.currentOrder);
+          startOrderStatusPolling();
           renderCategories();
           renderMenuGrid();
           renderCart();
 
         } catch (err) {
           console.error('Failed to load table menu:', err);
+          const cachedMenu = getCachedTableMenu_();
+          if (cachedMenu) {
+            tableData = cachedMenu;
+            menuItems = (cachedMenu.products || []).filter((item) => item.category !== 'Ingredients / Raw Materials');
+            renderHero(tableData);
+            renderCurrentTableOrder(cachedMenu.currentOrder);
+            renderRecentOrders(cachedMenu.orderUpdates || cachedMenu.recentOrders || [], cachedMenu.currentOrder);
+            startOrderStatusPolling();
+            renderCategories();
+            renderMenuGrid();
+            renderCart();
+            setTimeout(refreshTableOrderStatuses, 2000);
+            return;
+          }
           showToast(err.message || 'Error loading dining menu.', 'error', 5000);
 
           const skeleton = document.getElementById('heroSkeleton');
