@@ -1,34 +1,34 @@
-# Graph Report - angkols  (2026-10-15)
+# Graph Report - angkols  (2026-10-16)
 
 ## Corpus Check
-- 116 files · ~175,945 words
+- 130 files · ~201,642 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 18 file(s) not represented in the graph (top: .log 4, .css 4, (none) 3)
 
 ## Summary
-- 447 nodes · 1055 edges · 45 communities (27 shown, 18 thin omitted)
-- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 42 edges (avg confidence: 0.85)
+- 606 nodes · 1473 edges · 50 communities (33 shown, 17 thin omitted)
+- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 67 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `29505f0f`
+- Built from commit: `25dc1e57`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - app.js
-- setView
-- initCustomDatePickers
+- openReportInNewPage_
 - initCustomDropdowns
+- formatDateInput
 - showToast
 - FR Merchandise POS
-- Review Focus
+- buildServicePerformancePdfReport_
 - What You Must Do When Invoked
 - index.ts
-- check-pos.mjs
+- check-bundle-report-costs.mjs
 - isMobileScreen
 - compilerOptions
-- alignTableBadges
+- beginRestaurantPayment_
 - escapeHtml
 - service-worker.js
 - graphify reference: extra exports and benchmark
@@ -40,7 +40,7 @@
 - graphify reference: GitHub clone and cross-repo merge
 - graphify reference: transcribe video and audio
 - extraction-spec.md
-- renderCart
+- owner-reports.js
 - wA
 - te
 - gs
@@ -52,21 +52,26 @@
 - Kr
 - Lr
 - ref_node_child_process
-- generateInventoryReportPdf
-- renderBranchSelector
-- renderSkeletonTable
+- Review Focus
+- renderInventoryReports
+- check-owner-bank-table-reports.mjs
+- check-service-performance.mjs
+- check-losses-wastage.mjs
+- check-credit-aging.mjs
+- buildCreditAgingPdfReport_
+- ref_node_fs
 
 ## God Nodes (most connected - your core abstractions)
-1. `escapeHtml()` - 55 edges
-2. `renderInventory()` - 44 edges
-3. `showToast()` - 36 edges
-4. `money()` - 32 edges
+1. `escapeHtml()` - 73 edges
+2. `renderInventory()` - 51 edges
+3. `money()` - 48 edges
+4. `showToast()` - 39 edges
 5. `api()` - 28 edges
-6. `openForm()` - 26 edges
-7. `renderPaginationControls_()` - 24 edges
-8. `refresh()` - 23 edges
-9. `paginateItems_()` - 19 edges
-10. `bindPaginationEvents_()` - 19 edges
+6. `formatDateInput()` - 26 edges
+7. `openForm()` - 26 edges
+8. `setView()` - 26 edges
+9. `syncCustomDatePicker()` - 24 edges
+10. `renderPaginationControls_()` - 23 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Task 2: Branch-scoped Daily Spot Cash UI` --references--> `askConfirmation()`  [INFERRED]
@@ -86,35 +91,35 @@
 ## Hyperedges (group relationships)
 - **FIFO Auditability Workflow** — readme_fifo_selling_price_batches, tasks_bundle_sales, docs_operations_backup_and_restore [INFERRED 0.75]
 
-## Communities (45 total, 18 thin omitted)
+## Communities (50 total, 17 thin omitted)
 
 ### Community 0 - "app.js"
 Cohesion: 0.02
-Nodes (75): actionConfirmDialog, actionConfirmSubmitBtn, adminAccounts, allProducts, appShell, backdrop, bankTransactions, bankTransactionsDateFrom (+67 more)
+Nodes (81): actionConfirmDialog, actionConfirmSubmitBtn, adminAccounts, alignTableBadges(), allProducts, appShell, backdrop, bankTransactions (+73 more)
 
-### Community 1 - "setView"
-Cohesion: 0.22
-Nodes (18): buildSalesPdfReport_(), ensureBankTransactionsDateDefaults(), ensureCreditsDateDefaults(), ensureDailyExpensesDateDefaults(), ensureDailySpotCashDateDefaults(), ensureLossDamagesDateDefaults(), ensureQuarantineDateDefaults(), ensureSalesDateDefaults() (+10 more)
+### Community 1 - "openReportInNewPage_"
+Cohesion: 0.11
+Nodes (21): buildCashBankReconciliationPdfReportV2_(), buildProductSalesPerformancePdfReport_(), exportCashBankReconciliationPdf(), exportCreditAgingPdf(), exportFoodCostMarginPdf(), exportInventoryReportPdf(), exportInventoryValuationPdf(), exportProductSalesPerformancePdf() (+13 more)
 
-### Community 2 - "initCustomDatePickers"
-Cohesion: 0.25
-Nodes (8): closeDatePicker(), closeDropdown(), initCustomDatePickers(), initSidebarBranchSwitcher(), openDatePicker(), openDropdown(), positionDropdownMenu(), repositionOpenDropdowns()
+### Community 2 - "initCustomDropdowns"
+Cohesion: 0.19
+Nodes (14): closeDatePicker(), closeDropdown(), initCustomDatePickers(), initCustomDropdowns(), initSidebarBranchSwitcher(), openDatePicker(), openDropdown(), positionDropdownMenu() (+6 more)
 
-### Community 3 - "initCustomDropdowns"
-Cohesion: 0.36
-Nodes (9): beginRestaurantPayment_(), initCustomDropdowns(), openSaleCheckout(), setSaleDiscountMode(), sortSelectOptionsAtoZ_(), syncSaleCustomerOptions(), syncSaleServiceFields(), updateCustomDropdown() (+1 more)
+### Community 3 - "formatDateInput"
+Cohesion: 0.10
+Nodes (46): buildCashBankReconciliationPdfReport_(), buildFoodCostMarginPdfReport_(), buildLossesWastagePdfReport_(), buildProfitLossPdfReport_(), buildSalesPdfReport_(), ensureBankTransactionsDateDefaults(), ensureCashBankReconciliationDateDefaults(), ensureCreditAgingDateDefaults() (+38 more)
 
 ### Community 4 - "showToast"
-Cohesion: 0.09
-Nodes (55): api(), applySession(), askConfirmation(), backgroundRefresh(), changeOwnPassword(), completeRequiredPasswordChange(), deleteDailyExpense(), deleteDailySpotCash() (+47 more)
+Cohesion: 0.08
+Nodes (62): api(), applySession(), askConfirmation(), backgroundRefresh(), calculateOutstandingCreditAccounts(), changeOwnPassword(), completeRequiredPasswordChange(), deleteCreditPayment() (+54 more)
 
 ### Community 5 - "FR Merchandise POS"
 Cohesion: 0.20
 Nodes (10): Graphify Workflow, Backup and Restore, Release Procedure, FIFO Selling Price Batches, FR Merchandise POS, Google Apps Script Web App, Google Sheets, Bundle Sales (+2 more)
 
-### Community 6 - "Review Focus"
-Cohesion: 0.29
-Nodes (6): Daily Spot Cash Implementation Plan, Global Constraints, Review Focus, Task 1: Database and permission contract, Task 2: Branch-scoped Daily Spot Cash UI, Task 3: Deployment and acceptance verification
+### Community 6 - "buildServicePerformancePdfReport_"
+Cohesion: 0.27
+Nodes (11): buildServicePerformancePdfReport_(), calculateServicePerformance_(), exportServicePerformancePdf(), generateServicePerformancePdf(), loadedServicePerformanceReport_(), performanceAverage_(), performanceMinutes_(), renderServicePerformance() (+3 more)
 
 ### Community 7 - "What You Must Do When Invoked"
 Cohesion: 0.08
@@ -124,17 +129,21 @@ Nodes (24): For /graphify add and --watch, For /graphify query, For the commit h
 Cohesion: 0.40
 Nodes (5): ref_npm_supabase, allowedPermissions, corsHeaders, fail(), json()
 
-### Community 10 - "check-pos.mjs"
-Cohesion: 0.40
-Nodes (4): ref_node_fs, checks, failures, files
+### Community 10 - "check-bundle-report-costs.mjs"
+Cohesion: 0.15
+Nodes (11): allocations, context, fields, item, performance, product, receipt, resolved (+3 more)
 
 ### Community 11 - "isMobileScreen"
 Cohesion: 0.50
 Nodes (4): handleMenuToggle(), handleSidebarCollapse(), initSidebarState(), isMobileScreen()
 
+### Community 13 - "beginRestaurantPayment_"
+Cohesion: 0.53
+Nodes (6): beginRestaurantPayment_(), openSaleCheckout(), saleSubtotal(), setSaleDiscountMode(), syncSaleServiceFields(), updateSaleCheckoutValues()
+
 ### Community 14 - "escapeHtml"
-Cohesion: 0.21
-Nodes (44): bindPaginationEvents_(), calculateOutstandingCreditAccounts(), deleteCreditPayment(), displayCustomerName(), displayedSellingPrice(), escapeHtml(), formatDateTime(), getCartPriceBreakdown() (+36 more)
+Cohesion: 0.16
+Nodes (51): addToCart(), bindPaginationEvents_(), cartItemTotal(), dailyCashPosition_(), deleteDailyExpense(), deleteDailySpotCash(), displayCustomerName(), displayedSellingPrice() (+43 more)
 
 ### Community 17 - "graphify reference: extra exports and benchmark"
 Cohesion: 0.22
@@ -160,9 +169,9 @@ Nodes (3): For git commit hook, For native CLAUDE.md integration, graphify refer
 Cohesion: 0.50
 Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphify reference: incremental update and cluster-only
 
-### Community 26 - "renderCart"
-Cohesion: 0.33
-Nodes (6): addToCart(), cartItemTotal(), renderCart(), saleSubtotal(), updateCartScrollFade(), updateQty()
+### Community 26 - "owner-reports.js"
+Cohesion: 0.17
+Nodes (27): bankStatementNote_(), bankStatementSections_(), buildFullCashBankPdf_(), buildTableQrPerformancePdfReport_(), calculateBankStatement_(), calculateTableQrPerformance_(), currentOwnerDashboardReport_(), exportTableQrPerformancePdf() (+19 more)
 
 ### Community 27 - "wA"
 Cohesion: 0.20
@@ -184,37 +193,57 @@ Nodes (3): FA(), lA(), UA()
 Cohesion: 0.67
 Nodes (3): fe(), oe(), xB()
 
-### Community 42 - "generateInventoryReportPdf"
-Cohesion: 0.22
-Nodes (9): exportSalesPdf(), formatTransferQuantity(), generateInventoryReportPdf(), generateSalesPdf(), getInventoryReportMovement(), getInventoryReportStatus(), getReportDocumentHtml_(), loadHtml2PdfLibrary_() (+1 more)
+### Community 42 - "Review Focus"
+Cohesion: 0.29
+Nodes (6): Daily Spot Cash Implementation Plan, Global Constraints, Review Focus, Task 1: Database and permission contract, Task 2: Branch-scoped Daily Spot Cash UI, Task 3: Deployment and acceptance verification
 
-### Community 43 - "renderBranchSelector"
-Cohesion: 0.83
-Nodes (4): renderBranchSelector(), renderSidebarBranchMenu(), setActiveBranch(), updateActiveBranchLabels()
+### Community 43 - "renderInventoryReports"
+Cohesion: 0.25
+Nodes (11): buildInventoryValuationPdfReport_(), bundleMovementNotice_(), formatTransferQuantity(), generateInventoryReportPdf(), getInventoryReportMovement(), getInventoryReportRows(), getInventoryReportStatus(), getInventoryValuationReport_() (+3 more)
 
-### Community 44 - "renderSkeletonTable"
-Cohesion: 0.67
-Nodes (3): renderKitchenDisplaySkeletonHtml_(), renderSkeletonTable(), renderWaiterQueueSkeletonHtml_()
+### Community 44 - "check-owner-bank-table-reports.mjs"
+Cohesion: 0.14
+Nodes (11): app, bank, bankData, context, data, fields, html, owner (+3 more)
+
+### Community 45 - "check-service-performance.mjs"
+Cohesion: 0.18
+Nodes (9): base, context, data, fields, migration, pending, report, source (+1 more)
+
+### Community 46 - "check-losses-wastage.mjs"
+Cohesion: 0.20
+Nodes (9): ref_node_vm, allocations, context, fields, migration, record, report, source (+1 more)
+
+### Community 47 - "check-credit-aging.mjs"
+Cohesion: 0.25
+Nodes (6): ref_node_assert, context, fields, report, source, table
+
+### Community 48 - "buildCreditAgingPdfReport_"
+Cohesion: 0.60
+Nodes (5): buildCreditAgingPdfReport_(), creditAgingCells_(), creditAgingNote_(), getCreditAgingReport_(), renderCreditAging()
+
+### Community 49 - "ref_node_fs"
+Cohesion: 0.40
+Nodes (4): ref_node_fs, checks, failures, files
 
 ## Knowledge Gaps
-- **128 isolated node(s):** `products`, `allProducts`, `branches`, `customers`, `transfers` (+123 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 211 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **18 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **177 isolated node(s):** `products`, `allProducts`, `branches`, `customers`, `transfers` (+172 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 264 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **17 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
+- **Why does `generateTableQrPerformancePdf()` connect `owner-reports.js` to `app.js`?**
+  _High betweenness centrality (0.023) - this node is a cross-community bridge._
+- **Why does `exportTableQrPerformancePdf()` connect `owner-reports.js` to `app.js`?**
+  _High betweenness centrality (0.023) - this node is a cross-community bridge._
 - **Why does `Task 2: Branch-scoped Daily Spot Cash UI` connect `Review Focus` to `showToast`, `escapeHtml`?**
-  _High betweenness centrality (0.015) - this node is a cross-community bridge._
-- **Why does `renderDailySpotCash()` connect `escapeHtml` to `app.js`, `setView`, `showToast`, `Review Focus`?**
-  _High betweenness centrality (0.009) - this node is a cross-community bridge._
+  _High betweenness centrality (0.011) - this node is a cross-community bridge._
 - **What connects `products`, `allProducts`, `branches` to the rest of the system?**
-  _128 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _177 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `app.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.024691358024691357 - nodes in this community are weakly interconnected._
-- **Should `showToast` be split into smaller, more focused modules?**
-  _Cohesion score 0.0936026936026936 - nodes in this community are weakly interconnected._
-- **Should `What You Must Do When Invoked` be split into smaller, more focused modules?**
-  _Cohesion score 0.08 - nodes in this community are weakly interconnected._
-- **Should `html2canvas.min.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.037037037037037035 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.022988505747126436 - nodes in this community are weakly interconnected._
+- **Should `openReportInNewPage_` be split into smaller, more focused modules?**
+  _Cohesion score 0.11428571428571428 - nodes in this community are weakly interconnected._
+- **Should `formatDateInput` be split into smaller, more focused modules?**
+  _Cohesion score 0.09951690821256039 - nodes in this community are weakly interconnected._

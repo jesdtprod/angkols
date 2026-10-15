@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=53" />
+    <link rel="stylesheet" href="styles.css?v=products-page-layout-sky-v2" />
     <link rel="stylesheet" href="kpi-order.css?v=1" />
     <link rel="stylesheet" href="sales-return-components.css" />
   </head>
@@ -126,11 +126,47 @@
           </button>
           <button class="nav-item" type="button" data-view="inventoryReports">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-            Inventory Reports
+            Inventory Stock
+          </button>
+          <button class="nav-item" type="button" data-view="profitLoss">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 3-3 3 2 4-5"/><path d="M17 9h3v3"/></svg>
+            Profit &amp; Loss
+          </button>
+          <button class="nav-item" type="button" data-view="foodCostMargin">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-7"/><path d="M7 7h10"/></svg>
+            Food Cost &amp; Margin
+          </button>
+          <button class="nav-item" type="button" data-view="productSalesPerformance">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 16v-3m5 3V9m5 7V5"/></svg>
+            Product Performance
+          </button>
+          <button class="nav-item" type="button" data-view="creditAging">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
+            Credit Aging
+          </button>
+          <button class="nav-item" type="button" data-view="lossesWastage">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M5 6l1 15h12l1-15M9 6V3h6v3m-6 5 6 6m0-6-6 6"/></svg>
+            Losses &amp; Wastage
+          </button>
+          <button class="nav-item" type="button" data-view="servicePerformance">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15v-4m5 4V7m5 8V5"/></svg>
+            Kitchen / Waiter Performance
+          </button>
+          <button class="nav-item" type="button" data-view="tableQrPerformance">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10h16M6 10v10m12-10v10M8 5h8v5H8z"/><path d="M2 2h3m14 0h3M2 22h3m14 0h3"/></svg>
+            Table / QR Performance
+          </button>
+          <button class="nav-item" type="button" data-view="inventoryValuation">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-7"/></svg>
+            Inventory Valuation
+          </button>
+          <button class="nav-item" type="button" data-view="cashBankReconciliation">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h12M6 14h4"/></svg>
+            Cash/Bank Reconciliation
           </button>
           <button class="nav-item" type="button" data-view="quarantineReport">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="m9 15 2 2 4-4"/><path d="M9 11h6"/></svg>
-            Quarantine Report
+            Quarantine Items
           </button>
         </nav>
         <div class="sidebar-foot">
@@ -268,14 +304,6 @@
                 <div class="sales-date-control">
                   <input id="salesDateTo" type="date" aria-label="Date To" />
                 </div>
-                <button class="button button-secondary sales-pdf-button" id="generateSalesPdfButton" type="button">
-                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
-                  <span>Print PDF</span>
-                </button>
-                <button class="button button-primary sales-pdf-button" id="exportSalesPdfButton" type="button">
-                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
-                  <span>Export PDF</span>
-                </button>
               </div>
               <div class="sales-date-range" id="quarantineDateRange" hidden>
                 <div class="sales-date-control">
@@ -284,10 +312,6 @@
                 <div class="sales-date-control">
                   <input id="quarantineDateTo" type="date" aria-label="Date To" />
                 </div>
-                <button class="button button-primary sales-pdf-button" id="generateQuarantinePdfButton" type="button">
-                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
-                  <span>Generate PDF</span>
-                </button>
               </div>
               <div class="sales-date-range" id="transfersDateRange" hidden>
                 <div class="sales-date-control">
@@ -337,9 +361,106 @@
                   <input id="bankTransactionsDateTo" type="date" aria-label="Date To" />
                 </div>
               </div>
-              <button class="button button-primary" id="generateInventoryPdfButton" hidden>
+              <div class="sales-date-range" id="profitLossDateRange" hidden>
+                <div class="sales-date-control"><input id="profitLossDateFrom" type="date" aria-label="Profit and loss date from" /></div>
+                <div class="sales-date-control"><input id="profitLossDateTo" type="date" aria-label="Profit and loss date to" /></div>
+                <button class="button button-secondary sales-pdf-button" id="generateProfitLossPdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
+                </button>
+                <button class="button button-primary sales-pdf-button" id="exportProfitLossPdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg><span>Export PDF</span>
+                </button>
+              </div>
+              <div class="sales-date-range" id="foodCostMarginDateRange" hidden>
+                <div class="sales-date-control"><input id="foodCostMarginDateFrom" type="date" aria-label="Food cost and margin date from" /></div>
+                <div class="sales-date-control"><input id="foodCostMarginDateTo" type="date" aria-label="Food cost and margin date to" /></div>
+                <button class="button button-secondary sales-pdf-button" id="generateFoodCostMarginPdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
+                </button>
+                <button class="button button-primary sales-pdf-button" id="exportFoodCostMarginPdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg><span>Export PDF</span>
+                </button>
+              </div>
+              <div class="sales-date-range" id="productSalesPerformanceDateRange" hidden>
+                <div class="sales-date-control"><input id="productSalesPerformanceDateFrom" type="date" aria-label="Product sales date from" /></div>
+                <div class="sales-date-control"><input id="productSalesPerformanceDateTo" type="date" aria-label="Product sales date to" /></div>
+                <select id="productSalesPerformanceType" aria-label="Product type"><option value="all">All Products</option><option value="individual">Individual Products</option><option value="bundle">Bundles</option></select>
+                <select id="productSalesPerformanceSort" aria-label="Product sales ranking"><option value="best">Best Selling</option><option value="slow">Slow / No Sales</option><option value="sales">Highest Sales</option><option value="profit">Highest Gross Profit</option></select>
+                <button class="button button-secondary sales-pdf-button" id="generateProductSalesPerformancePdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6zM14 2v4h4M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
+                </button>
+                <button class="button button-primary sales-pdf-button" id="exportProductSalesPerformancePdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg><span>Export PDF</span>
+                </button>
+              </div>
+              <div class="sales-date-range" id="creditAgingDateRange" hidden>
+                <div class="sales-date-control"><input id="creditAgingDateFrom" type="date" aria-label="Credit activity date from" /></div>
+                <div class="sales-date-control"><input id="creditAgingDateTo" type="date" aria-label="Credit aging as of date" /></div>
+                <button class="button button-secondary sales-pdf-button" id="generateCreditAgingPdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l3 3v17H6zM14 2v4h4M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
+                </button>
+                <button class="button button-primary sales-pdf-button" id="exportCreditAgingPdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg><span>Export PDF</span>
+                </button>
+              </div>
+              <div class="sales-date-range" id="lossesWastageDateRange" hidden>
+                <div class="sales-date-control"><input id="lossesWastageDateFrom" type="date" aria-label="Losses and wastage date from" /></div>
+                <div class="sales-date-control"><input id="lossesWastageDateTo" type="date" aria-label="Losses and wastage date to" /></div>
+                <select id="lossesWastageSource" aria-label="Loss source"><option value="all">All Sources</option><option value="writeoff">Stock Write-offs</option><option value="quarantine">Quarantine Disposals</option><option value="return">Customer Return Disposals</option></select>
+                <button class="button button-secondary sales-pdf-button" id="generateLossesWastagePdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l3 3v17H6zM14 2v4h4M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
+                </button>
+                <button class="button button-primary sales-pdf-button" id="exportLossesWastagePdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg><span>Export PDF</span>
+                </button>
+              </div>
+              <div class="sales-date-range" id="servicePerformanceDateRange" hidden>
+                <div class="sales-date-control"><input id="servicePerformanceDateFrom" type="date" aria-label="Service performance date from" /></div>
+                <div class="sales-date-control"><input id="servicePerformanceDateTo" type="date" aria-label="Service performance date to" /></div>
+                <button class="button button-secondary sales-pdf-button" id="refreshServicePerformanceButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg><span>Refresh</span>
+                </button>
+                <button class="button button-secondary sales-pdf-button" id="generateServicePerformancePdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l3 3v17H6zM14 2v4h4M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
+                </button>
+                <button class="button button-primary sales-pdf-button" id="exportServicePerformancePdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg><span>Export PDF</span>
+                </button>
+              </div>
+              <div class="sales-date-range" id="tableQrPerformanceDateRange" hidden>
+                <div class="sales-date-control"><input id="tableQrPerformanceDateFrom" type="date" aria-label="Table and QR performance date from" /></div>
+                <div class="sales-date-control"><input id="tableQrPerformanceDateTo" type="date" aria-label="Table and QR performance date to" /></div>
+                <button class="button button-secondary sales-pdf-button" id="refreshTableQrPerformanceButton" type="button"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg><span>Refresh</span></button>
+                <button class="button button-secondary sales-pdf-button" id="generateTableQrPerformancePdfButton" type="button"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l3 3v17H6zM14 2v4h4M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span></button>
+                <button class="button button-primary sales-pdf-button" id="exportTableQrPerformancePdfButton" type="button"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg><span>Export PDF</span></button>
+              </div>
+              <div class="sales-date-range" id="inventoryValuationDateRange" hidden>
+                <div class="sales-date-control"><input id="inventoryValuationDateFrom" type="date" aria-label="Inventory valuation date from" /></div>
+                <div class="sales-date-control"><input id="inventoryValuationDateTo" type="date" aria-label="Inventory valuation date to" /></div>
+                <button class="button button-secondary sales-pdf-button" id="generateInventoryValuationPdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
+                </button>
+                <button class="button button-primary sales-pdf-button" id="exportInventoryValuationPdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg><span>Export PDF</span>
+                </button>
+              </div>
+              <div class="sales-date-range" id="cashBankReconciliationDateRange" hidden>
+                <div class="sales-date-control"><input id="cashBankReconciliationDateFrom" type="date" aria-label="Cash and bank reconciliation date from" /></div>
+                <div class="sales-date-control"><input id="cashBankReconciliationDateTo" type="date" aria-label="Cash and bank reconciliation date to" /></div>
+                <button class="button button-secondary sales-pdf-button" id="generateCashBankReconciliationPdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
+                </button>
+                <button class="button button-primary sales-pdf-button" id="exportCashBankReconciliationPdfButton" type="button">
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg><span>Export PDF</span>
+                </button>
+              </div>
+              <button class="button button-secondary sales-pdf-button" id="generateInventoryPdfButton" hidden>
                 <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
-                <span>Generate PDF</span>
+                <span>Print PDF</span>
+              </button>
+              <button class="button button-primary sales-pdf-button" id="exportInventoryPdfButton" hidden>
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
+                <span>Export PDF</span>
               </button>
             </div>
 
@@ -473,32 +594,85 @@
       <div class="stock-in-history-wrap">
         <div class="modal-head">
           <div class="modal-title-wrap">
-            <div class="modal-icon-badge">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15v-4"/><path d="M12 15V7"/><path d="M17 15v-7"/></svg>
+            <div class="modal-icon-badge primary-theme">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v14"/><path d="m19 9-7 7-7-7"/><path d="M5 21h14"/></svg>
             </div>
             <div class="modal-title-content">
-              <span class="modal-eyebrow">INVENTORY STOCK</span>
+              <span class="modal-eyebrow primary-theme">INVENTORY REPLENISHMENT &bull; AUDIT LOG</span>
               <h2>Stock-In History</h2>
-              <p class="modal-subtitle" id="stockInHistorySubtitle">Exact receipt costs for the selected branch.</p>
+              <p class="modal-subtitle" id="stockInHistorySubtitle">Exact receipt costs and vendor shipments for this branch.</p>
             </div>
           </div>
           <button class="icon-button close-dialog-btn" type="button" data-close="stockInHistoryDialog" aria-label="Close stock-in history" title="Close dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
         </div>
-        <div class="stock-in-history-toolbar">
+
+        <!-- Standard KPI Metric Cards -->
+        <div class="std-kpi-grid stock-in-kpi-grid" id="stockInKpiGrid"></div>
+
+        <!-- Standard Toolbar Strip: Filter Chips & Search -->
+        <div class="std-toolbar-strip stock-in-history-toolbar">
+          <div class="std-filter-chips stock-in-filter-chips" id="stockInFilterChips" role="tablist" aria-label="Filter stock-in receipts">
+            <button type="button" class="std-chip active" data-stock-in-filter="all">
+              <span class="std-chip-dot" style="background:#38bdf8;"></span>
+              <span class="std-chip-label">All Receipts</span>
+              <span class="std-chip-badge" id="stockInBadgeAll">0</span>
+            </button>
+            <button type="button" class="std-chip" data-stock-in-filter="withRef">
+              <span class="std-chip-dot" style="background:#34d399;"></span>
+              <span class="std-chip-label">With Invoice / Ref</span>
+              <span class="std-chip-badge" id="stockInBadgeWithRef">0</span>
+            </button>
+            <button type="button" class="std-chip" data-stock-in-filter="noRef">
+              <span class="std-chip-dot" style="background:#fbbf24;"></span>
+              <span class="std-chip-label">No Reference</span>
+              <span class="std-chip-badge" id="stockInBadgeNoRef">0</span>
+            </button>
+            <button type="button" class="std-chip" data-stock-in-filter="recent7">
+              <span class="std-chip-dot" style="background:#c084fc;"></span>
+              <span class="std-chip-label">Recent 7 Days</span>
+              <span class="std-chip-badge" id="stockInBadgeRecent7">0</span>
+            </button>
+          </div>
           <div class="search-wrap stock-in-search-wrap">
             <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            <input id="stockInSearchInput" type="search" placeholder="Search product, stock-in ID, or invoice/supplier..." autocomplete="off" />
+            <input id="stockInSearchInput" type="search" placeholder="Search product, STK ID, invoice or vendor..." autocomplete="off" />
           </div>
-          <button class="button button-secondary stock-in-search-btn" id="stockInSearchButton" type="button">
-            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            <span>Search</span>
-          </button>
         </div>
+
+        <!-- Standard Table Shell List -->
         <div class="stock-in-history-list" id="stockInHistoryList"></div>
-        <div class="modal-actions">
+
+        <div class="modal-actions stock-in-modal-actions">
+          <div class="stock-in-modal-note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+            <span>Verified inbound shipments automatically record FIFO cost lots into inventory valuation.</span>
+          </div>
           <button class="button modal-cancel-btn" type="button" data-close="stockInHistoryDialog">Close</button>
         </div>
       </div>
+    </dialog>
+
+    <!-- Stock-In Receipt Details Dialog -->
+    <dialog id="stockInEditDialog" class="pepsi-dialog">
+      <form id="stockInEditForm" novalidate>
+        <div class="modal-head">
+          <div class="modal-title-wrap">
+            <div class="modal-icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15v-4"/><path d="M12 15V7"/><path d="M17 15v-7"/></svg></div>
+            <div class="modal-title-content"><span class="modal-eyebrow">INVENTORY STOCK</span><h2>Edit Stock-In Details</h2><p class="modal-subtitle" id="stockInEditSubtitle">Update receipt cost, selling price, and supplier reference.</p></div>
+          </div>
+          <button class="icon-button close-dialog-btn" type="button" data-close="stockInEditDialog" aria-label="Close stock-in edit" title="Close dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <input id="stockInEditId" type="hidden" />
+        <div class="form-grid">
+          <div class="form-field-group full-field"><label for="stockInEditProduct">Product</label><input id="stockInEditProduct" type="text" readonly /></div>
+          <div class="form-field-group"><label for="stockInEditUnitCost">Unit Cost (PHP) <span class="required">*</span></label><div class="input-with-prefix"><span class="input-prefix">PHP</span><input id="stockInEditUnitCost" type="number" min="0" step="0.01" required /></div></div>
+          <div class="form-field-group"><label for="stockInEditSellingPrice">Selling Price (PHP) <span class="required">*</span></label><div class="input-with-prefix"><span class="input-prefix">PHP</span><input id="stockInEditSellingPrice" type="number" min="0" step="0.01" required /></div></div>
+          <div class="form-field-group full-field"><label for="stockInEditReference">Supplier / Invoice #</label><input id="stockInEditReference" type="text" maxlength="160" placeholder="Supplier, invoice, or delivery reference" /></div>
+        </div>
+        <p class="stock-in-edit-note">Quantity and stock movement cannot be changed after the receipt is posted.</p>
+        <p class="form-error" id="stockInEditError" role="alert"></p>
+        <div class="modal-actions"><button class="button modal-cancel-btn" type="button" data-close="stockInEditDialog">Cancel</button><button class="button modal-save-btn" type="submit" id="stockInEditSubmit"><span class="button-text">Save Changes</span></button></div>
+      </form>
     </dialog>
 
     <!-- Required first-login password change dialog -->
@@ -565,8 +739,8 @@
           <p class="hint">Access is protected by Supabase Authentication and row-level security.</p>
         </div>
         <div class="modal-actions">
-          <button class="button button-secondary" type="button" data-close="settingsDialog">Cancel</button>
-          <button class="button button-primary" type="submit" id="settingsSubmit">
+          <button class="button modal-cancel-btn" type="button" data-close="settingsDialog">Cancel</button>
+          <button class="button modal-save-btn" type="submit" id="settingsSubmit">
             <span class="button-text">Done</span>
           </button>
         </div>
@@ -635,7 +809,21 @@
           <fieldset class="payment-method-fieldset sale-payment-fieldset sale-service-fieldset">
             <legend class="label-text">Order Type <span class="required">*</span></legend>
             <div class="sale-payment-options sale-service-options">
-              <label class="sale-payment-option">
+              <label class="sale-payment-option sale-pay-as-order-option">
+                <input type="radio" name="serviceType" value="Takeout" checked />
+                <div class="sale-payment-card service-card">
+                  <div class="sale-payment-icon service-icon takeout-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                  </div>
+                  <div class="sale-payment-info">
+                    <span class="sale-payment-title">Pay as Order</span>
+                    <span class="sale-payment-sub">Pay immediately</span>
+                  </div>
+                  <div class="sale-payment-radio"></div>
+                </div>
+              </label>
+
+              <label class="sale-payment-option sale-dine-in-option">
                 <input type="radio" name="serviceType" value="Dine-in" />
                 <div class="sale-payment-card service-card">
                   <div class="sale-payment-icon service-icon dinein-icon">
@@ -650,7 +838,7 @@
               </label>
 
               <label class="sale-payment-option">
-                <input type="radio" name="serviceType" value="Takeout" checked />
+                <input type="radio" name="serviceType" value="Takeout" />
                 <div class="sale-payment-card service-card">
                   <div class="sale-payment-icon service-icon takeout-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
@@ -742,7 +930,7 @@
                 </div>
               </label>
 
-              <label class="sale-payment-option">
+              <label class="sale-payment-option sale-split-payment-option">
                 <input type="radio" name="paymentType" value="split" />
                 <div class="sale-payment-card"><div class="sale-payment-icon credit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M7 4v6m10-6v6M6 17h5m2 0h5"/><rect width="20" height="14" x="2" y="5" rx="2"/></svg></div><div class="sale-payment-info"><span class="sale-payment-title">Cash + Credit</span><span class="sale-payment-sub">Cash now, balance to account</span></div><div class="sale-payment-radio"></div></div>
               </label>
@@ -893,9 +1081,9 @@
         <div class="credit-history-modal-list" id="creditHistoryModalList"></div>
         <div class="modal-actions">
           <button class="button modal-cancel-btn" type="button" data-close="creditHistoryDialog">Close</button>
-          <button class="button button-primary" type="button" id="creditHistoryRecordNewBtn">
+          <button class="button modal-save-btn" type="button" id="creditHistoryRecordNewBtn">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/><path d="M12 15h.01"/></svg>
-            <span>Record Payment</span>
+            <span class="button-text">Record Payment</span>
           </button>
         </div>
       </div>
@@ -1232,10 +1420,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="supabase-config.js?v=2"></script>
-    <script src="app.js?v=bundle-stockin-existing-v1"></script>
+    <script src="owner-reports.js?v=owner-bank-table-reports-v1"></script>
+    <script src="app.js?v=products-page-layout-sky-v2"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js?v=product-kitchen-restore-1'));
+        window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js?v=owner-bank-table-reports-v1'));
       }
     </script>
   </body>

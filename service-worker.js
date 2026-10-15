@@ -1,10 +1,11 @@
-const CACHE_NAME = 'angkols-shell-v4';
+const CACHE_NAME = 'angkols-shell-v5';
 const APP_SHELL = [
   './',
   './index.html',
   './report.html',
   './styles.css',
   './app.js',
+  './owner-reports.js',
   './supabase-config.js',
   './favicon.ico',
   './favicon.svg',
@@ -34,7 +35,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  const alwaysFresh = /\/(app\.js|styles\.css|supabase-config\.js|index\.html)$/.test(url.pathname);
+  const alwaysFresh = /\/(app\.js|owner-reports\.js|styles\.css|supabase-config\.js|index\.html)$/.test(url.pathname);
   if (alwaysFresh) {
     event.respondWith(fetch(request).catch(() => caches.match(request, { ignoreSearch: true })));
     return;
