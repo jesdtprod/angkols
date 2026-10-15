@@ -1,8 +1,8 @@
 {
   "0": "app.js",
   "1": "setView",
-  "2": "initCustomDropdowns",
-  "3": "renderKitchenDisplay_",
+  "2": "initCustomDatePickers",
+  "3": "initCustomDropdowns",
   "4": "showToast",
   "5": "FR Merchandise POS",
   "6": "Review Focus",
@@ -41,6 +41,7 @@
   "39": "updating-code.md",
   "40": "analyze-edit.md",
   "41": "SECURITY.md",
-  "42": "openReportInNewPage_",
-  "43": "initCustomDatePickers"
+  "42": "generateInventoryReportPdf",
+  "43": "renderBranchSelector",
+  "44": "renderSkeletonTable"
 }

@@ -60,6 +60,15 @@ let activeQuarantineFilter = 'all';
 let activeLossReasonFilter = 'all';
 let activeBankLedgerFilter = 'all';
 let activeExpenseCategoryFilter = 'all';
+let activeSpotCashFilter = 'all';
+let activeTransferStatusFilter = 'all';
+let activeBundleFilter = 'all';
+let activeCustomerFilter = 'all';
+let activeCreditFilter = 'all';
+let activeStaffFilter = 'all';
+let activeAdminFilter = 'all';
+let activeProductsFilter = 'all';
+let activeInventoryFilter = 'all';
 let dashboardDate = formatDateInput(new Date());
 const TABLE_PAGE_SIZE = 10;
 const PRODUCTS_PAGE_SIZE = 10;
@@ -2794,6 +2803,79 @@ function renderSkeletonTable() {
     return;
   }
 
+  const stdViewThemes = {
+    products: 'theme-emerald',
+    inventory: 'theme-emerald',
+    quarantine: 'theme-orange',
+    transfers: 'theme-purple',
+    dailySpotCash: 'theme-amber',
+    customers: 'theme-sky',
+    credits: 'theme-crimson',
+    staffAccounts: 'theme-blue',
+    adminAccount: 'theme-blue',
+  };
+
+  if (stdViewThemes[activeView]) {
+    const theme = stdViewThemes[activeView];
+    table.innerHTML = `
+      <div class="std-view ${theme}">
+        <div class="std-hero-card" style="pointer-events: none;">
+          <div class="std-hero-leading">
+            <div class="skeleton-shimmer" style="width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;"></div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+              <div class="skeleton-shimmer" style="width: 140px; height: 11px;"></div>
+              <div class="skeleton-shimmer" style="width: 220px; height: 22px;"></div>
+              <div class="skeleton-shimmer" style="width: 65%; height: 13px;"></div>
+            </div>
+          </div>
+          <div class="skeleton-shimmer" style="width: 160px; height: 42px; border-radius: 10px;"></div>
+        </div>
+
+        <div class="std-kpi-grid">
+          ${Array.from({ length: 4 }).map(() => `
+            <div class="std-kpi-card" style="pointer-events: none;">
+              <div class="skeleton-shimmer" style="width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;"></div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                <div class="skeleton-shimmer" style="width: 80px; height: 10px;"></div>
+                <div class="skeleton-shimmer" style="width: 85px; height: 20px;"></div>
+                <div class="skeleton-shimmer" style="width: 110px; height: 10px;"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="std-toolbar-strip" style="pointer-events: none;">
+          <div class="skeleton-shimmer" style="width: 320px; height: 32px; border-radius: 999px;"></div>
+          <div class="skeleton-shimmer" style="width: 160px; height: 32px; border-radius: 8px;"></div>
+        </div>
+
+        <div class="std-table-shell" style="pointer-events: none;">
+          <div class="std-table-header" style="display: grid; grid-template-columns: 2fr 1.5fr 1.5fr 1fr; gap: 12px; padding: 12px 18px;">
+            <span><div class="skeleton-shimmer" style="width: 100px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 90px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 80px; height: 12px;"></div></span>
+            <span style="text-align: right;"><div class="skeleton-shimmer" style="width: 60px; height: 12px; margin-left: auto;"></div></span>
+          </div>
+          ${Array.from({ length: 4 }).map(() => `
+            <div class="std-table-row" style="display: grid; grid-template-columns: 2fr 1.5fr 1.5fr 1fr; gap: 12px; padding: 14px 18px;">
+              <div style="display: flex; flex-direction: column; gap: 5px;">
+                <div class="skeleton-shimmer" style="width: 140px; height: 14px;"></div>
+                <div class="skeleton-shimmer" style="width: 75px; height: 11px;"></div>
+              </div>
+              <div><div class="skeleton-shimmer" style="width: 85px; height: 22px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 95px; height: 16px;"></div></div>
+              <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                <div class="skeleton-shimmer" style="width: 28px; height: 28px; border-radius: 6px;"></div>
+                <div class="skeleton-shimmer" style="width: 28px; height: 28px; border-radius: 6px;"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   const headers = activeView === 'products'
     ? ['Product', 'Category', 'Selling price', 'Quantity in stock', 'Low stock', 'Status', 'Action']
     : activeView === 'inventory'
@@ -4223,30 +4305,234 @@ function renderStaffAccounts() {
   const table = $('#inventoryTable');
   if (!table) return;
   const term = ($('#searchInput')?.value || '').trim().toLowerCase();
-  const allRows = sortByName_(staffAccounts.filter((staff) => `${staff.fullName} ${staff.username}`.toLowerCase().includes(term)), 'fullName');
+
+  // Metrics
+  const totalStaff = staffAccounts.length;
+  let activeStaff = 0;
+  const assignedBranchesSet = new Set();
+  let signedInCount = 0;
+
+  staffAccounts.forEach((staff) => {
+    if (staff.status === 'Active') activeStaff++;
+    if (staff.branchId) assignedBranchesSet.add(staff.branchId);
+    if (staff.lastLogin) signedInCount++;
+  });
+
+  const inactiveStaff = totalStaff - activeStaff;
+  const assignedBranchesCount = assignedBranchesSet.size;
+
+  // Filter
+  const filteredStaff = staffAccounts.filter((staff) => {
+    if (activeStaffFilter === 'active' && staff.status !== 'Active') return false;
+    if (activeStaffFilter === 'inactive' && staff.status === 'Active') return false;
+    if (term) {
+      const match = `${staff.fullName} ${staff.username} ${staff.branchId || ''}`.toLowerCase();
+      if (!match.includes(term)) return false;
+    }
+    return true;
+  });
+
+  const allRows = sortByName_(filteredStaff, 'fullName');
   const pagination = paginateItems_(allRows);
   const rows = pagination.pagedItems;
   const paginationHtml = renderPaginationControls_(pagination, 'staff accounts');
+
   table.innerHTML = `
-    <div class="table-row table-header"><span>Staff Account</span><span>Assigned Branch</span><span>Menu Access</span><span>Status</span><span>Action</span></div>
-    ${rows.map((staff) => {
-      const branch = branches.find((item) => item.id === staff.branchId);
-      return `<div class="table-row">
-        <div class="product-cell"><div class="product-details-stack"><strong class="product-name">${escapeHtml(staff.fullName)}</strong><span class="product-meta">${escapeHtml(staff.username)}${staff.lastLogin ? ` • Last login ${formatDateTime(staff.lastLogin)}` : ' • Not yet signed in'}</span></div></div>
-        <div class="row-middle-cells">
-          <span class="category-badge">${escapeHtml(branch?.name || 'Unavailable branch')}</span>
-          <span class="account-permissions">${renderStaffPermissions(staff.permissions)}</span>
-          <span class="stock-pill ${staff.status === 'Active' ? 'stock-normal' : 'stock-low'}">${escapeHtml(staff.status)}</span>
+    <div class="std-view theme-blue">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">SECURITY &amp; ACCESS &bull; STAFF DIRECTORY</span>
+            <strong class="std-hero-title">Staff Accounts &amp; Branch Permissions</strong>
+            <p class="std-hero-desc">Manage authorized cashiers, table service waiters, and kitchen crew. Configure granular menu permissions, audit logins, and control operational station access.</p>
+          </div>
         </div>
-        <div class="row-action-cell"><span class="table-actions">
-          <button class="icon-button" data-edit-staff="${staff.id}" aria-label="Edit ${escapeHtml(staff.fullName)}" title="Edit staff account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
-          <button class="icon-button primary-icon" data-reset-staff="${staff.id}" aria-label="Reset password for ${escapeHtml(staff.fullName)}" title="Reset password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg></button>
-          <button class="icon-button ${staff.status === 'Active' ? 'danger-icon' : 'primary-icon'}" data-toggle-staff="${staff.id}" aria-label="${staff.status === 'Active' ? 'Deactivate' : 'Reactivate'} ${escapeHtml(staff.fullName)}" title="${staff.status === 'Active' ? 'Deactivate' : 'Reactivate'} account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${staff.status === 'Active' ? '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="m17 8 5 5m0-5-5 5"/>' : '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="m16 12 2 2 4-4"/>'}</svg></button>
-        </span></div></div>`;
-    }).join('') || '<div class="empty-state"><p>No staff accounts found</p><small>Add a staff account to assign a branch and allowed menus.</small></div>'}
-    ${paginationHtml}
+        <div class="std-hero-actions">
+          <button class="button button-primary std-record-btn" type="button" id="addStaffHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            <span>Add Staff Account</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">TOTAL STAFF ACCOUNTS</span>
+            <strong class="std-kpi-value text-sky">${totalStaff}</strong>
+            <span class="std-kpi-sub">Authorized crew members</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">ACTIVE OPERATORS</span>
+            <strong class="std-kpi-value text-emerald">${activeStaff}</strong>
+            <span class="std-kpi-sub">Permitted to sign in</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">ASSIGNED BRANCHES</span>
+            <strong class="std-kpi-value text-amber">${assignedBranchesCount}</strong>
+            <span class="std-kpi-sub">Store locations staffed</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">SIGNED IN (ACTIVE)</span>
+            <strong class="std-kpi-value text-purple">${signedInCount}</strong>
+            <span class="std-kpi-sub">Login history on record</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        <div class="std-chip-group">
+          <button type="button" class="std-chip ${activeStaffFilter === 'all' ? 'active' : ''}" data-staff-filter="all">
+            <span class="std-chip-dot"></span>
+            <span class="std-chip-label">All Staff</span>
+            <span class="std-chip-badge">${totalStaff}</span>
+          </button>
+          <button type="button" class="std-chip ${activeStaffFilter === 'active' ? 'active' : ''}" data-staff-filter="active">
+            <span class="std-chip-dot" style="background:#34d399;"></span>
+            <span class="std-chip-label">Active</span>
+            <span class="std-chip-badge">${activeStaff}</span>
+          </button>
+          <button type="button" class="std-chip ${activeStaffFilter === 'inactive' ? 'active' : ''}" data-staff-filter="inactive">
+            <span class="std-chip-dot" style="background:#f87171;"></span>
+            <span class="std-chip-label">Inactive</span>
+            <span class="std-chip-badge">${inactiveStaff}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-staff">
+          <span>Staff Account</span>
+          <span>Assigned Branch</span>
+          <span>Menu Access</span>
+          <span>Status</span>
+          <span style="text-align: right;">Action</span>
+        </div>
+
+        ${rows.length ? rows.map((staff) => {
+          const branch = branches.find((item) => item.id === staff.branchId);
+
+          return `
+            <div class="std-table-row grid-cols-staff">
+              <div class="product-cell" data-label="Staff Account">
+                <div class="product-details-stack">
+                  <strong class="product-name" style="font-size:13.5px;color:#fff;">${escapeHtml(staff.fullName)}</strong>
+                  <span class="product-meta" style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:11px;">
+                    ${escapeHtml(staff.username)}${staff.lastLogin ? ` &bull; Last login ${formatDateTime(staff.lastLogin)}` : ' &bull; Not yet signed in'}
+                  </span>
+                </div>
+              </div>
+
+              <div data-label="Assigned Branch">
+                <span class="category-badge" style="font-size:11.5px;padding:3px 9px;">
+                  ${escapeHtml(branch?.name || 'Unavailable branch')}
+                </span>
+              </div>
+
+              <div data-label="Menu Access">
+                <span class="account-permissions">${renderStaffPermissions(staff.permissions)}</span>
+              </div>
+
+              <div data-label="Status">
+                <span class="stock-pill ${staff.status === 'Active' ? 'stock-normal' : 'stock-low'}" style="font-size:11px;padding:2px 8px;">
+                  ${escapeHtml(staff.status)}
+                </span>
+              </div>
+
+              <div data-label="Action" style="text-align: right;">
+                <span class="table-actions" style="display:inline-flex;gap:6px;align-items:center;justify-content:flex-end;">
+                  <button class="icon-button" data-edit-staff="${staff.id}" aria-label="Edit ${escapeHtml(staff.fullName)}" title="Edit staff account">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                  </button>
+                  <button class="icon-button primary-icon" data-reset-staff="${staff.id}" aria-label="Reset password for ${escapeHtml(staff.fullName)}" title="Reset password">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>
+                  </button>
+                  <button class="icon-button ${staff.status === 'Active' ? 'danger-icon' : 'primary-icon'}" data-toggle-staff="${staff.id}" aria-label="${staff.status === 'Active' ? 'Deactivate' : 'Reactivate'} ${escapeHtml(staff.fullName)}" title="${staff.status === 'Active' ? 'Deactivate' : 'Reactivate'} account">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      ${staff.status === 'Active' ? '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="m17 8 5 5m0-5-5 5"/>' : '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="m16 12 2 2 4-4"/>'}
+                    </svg>
+                  </button>
+                </span>
+              </div>
+            </div>
+          `;
+        }).join('') : `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="background:rgba(59,130,246,0.1);color:#60a5fa;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:28px;height:28px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            </div>
+            <strong>${term ? 'No matching staff accounts' : 'No staff accounts configured'}</strong>
+            <p>${term ? 'No staff accounts match your search query.' : 'Add staff member credentials to assign branch locations and specific menu permissions.'}</p>
+            ${!term ? `
+              <button class="button button-primary std-record-btn" type="button" id="staffEmptyAddBtn" style="margin-top:14px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M12 5v14M5 12h14"/></svg>
+                <span>Add Staff Account</span>
+              </button>
+            ` : ''}
+          </div>
+        `}
+      </div>
+
+      ${paginationHtml}
+    </div>
   `;
-  bindPaginationEvents_(table);
+
+  bindPaginationEvents_(table, renderStaffAccounts);
+
+  // Bind Buttons
+  table.querySelector('#addStaffHeroBtn')?.addEventListener('click', () => openForm('staff'));
+  table.querySelector('#staffEmptyAddBtn')?.addEventListener('click', () => openForm('staff'));
+
+  // Bind Chips
+  table.querySelectorAll('[data-staff-filter]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeStaffFilter = chip.dataset.staffFilter;
+      renderStaffAccounts();
+    });
+  });
+
+  // Bind Row Actions
   table.querySelectorAll('[data-edit-staff]').forEach((button) => button.addEventListener('click', () => openForm('editStaff', button.dataset.editStaff)));
   table.querySelectorAll('[data-toggle-staff]').forEach((button) => button.addEventListener('click', () => toggleStaffStatus(button.dataset.toggleStaff)));
   table.querySelectorAll('[data-reset-staff]').forEach((button) => button.addEventListener('click', () => resetStaffPassword(button.dataset.resetStaff)));
@@ -4255,99 +4541,299 @@ function renderStaffAccounts() {
 function renderAdminAccount() {
   const panel = $('#accountProfilePanel');
   const table = $('#inventoryTable');
-  if (!panel || !table) return;
-  panel.hidden = false;
-  panel.innerHTML = `
-    <div class="backup-restore-container">
-      <div class="backup-info-col">
-        <div class="backup-header-line">
-          <span class="eyebrow">SYSTEM OPERATIONS</span>
-          <span class="backup-status-pill">
-            <span class="backup-pulse-dot"></span>
-            System Ready
-          </span>
-        </div>
-        <div class="backup-title-wrap">
-          <div class="backup-icon-badge">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-          </div>
-          <div>
-            <h3>Backup &amp; Restore Operations</h3>
-            <p>Export or restore operational records (products, stock levels, transactions, customers, transfers). Administrator accounts, passwords, and audit history remain secured and untouched.</p>
-          </div>
-        </div>
-        <div class="backup-tags-row">
-          <span class="backup-tag">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            JSON Snapshot
-          </span>
-          <span class="backup-tag">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/></svg>
-            Admin Credentials Preserved
-          </span>
-          <span class="backup-tag">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
-            Instant Sync
-          </span>
-        </div>
-      </div>
-      <div class="backup-actions-col">
-        <button class="backup-action-card backup-download-card" id="downloadBackupButton" type="button" title="Download current operational database snapshot">
-          <div class="backup-card-icon">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-          </div>
-          <div class="backup-card-details">
-            <span class="backup-card-heading">Download Backup</span>
-            <span class="backup-card-caption">Export full operational dataset</span>
-          </div>
-          <svg class="backup-card-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
-        <button class="backup-action-card backup-restore-card" id="restoreBackupButton" type="button" title="Upload and restore a JSON database backup">
-          <div class="backup-card-icon">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-          </div>
-          <div class="backup-card-details">
-            <span class="backup-card-heading">Restore Backup</span>
-            <span class="backup-card-caption">Upload &amp; verify JSON file</span>
-          </div>
-          <svg class="backup-card-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
-        <input id="restoreBackupFile" type="file" accept="application/json,.json" hidden>
-      </div>
-    </div>
-  `;
-  const allAccounts = sortByName_(adminAccounts, 'fullName');
+  if (!table) return;
+  if (panel) {
+    panel.hidden = true;
+    panel.innerHTML = '';
+  }
+
+  const term = ($('#searchInput')?.value || '').trim().toLowerCase();
+
+  // Metrics
+  const totalAdmins = adminAccounts.length;
+  let activeAdmins = 0;
+  adminAccounts.forEach((acc) => {
+    if (acc.status === 'Active') activeAdmins++;
+  });
+
+  // Filter
+  const filteredAdmins = adminAccounts.filter((account) => {
+    if (activeAdminFilter === 'active' && account.status !== 'Active') return false;
+    if (term) {
+      const match = `${account.fullName} ${account.username}`.toLowerCase();
+      if (!match.includes(term)) return false;
+    }
+    return true;
+  });
+
+  const allAccounts = sortByName_(filteredAdmins, 'fullName');
   const pagination = paginateItems_(allAccounts);
   const rows = pagination.pagedItems;
   const paginationHtml = renderPaginationControls_(pagination, 'administrators');
-  table.innerHTML = `<div class="table-row table-header"><span>Administrator</span><span>Username</span><span>Access</span><span>Status</span><span>Action</span></div>${rows.map((account) => `<div class="table-row">
-    <div class="product-cell"><div class="product-details-stack"><strong class="product-name">${escapeHtml(account.fullName)}</strong><span class="product-meta">Administrator account</span></div></div>
-    <div class="row-middle-cells">
-      <span>${escapeHtml(account.username)}</span>
-      <span class="account-permissions"><span class="menu-chip menu-chip-all" title="Full system access across all branches and menus"><svg class="menu-chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg><span>All branches &amp; menus</span></span></span>
-      <span class="stock-pill ${account.status === 'Active' ? 'stock-normal' : 'stock-low'}">${escapeHtml(account.status)}</span>
+
+  table.innerHTML = `
+    <div class="std-view theme-blue">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/>
+              <path d="m9 12 2 2 4-4"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">SYSTEM ADMINISTRATION &bull; PRIVILEGED ACCESS</span>
+            <strong class="std-hero-title">Administrator Directory &amp; System Operations</strong>
+            <p class="std-hero-desc">Superuser accounts with unlimited cross-branch oversight, security auditing, and database snapshot backup/restore management.</p>
+          </div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="button button-primary std-record-btn" type="button" id="addAdminHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            <span>Add Administrator</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">ACTIVE ADMINISTRATORS</span>
+            <strong class="std-kpi-value text-sky">${activeAdmins}</strong>
+            <span class="std-kpi-sub">Total: ${totalAdmins} registered</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">DATABASE STATUS</span>
+            <strong class="std-kpi-value text-emerald">Online &amp; Synced</strong>
+            <span class="std-kpi-sub">Supabase real-time cluster</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">SECURITY LEVEL</span>
+            <strong class="std-kpi-value text-purple">Full Superuser</strong>
+            <span class="std-kpi-sub">Dual Admin Active</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">BACKUP HEALTH</span>
+            <strong class="std-kpi-value text-amber">Snapshot Ready</strong>
+            <span class="std-kpi-sub">Instant JSON export</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="backup-restore-container" style="margin-bottom: 22px;">
+        <div class="backup-info-col">
+          <div class="backup-header-line">
+            <span class="eyebrow">SYSTEM OPERATIONS</span>
+            <span class="backup-status-pill">
+              <span class="backup-pulse-dot"></span>
+              System Ready
+            </span>
+          </div>
+          <div class="backup-title-wrap">
+            <div class="backup-icon-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </div>
+            <div>
+              <h3>Backup &amp; Restore Operations</h3>
+              <p>Export or restore operational records (products, stock levels, transactions, customers, transfers). Administrator accounts, passwords, and audit history remain secured and untouched.</p>
+            </div>
+          </div>
+          <div class="backup-tags-row">
+            <span class="backup-tag">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              JSON Snapshot
+            </span>
+            <span class="backup-tag">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/></svg>
+              Admin Credentials Preserved
+            </span>
+            <span class="backup-tag">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+              Instant Sync
+            </span>
+          </div>
+        </div>
+        <div class="backup-actions-col">
+          <button class="backup-action-card backup-download-card" id="downloadBackupButton" type="button" title="Download current operational database snapshot">
+            <div class="backup-card-icon">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </div>
+            <div class="backup-card-details">
+              <span class="backup-card-heading">Download Backup</span>
+              <span class="backup-card-caption">Export full operational dataset</span>
+            </div>
+            <svg class="backup-card-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+          <button class="backup-action-card backup-restore-card" id="restoreBackupButton" type="button" title="Upload and restore a JSON database backup">
+            <div class="backup-card-icon">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <div class="backup-card-details">
+              <span class="backup-card-heading">Restore Backup</span>
+              <span class="backup-card-caption">Upload &amp; verify JSON file</span>
+            </div>
+            <svg class="backup-card-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+          <input id="restoreBackupFile" type="file" accept="application/json,.json" hidden>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        <div class="std-chip-group">
+          <button type="button" class="std-chip ${activeAdminFilter === 'all' ? 'active' : ''}" data-admin-filter="all">
+            <span class="std-chip-dot"></span>
+            <span class="std-chip-label">All Administrators</span>
+            <span class="std-chip-badge">${totalAdmins}</span>
+          </button>
+          <button type="button" class="std-chip ${activeAdminFilter === 'active' ? 'active' : ''}" data-admin-filter="active">
+            <span class="std-chip-dot" style="background:#34d399;"></span>
+            <span class="std-chip-label">Active</span>
+            <span class="std-chip-badge">${activeAdmins}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-admin">
+          <span>Administrator</span>
+          <span>Username</span>
+          <span>Access Level</span>
+          <span>Status</span>
+          <span style="text-align: right;">Action</span>
+        </div>
+
+        ${rows.length ? rows.map((account) => `
+          <div class="std-table-row grid-cols-admin">
+            <div class="product-cell" data-label="Administrator">
+              <div class="product-details-stack">
+                <strong class="product-name" style="font-size:13.5px;color:#fff;">${escapeHtml(account.fullName)}</strong>
+                <span class="product-meta" style="font-size:11px;">Administrator account</span>
+              </div>
+            </div>
+
+            <div data-label="Username">
+              <span style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;color:#e2e8f0;">${escapeHtml(account.username)}</span>
+            </div>
+
+            <div data-label="Access Level">
+              <span class="account-permissions">
+                <span class="menu-chip menu-chip-all" title="Full system access across all branches and menus">
+                  <svg class="menu-chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+                  <span>All branches &amp; menus</span>
+                </span>
+              </span>
+            </div>
+
+            <div data-label="Status">
+              <span class="stock-pill ${account.status === 'Active' ? 'stock-normal' : 'stock-low'}" style="font-size:11px;padding:2px 8px;">
+                ${escapeHtml(account.status)}
+              </span>
+            </div>
+
+            <div data-label="Action" style="text-align: right;">
+              <span class="table-actions" style="display:inline-flex;gap:6px;align-items:center;justify-content:flex-end;">
+                <button class="icon-button" data-edit-admin="${account.id}" aria-label="Edit ${escapeHtml(account.fullName)}" title="Edit administrator">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                </button>
+                ${account.id !== currentSession?.account?.id ? `
+                  <button class="icon-button ${account.status === 'Active' ? 'danger-icon' : 'primary-icon'}" data-toggle-admin="${account.id}" aria-label="${account.status === 'Active' ? 'Deactivate' : 'Reactivate'} ${escapeHtml(account.fullName)}" title="${account.status === 'Active' ? 'Deactivate administrator' : 'Reactivate administrator'}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      ${account.status === 'Active' ? '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="m17 8 5 5m0-5-5 5"/>' : '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="m16 12 2 2 4-4"/>'}
+                    </svg>
+                  </button>
+                ` : ''}
+              </span>
+            </div>
+          </div>
+        `).join('') : `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="background:rgba(59,130,246,0.1);color:#60a5fa;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:28px;height:28px;"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/></svg>
+            </div>
+            <strong>${term ? 'No matching administrator accounts' : 'No administrator accounts found'}</strong>
+            <p>${term ? 'No administrator accounts match your search query.' : 'Administrator accounts have full privileges.'}</p>
+            ${!term ? `
+              <button class="button button-primary std-record-btn" type="button" id="adminEmptyAddBtn" style="margin-top:14px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M12 5v14M5 12h14"/></svg>
+                <span>Add Administrator</span>
+              </button>
+            ` : ''}
+          </div>
+        `}
+      </div>
+
+      ${paginationHtml}
     </div>
-    <div class="row-action-cell"><span class="table-actions"><button class="icon-button" data-edit-admin="${account.id}" aria-label="Edit ${escapeHtml(account.fullName)}" title="Edit administrator"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>${account.id !== currentSession?.account?.id ? `<button class="icon-button ${account.status === 'Active' ? 'danger-icon' : 'primary-icon'}" data-toggle-admin="${account.id}" aria-label="${account.status === 'Active' ? 'Deactivate' : 'Reactivate'} ${escapeHtml(account.fullName)}" title="${account.status === 'Active' ? 'Deactivate administrator' : 'Reactivate administrator'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${account.status === 'Active' ? '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="m17 8 5 5m0-5-5 5"/>' : '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="m16 12 2 2 4-4"/>'}</svg></button>` : ''}</span></div>
-  </div>`).join('') || '<div class="empty-state"><p>No administrator accounts found</p></div>'}
-  ${paginationHtml}`;
-  bindPaginationEvents_(table);
+  `;
+
+  bindPaginationEvents_(table, renderAdminAccount);
+
+  // Bind Buttons
+  table.querySelector('#addAdminHeroBtn')?.addEventListener('click', () => openForm('admin'));
+  table.querySelector('#adminEmptyAddBtn')?.addEventListener('click', () => openForm('admin'));
+
+  // Bind Chips
+  table.querySelectorAll('[data-admin-filter]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeAdminFilter = chip.dataset.adminFilter;
+      renderAdminAccount();
+    });
+  });
+
+  // Bind Row Actions
   table.querySelectorAll('[data-edit-admin]').forEach((button) => button.addEventListener('click', () => openForm('editAdmin', button.dataset.editAdmin)));
   table.querySelectorAll('[data-toggle-admin]').forEach((button) => button.addEventListener('click', () => toggleAdminStatus(button.dataset.toggleAdmin)));
-  $('#downloadBackupButton')?.addEventListener('click', downloadOperationalBackup);
-  $('#restoreBackupButton')?.addEventListener('click', () => $('#restoreBackupFile')?.click());
-  $('#restoreBackupFile')?.addEventListener('change', restoreOperationalBackup);
+
+  // Bind Backup Actions
+  table.querySelector('#downloadBackupButton')?.addEventListener('click', downloadOperationalBackup);
+  table.querySelector('#restoreBackupButton')?.addEventListener('click', () => $('#restoreBackupFile')?.click());
+  table.querySelector('#restoreBackupFile')?.addEventListener('change', restoreOperationalBackup);
 }
 
 async function downloadOperationalBackup() {
@@ -6640,6 +7126,489 @@ function playWaiterOrderChime_() {
 document.addEventListener('pointerdown', prepareWaiterChime_, { once: true, capture: true });
 document.addEventListener('keydown', prepareWaiterChime_, { once: true, capture: true });
 
+function renderProductsTable_() {
+  const table = $('#inventoryTable');
+  if (!table) return;
+  const term = ($('#searchInput')?.value || '').trim().toLowerCase();
+
+  const allItems = sortByName_(products);
+
+  // Metrics
+  const totalProducts = allItems.length;
+  let activeCount = 0;
+  let bundleCount = 0;
+  let rawCount = 0;
+  const categoriesSet = new Set();
+
+  allItems.forEach((p) => {
+    if (p.status === 'Active') activeCount++;
+    if (p.productType === 'bundle') bundleCount++;
+    if (p.category === RAW_MATERIAL_CATEGORY) rawCount++;
+    if (p.category) categoriesSet.add(p.category);
+  });
+
+  const inactiveCount = totalProducts - activeCount;
+  const categoriesCount = categoriesSet.size;
+
+  // Filter
+  const filtered = allItems.filter((product) => {
+    if (activeProductsFilter === 'active' && product.status !== 'Active') return false;
+    if (activeProductsFilter === 'inactive' && product.status === 'Active') return false;
+    if (activeProductsFilter === 'bundle' && product.productType !== 'bundle') return false;
+    if (activeProductsFilter === 'raw' && product.category !== RAW_MATERIAL_CATEGORY) return false;
+    if (term) {
+      const matchStr = `${product.name} ${product.category || ''} ${product.sku || ''}`.toLowerCase();
+      if (!matchStr.includes(term)) return false;
+    }
+    return true;
+  });
+
+  const pagination = paginateItems_(filtered);
+  const rows = pagination.pagedItems;
+  const paginationHtml = renderPaginationControls_(pagination, 'products');
+
+  table.innerHTML = `
+    <div class="std-view theme-emerald">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+              <polyline points="3.29 7 12 12 20.71 7"/>
+              <line x1="12" y1="22" x2="12" y2="12"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">CATALOG MASTER &bull; PRODUCT REGISTRY</span>
+            <strong class="std-hero-title">Product Registration &amp; Price Management</strong>
+            <p class="std-hero-desc">Master catalog for retail items, bundle combos, recipes, and raw materials. Configure selling prices, low stock thresholds, and POS visibility.</p>
+          </div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="button button-secondary std-record-btn" type="button" id="addExistingProductHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="9"/></svg>
+            <span>Add Existing Product</span>
+          </button>
+          <button class="button button-primary std-record-btn" type="button" id="registerProductHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Register Product</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">TOTAL CATALOG ITEMS</span>
+            <strong class="std-kpi-value text-emerald">${totalProducts}</strong>
+            <span class="std-kpi-sub">Master items configured</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">ACTIVE MENU ITEMS</span>
+            <strong class="std-kpi-value text-sky">${activeCount}</strong>
+            <span class="std-kpi-sub">Available for POS sale</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">CATEGORIES DEFINED</span>
+            <strong class="std-kpi-value text-amber">${categoriesCount}</strong>
+            <span class="std-kpi-sub">Catalog classifications</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 3h10l2 4-2 14H7L5 7l2-4Z"/><path d="M5 7h14M9 3v4m6-4v4"/><path d="M9 12h6M9 16h6"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">RECIPES &bull; BUNDLES</span>
+            <strong class="std-kpi-value text-purple">${bundleCount}</strong>
+            <span class="std-kpi-sub">Kit products configured</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        <div class="std-filter-chips" role="tablist" aria-label="Filter products">
+          <button type="button" class="std-chip ${activeProductsFilter === 'all' ? 'active' : ''}" data-prod-filter="all">
+            <span class="std-chip-dot" style="background:#10b981;"></span>
+            <span class="std-chip-label">All Products</span>
+            <span class="std-chip-badge">${totalProducts}</span>
+          </button>
+          <button type="button" class="std-chip ${activeProductsFilter === 'active' ? 'active' : ''}" data-prod-filter="active">
+            <span class="std-chip-dot" style="background:#38bdf8;"></span>
+            <span class="std-chip-label">Active</span>
+            <span class="std-chip-badge">${activeCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeProductsFilter === 'bundle' ? 'active' : ''}" data-prod-filter="bundle">
+            <span class="std-chip-dot" style="background:#c084fc;"></span>
+            <span class="std-chip-label">Bundles / Sets</span>
+            <span class="std-chip-badge">${bundleCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeProductsFilter === 'raw' ? 'active' : ''}" data-prod-filter="raw">
+            <span class="std-chip-dot" style="background:#fbbf24;"></span>
+            <span class="std-chip-label">Raw Materials</span>
+            <span class="std-chip-badge">${rawCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeProductsFilter === 'inactive' ? 'active' : ''}" data-prod-filter="inactive">
+            <span class="std-chip-dot" style="background:#f87171;"></span>
+            <span class="std-chip-label">Inactive</span>
+            <span class="std-chip-badge">${inactiveCount}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-products">
+          <span>Product &amp; SKU</span>
+          <span>Category</span>
+          <span>Selling Price</span>
+          <span>In Stock</span>
+          <span>Low Stock Alert</span>
+          <span>Status</span>
+          <span style="text-align: right;">Action</span>
+        </div>
+
+        ${rows.length ? rows.map((product) => {
+          const isOut = product.qty <= 0;
+          const isLow = !isOut && product.qty <= product.lowStockLevel;
+          const priceValue = hasSellingPriceOverride(product.sellingPriceOverride)
+            ? `<span class="price-text" style="color:#38bdf8;font-weight:700;">${money(product.sellingPriceOverride)}</span>`
+            : product.qty > 0
+            ? `<span class="price-text" style="color:#ffffff;font-weight:700;">${money(displayedSellingPrice(product))}</span>`
+            : '<span class="price-text price-unset" style="color:#64748b;font-size:11px;">Stock In req.</span>';
+
+          const stockPill = isOut ? '<span class="stock-pill stock-low" style="font-size:11px;">Out of stock</span>'
+            : isLow ? `<span class="stock-pill stock-low" style="font-size:11px;">${product.qty} low</span>`
+            : `<span class="stock-pill stock-normal" style="font-size:11px;">${product.qty} in stock</span>`;
+
+          return `
+            <div class="std-table-row grid-cols-products">
+              <div class="product-cell" data-label="Product">
+                <div class="product-thumb-frame" style="width:36px;height:36px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#0f1c32;display:grid;place-items:center;">
+                  ${product.imageUrl
+                    ? `<img class="product-photo-thumb" src="${escapeHtml(product.imageUrl)}" alt="${escapeHtml(product.name)}" style="width:100%;height:100%;object-fit:cover;" loading="lazy" />`
+                    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:16px;height:16px;color:#64748b;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`}
+                </div>
+                <div class="product-details-stack" style="min-width:0;">
+                  <strong class="product-name" style="font-size:13px;color:#fff;">${escapeHtml(product.name)}</strong>
+                  <span class="product-meta" style="font-size:10.5px;">${escapeHtml(product.sku || product.id)} &bull; ${product.productType === 'bundle' ? `Bundle / Set` : escapeHtml(product.unit || 'unit')}</span>
+                </div>
+              </div>
+              <div data-label="Category">
+                <span class="category-badge">${escapeHtml(product.category || 'General')}</span>
+              </div>
+              <div data-label="Selling Price" style="font-feature-settings:'tnum';">
+                ${priceValue}
+              </div>
+              <div data-label="In Stock">
+                ${stockPill}
+              </div>
+              <div data-label="Low Stock Alert">
+                <span class="low-stock-pill" style="font-size:11px;">&le; ${product.lowStockLevel ?? 5}</span>
+              </div>
+              <div data-label="Status">
+                <span class="stock-pill ${product.status === 'Active' ? 'stock-normal' : 'stock-low'}" style="font-size:11px;">${escapeHtml(product.status)}</span>
+              </div>
+              <div data-label="Action" style="display:flex;gap:6px;justify-content:flex-end;">
+                <button class="icon-button" data-edit="${product.id}" aria-label="Edit ${escapeHtml(product.name)}" title="Edit product"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+                <button class="icon-button primary-icon" data-product-price-override="${product.id}" aria-label="Override price" title="Override selling price"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m20.6 13.4-7.2 7.2a2 2 0 0 1-2.8 0l-8.2-8.2A2 2 0 0 1 2 11V4a2 2 0 0 1 2-2h7a2 2 0 0 1 1.4.6l8.2 8.2a2 2 0 0 1 0 2.6Z"/><circle cx="7" cy="7" r="1"/></svg></button>
+                ${currentSession?.account?.role !== 'staff' ? `<button class="icon-button danger-icon" data-delete="${product.id}" aria-label="Delete" title="Delete product"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('') : `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#10b981;background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+              </svg>
+            </div>
+            <h4 class="std-empty-title">No Products Found</h4>
+            <p class="std-empty-desc">No catalog items match your search or selected filter.</p>
+            <button type="button" class="button button-primary" id="productEmptyAddBtn" style="margin-top:8px;font-size:12px;padding:8px 16px;">
+              + Register Product
+            </button>
+          </div>
+        `}
+      </div>
+
+      ${paginationHtml}
+    </div>
+  `;
+
+  bindPaginationEvents_(table, renderProductsTable_);
+
+  table.querySelector('#registerProductHeroBtn')?.addEventListener('click', () => openForm('product'));
+  table.querySelector('#addExistingProductHeroBtn')?.addEventListener('click', () => openForm('linkProduct'));
+  table.querySelector('#productEmptyAddBtn')?.addEventListener('click', () => openForm('product'));
+
+  table.querySelectorAll('[data-prod-filter]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeProductsFilter = chip.dataset.prodFilter;
+      renderProductsTable_();
+    });
+  });
+
+  table.querySelectorAll('[data-edit]').forEach((button) => button.addEventListener('click', () => openForm('edit', button.dataset.edit)));
+  table.querySelectorAll('[data-product-price-override]').forEach((button) => button.addEventListener('click', () => openProductPriceOverride(button.dataset.productPriceOverride)));
+  table.querySelectorAll('[data-delete]').forEach((button) => button.addEventListener('click', () => deleteProduct(button.dataset.delete)));
+}
+
+function renderInventoryStockTable_() {
+  const table = $('#inventoryTable');
+  if (!table) return;
+  const term = ($('#searchInput')?.value || '').trim().toLowerCase();
+
+  const allItems = sortByName_(products.filter((p) => p.category !== RAW_MATERIAL_CATEGORY));
+
+  // Metrics
+  let totalValuation = 0;
+  let totalUnits = 0;
+  let lowStockCount = 0;
+  let outOfStockCount = 0;
+
+  allItems.forEach((p) => {
+    const qty = Number(p.qty || 0);
+    const price = hasSellingPriceOverride(p.sellingPriceOverride)
+      ? Number(p.sellingPriceOverride)
+      : Number(displayedSellingPrice(p) || p.price || 0);
+    totalValuation += qty * price;
+    totalUnits += qty;
+    if (qty <= 0) outOfStockCount++;
+    else if (qty <= Number(p.lowStockLevel || 5)) lowStockCount++;
+  });
+
+  // Filter
+  const filtered = allItems.filter((product) => {
+    const qty = Number(product.qty || 0);
+    const lowThresh = Number(product.lowStockLevel || 5);
+    if (activeInventoryFilter === 'healthy' && (qty <= lowThresh)) return false;
+    if (activeInventoryFilter === 'low' && (qty <= 0 || qty > lowThresh)) return false;
+    if (activeInventoryFilter === 'out' && qty > 0) return false;
+    if (term) {
+      const matchStr = `${product.name} ${product.category || ''} ${product.sku || ''}`.toLowerCase();
+      if (!matchStr.includes(term)) return false;
+    }
+    return true;
+  });
+
+  const pagination = paginateItems_(filtered);
+  const rows = pagination.pagedItems;
+  const paginationHtml = renderPaginationControls_(pagination, 'inventory items');
+
+  table.innerHTML = `
+    <div class="std-view theme-emerald">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"/>
+              <path d="M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"/>
+              <path d="M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">BRANCH WAREHOUSE &bull; STOCK VALUATION</span>
+            <strong class="std-hero-title">Inventory Stock &amp; Warning Levels</strong>
+            <p class="std-hero-desc">Live physical stock quantities across all branch inventory. Monitor low stock warnings, critical outages, and total inventory asset valuation.</p>
+          </div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="button button-secondary std-record-btn" type="button" id="stockInHistoryHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M3 3v18h18"/><path d="M7 15v-4"/><path d="M12 15V7"/><path d="M17 15v-7"/></svg>
+            <span>Stock-In History</span>
+          </button>
+          <button class="button button-primary std-record-btn" type="button" id="stockInHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 2v14"/><path d="m19 9-7 7-7-7"/><circle cx="12" cy="21" r="1"/></svg>
+            <span>Stock In Receipt</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 6v12M17 10h-7a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H7"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">INVENTORY VALUATION</span>
+            <strong class="std-kpi-value text-emerald">${money(totalValuation)}</strong>
+            <span class="std-kpi-sub">Total retail valuation</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">TOTAL UNITS ON HAND</span>
+            <strong class="std-kpi-value text-sky">${totalUnits.toLocaleString('en-PH')}</strong>
+            <span class="std-kpi-sub">Physical branch units</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">LOW STOCK HAZARDS</span>
+            <strong class="std-kpi-value text-amber">${lowStockCount}</strong>
+            <span class="std-kpi-sub">Below reorder trigger</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-rose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">OUT OF STOCK</span>
+            <strong class="std-kpi-value text-rose">${outOfStockCount}</strong>
+            <span class="std-kpi-sub">Immediate stock-in needed</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        <div class="std-filter-chips" role="tablist" aria-label="Filter inventory stock">
+          <button type="button" class="std-chip ${activeInventoryFilter === 'all' ? 'active' : ''}" data-inv-filter="all">
+            <span class="std-chip-dot" style="background:#10b981;"></span>
+            <span class="std-chip-label">All Items</span>
+            <span class="std-chip-badge">${allItems.length}</span>
+          </button>
+          <button type="button" class="std-chip ${activeInventoryFilter === 'healthy' ? 'active' : ''}" data-inv-filter="healthy">
+            <span class="std-chip-dot" style="background:#34d399;"></span>
+            <span class="std-chip-label">Healthy Stock</span>
+            <span class="std-chip-badge">${allItems.length - lowStockCount - outOfStockCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeInventoryFilter === 'low' ? 'active' : ''}" data-inv-filter="low">
+            <span class="std-chip-dot" style="background:#fbbf24;"></span>
+            <span class="std-chip-label">Low Stock Alert</span>
+            <span class="std-chip-badge">${lowStockCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeInventoryFilter === 'out' ? 'active' : ''}" data-inv-filter="out">
+            <span class="std-chip-dot" style="background:#f87171;"></span>
+            <span class="std-chip-label">Out of Stock</span>
+            <span class="std-chip-badge">${outOfStockCount}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-inventory">
+          <span>Product &amp; SKU</span>
+          <span>Category</span>
+          <span>Current Stock</span>
+          <span>Stock Warning Alert</span>
+          <span>Status</span>
+        </div>
+
+        ${rows.length ? rows.map((product) => {
+          const isOut = product.qty <= 0;
+          const isLow = !isOut && product.qty <= product.lowStockLevel;
+          const stockBadge = isOut
+            ? `<span class="stock-pill stock-low" style="font-size:11px;">Out of stock</span>`
+            : isLow
+            ? `<span class="stock-pill stock-low" style="font-size:11px;">${product.qty} low</span>`
+            : `<span class="stock-pill stock-normal" style="font-size:11px;">${product.qty} in stock</span>`;
+
+          return `
+            <div class="std-table-row grid-cols-inventory">
+              <div class="product-cell" data-label="Product">
+                <div class="product-thumb-frame" style="width:36px;height:36px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#0f1c32;display:grid;place-items:center;">
+                  ${product.imageUrl
+                    ? `<img class="product-photo-thumb" src="${escapeHtml(product.imageUrl)}" alt="${escapeHtml(product.name)}" style="width:100%;height:100%;object-fit:cover;" loading="lazy" />`
+                    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:16px;height:16px;color:#64748b;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`}
+                </div>
+                <div class="product-details-stack" style="min-width:0;">
+                  <strong class="product-name" style="font-size:13px;color:#fff;">${escapeHtml(product.name)}</strong>
+                  <span class="product-meta" style="font-size:10.5px;">${escapeHtml(product.sku || product.id)} &bull; ${escapeHtml(product.unit || 'unit')}</span>
+                </div>
+              </div>
+              <div data-label="Category">
+                <span class="category-badge">${escapeHtml(product.category || 'General')}</span>
+              </div>
+              <div data-label="Current Stock">
+                ${stockBadge}
+              </div>
+              <div data-label="Warning Alert">
+                <span class="low-stock-pill" style="font-size:11px;">&le; ${product.lowStockLevel ?? 5}</span>
+              </div>
+              <div data-label="Status">
+                <span class="stock-pill ${product.status === 'Active' ? 'stock-normal' : 'stock-low'}" style="font-size:11px;">${escapeHtml(product.status)}</span>
+              </div>
+            </div>
+          `;
+        }).join('') : `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#10b981;background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"/>
+              </svg>
+            </div>
+            <h4 class="std-empty-title">No Inventory Items Found</h4>
+            <p class="std-empty-desc">No inventory stock records match your query.</p>
+            <button type="button" class="button button-primary" id="inventoryEmptyStockInBtn" style="margin-top:8px;font-size:12px;padding:8px 16px;">
+              + Stock In Receipt
+            </button>
+          </div>
+        `}
+      </div>
+
+      ${paginationHtml}
+    </div>
+  `;
+
+  bindPaginationEvents_(table, renderInventoryStockTable_);
+
+  table.querySelector('#stockInHeroBtn')?.addEventListener('click', () => openForm('stock'));
+  table.querySelector('#stockInHistoryHeroBtn')?.addEventListener('click', showStockInHistory);
+  table.querySelector('#inventoryEmptyStockInBtn')?.addEventListener('click', () => openForm('stock'));
+
+  table.querySelectorAll('[data-inv-filter]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeInventoryFilter = chip.dataset.invFilter;
+      renderInventoryStockTable_();
+    });
+  });
+}
+
 function renderInventory() {
   if (activeView === 'dashboard') { renderDashboard(); return; }
   if (activeView === 'tableService') { renderTableService(); return; }
@@ -6681,6 +7650,8 @@ function renderInventory() {
   if (activeView === 'bankTransactions') { renderBankTransactions(); return; }
   if (activeView === 'staffAccounts') { renderStaffAccounts(); return; }
   if (activeView === 'adminAccount') { renderAdminAccount(); return; }
+  if (activeView === 'products') { renderProductsTable_(); return; }
+  if (activeView === 'inventory') { renderInventoryStockTable_(); return; }
   const term = ($('#searchInput')?.value || '').trim().toLowerCase();
   const allRows = sortByName_(products.filter((product) => (activeView !== 'pos' || product.category !== RAW_MATERIAL_CATEGORY) && `${product.name} ${product.category} ${product.sku || ''}`.toLowerCase().includes(term)));
   const table = $('#inventoryTable');
@@ -6831,88 +7802,254 @@ function renderBundleMonitoring() {
   if (!table) return;
   const term = ($('#searchInput')?.value || '').trim().toLowerCase();
   const componentName = (component) => allProducts.find((product) => product.id === component.productId)?.name || component.productId;
-  const allBundles = sortByName_(products.filter((product) => product.productType === 'bundle' && `${product.name} ${product.components?.map(componentName).join(' ') || ''} ${product.sku || ''}`.toLowerCase().includes(term)));
-  const pagination = paginateItems_(allBundles);
+  const allBundles = sortByName_(products.filter((product) => product.productType === 'bundle'));
+
+  // Metrics calculation
+  const totalBundles = allBundles.length;
+  let totalProducibleSets = 0;
+  let inStockCount = 0;
+  let zeroStockCount = 0;
+
+  allBundles.forEach((bundle) => {
+    const sets = Number(bundleAvailability[bundle.id] ?? bundle.qty ?? 0);
+    totalProducibleSets += sets;
+    if (sets > 0) inStockCount++;
+    else zeroStockCount++;
+  });
+
+  // Filter by search & active bundle chip
+  const filtered = allBundles.filter((bundle) => {
+    const sets = Number(bundleAvailability[bundle.id] ?? bundle.qty ?? 0);
+    if (activeBundleFilter === 'instock' && sets <= 0) return false;
+    if (activeBundleFilter === 'zerostock' && sets > 0) return false;
+    if (term) {
+      const matchStr = `${bundle.name} ${bundle.components?.map(componentName).join(' ') || ''} ${bundle.sku || ''}`.toLowerCase();
+      if (!matchStr.includes(term)) return false;
+    }
+    return true;
+  });
+
+  const pagination = paginateItems_(filtered);
   const bundles = pagination.pagedItems;
   const paginationHtml = renderPaginationControls_(pagination, 'bundles');
   const tankIcon = (filled) => `<svg class="bundle-monitor-tank ${filled ? 'is-solid' : 'is-outline'}" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10l2 4-2 14H7L5 7l2-4Z"/><path d="M5 7h14M9 3v4m6-4v4"/><path d="M9 12h6M9 16h6"/></svg>`;
+
   table.innerHTML = `
-    ${bundles.map((bundle) => {
-      const bundlePrice = hasSellingPriceOverride(bundle.sellingPriceOverride)
-        ? Number(bundle.sellingPriceOverride)
-        : (Number(bundle.qty || 0) > 0 || bundle.price ? displayedSellingPrice(bundle) : Number(bundle.price || 0));
-
-      const components = (bundle.components || []).map((component) => {
-        const compProduct = products.find((p) => p.id === component.productId) || allProducts.find((p) => p.id === component.productId);
-        const compName = compProduct?.name || component.productId;
-        const compStock = Number(compProduct?.qty ?? 0);
-        const isOut = compStock <= 0;
-        const isLow = !isOut && compStock <= Number(compProduct?.lowStockLevel || 5);
-        const stockStatusClass = isOut ? 'is-out' : (isLow ? 'is-low' : 'is-good');
-        const stockText = isOut ? '0 in stock' : `${compStock.toLocaleString('en-PH')} in stock`;
-
-        return `
-          <div class="bundle-component-row">
-            <div class="bundle-comp-main">
-              <span class="bundle-comp-dot"></span>
-              <strong class="bundle-comp-name" title="${escapeHtml(compName)}">${escapeHtml(compName)}</strong>
-              <span class="bundle-component-qty" title="Recipe requirement">&times;${component.qty}</span>
-            </div>
-            <span class="bundle-comp-stock ${stockStatusClass}" title="Current stock in this branch">
-              <span class="bundle-comp-stock-dot"></span>
-              <span>${stockText}</span>
-            </span>
+    <div class="std-view theme-purple">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 3h10l2 4-2 14H7L5 7l2-4Z"/><path d="M5 7h14M9 3v4m6-4v4"/><path d="M9 12h6M9 16h6"/>
+            </svg>
           </div>
-        `;
-      }).join('') || '<span class="bundle-no-components">No components configured</span>';
-      const sets = Number(bundleAvailability[bundle.id] ?? bundle.qty ?? 0);
-      const isZeroSets = sets === 0;
-      return `
-        <article class="bundle-monitor-card ${isZeroSets ? 'has-zero-sets' : ''}">
-          <div class="bundle-monitor-card-header">
-            <div class="bundle-monitor-header-left">
-              <div class="bundle-monitor-icon-badge" aria-hidden="true">
-                ${bundle.imageUrl
-                  ? `<img class="bundle-monitor-photo" src="${escapeHtml(bundle.imageUrl)}" alt="${escapeHtml(bundle.name)}" loading="lazy" />`
-                  : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M7 3h10l2 4-2 14H7L5 7l2-4Z"/><path d="M5 7h14M9 3v4m6-4v4"/><path d="M9 12h6M9 16h6"/>
-                </svg>`
-                }
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">RECIPE AUDIT &bull; COMBO KITS &amp; SETS</span>
+            <strong class="std-hero-title">Bundle &amp; Combo Monitoring</strong>
+            <p class="std-hero-desc">Real-time producible kit availability computed from ingredient components and branch stock availability.</p>
+          </div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="button button-primary std-record-btn" type="button" id="bundleRegisterHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Register Bundle / Set</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 3h10l2 4-2 14H7L5 7l2-4Z"/><path d="M5 7h14M9 3v4m6-4v4"/><path d="M9 12h6M9 16h6"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">CONFIGURED BUNDLES</span>
+            <strong class="std-kpi-value text-purple">${totalBundles}</strong>
+            <span class="std-kpi-sub">${totalBundles === 1 ? '1 kit registered' : `${totalBundles} kits registered`}</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">TOTAL PRODUCIBLE SETS</span>
+            <strong class="std-kpi-value text-emerald">${totalProducibleSets.toLocaleString('en-PH')}</strong>
+            <span class="std-kpi-sub">Ready to prepare &amp; serve</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">ACTIVE PRODUCIBLE</span>
+            <strong class="std-kpi-value text-sky">${inStockCount}</strong>
+            <span class="std-kpi-sub">Kits with sufficient stock</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-rose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">CRITICAL &bull; 0 SETS</span>
+            <strong class="std-kpi-value text-rose">${zeroStockCount}</strong>
+            <span class="std-kpi-sub">Missing recipe components</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        <div class="std-filter-chips" role="tablist" aria-label="Filter bundles">
+          <button type="button" class="std-chip ${activeBundleFilter === 'all' ? 'active' : ''}" data-bundle-filter="all">
+            <span class="std-chip-dot" style="background:#c084fc;"></span>
+            <span class="std-chip-label">All Bundles</span>
+            <span class="std-chip-badge">${totalBundles}</span>
+          </button>
+          <button type="button" class="std-chip ${activeBundleFilter === 'instock' ? 'active' : ''}" data-bundle-filter="instock">
+            <span class="std-chip-dot" style="background:#10b981;"></span>
+            <span class="std-chip-label">In Stock (&gt; 0 Sets)</span>
+            <span class="std-chip-badge">${inStockCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeBundleFilter === 'zerostock' ? 'active' : ''}" data-bundle-filter="zerostock">
+            <span class="std-chip-dot" style="background:#ef4444;"></span>
+            <span class="std-chip-label">Zero Stock (Critical)</span>
+            <span class="std-chip-badge">${zeroStockCount}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-bundles">
+          <span>Bundle &amp; SKU</span>
+          <span>Recipe Components</span>
+          <span>Selling Price</span>
+          <span>Producible Sets</span>
+          <span>Status</span>
+          <span style="text-align: right;">Action</span>
+        </div>
+
+        ${bundles.length ? bundles.map((bundle) => {
+          const bundlePrice = hasSellingPriceOverride(bundle.sellingPriceOverride)
+            ? Number(bundle.sellingPriceOverride)
+            : (Number(bundle.qty || 0) > 0 || bundle.price ? displayedSellingPrice(bundle) : Number(bundle.price || 0));
+
+          const componentsMarkup = (bundle.components || []).length ? (bundle.components || []).map((component) => {
+            const compProduct = products.find((p) => p.id === component.productId) || allProducts.find((p) => p.id === component.productId);
+            const compName = compProduct?.name || component.productId;
+            const compStock = Number(compProduct?.qty ?? 0);
+            const isOut = compStock <= 0;
+            const isLow = !isOut && compStock <= Number(compProduct?.lowStockLevel || 5);
+            const stockColor = isOut ? 'rgba(239, 68, 68, 0.15)' : isLow ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)';
+            const textColor = isOut ? '#f87171' : isLow ? '#fbbf24' : '#34d399';
+            const stockText = isOut ? '0 in stock' : `${compStock.toLocaleString('en-PH')} in stock`;
+
+            return `
+              <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;min-width:0;padding:2px 0;">
+                <span style="width:5px;height:5px;border-radius:50%;background:#c084fc;flex-shrink:0;"></span>
+                <span style="color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;max-width:140px;" title="${escapeHtml(compName)}">${escapeHtml(compName)}</span>
+                <span style="color:#a78bfa;font-weight:700;font-size:11px;">&times;${component.qty}</span>
+                <span style="margin-left:auto;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;background:${stockColor};color:${textColor};white-space:nowrap;">${stockText}</span>
               </div>
-              <div class="bundle-monitor-title-block">
-                <strong class="bundle-monitor-name" title="${escapeHtml(bundle.name)}">${escapeHtml(bundle.name)}</strong>
-                <div class="bundle-monitor-meta">
-                  <span class="bundle-sku-tag">${escapeHtml(bundle.sku || bundle.id)}</span>
-                  <span class="bundle-type-pill">Bundle / Set</span>
+            `;
+          }).join('') : '<span style="font-size:11px;color:#64748b;font-style:italic;">No components configured</span>';
+
+          const sets = Number(bundleAvailability[bundle.id] ?? bundle.qty ?? 0);
+          const isZeroSets = sets === 0;
+
+          return `
+            <div class="std-table-row grid-cols-bundles">
+              <div class="product-cell" data-label="Bundle">
+                <div class="product-thumb-frame" style="width:36px;height:36px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#151226;border:1px solid rgba(168,85,247,0.25);display:grid;place-items:center;">
+                  ${bundle.imageUrl
+                    ? `<img class="product-photo-thumb" src="${escapeHtml(bundle.imageUrl)}" alt="${escapeHtml(bundle.name)}" style="width:100%;height:100%;object-fit:cover;" loading="lazy" />`
+                    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:16px;height:16px;color:#c084fc;"><path d="M7 3h10l2 4-2 14H7L5 7l2-4Z"/><path d="M5 7h14M9 3v4m6-4v4"/><path d="M9 12h6M9 16h6"/></svg>`}
+                </div>
+                <div class="product-details-stack" style="min-width:0;">
+                  <strong class="product-name" style="font-size:13px;color:#fff;" title="${escapeHtml(bundle.name)}">${escapeHtml(bundle.name)}</strong>
+                  <span class="product-meta" style="font-size:10.5px;">${escapeHtml(bundle.sku || bundle.id)} &bull; Bundle / Set</span>
                 </div>
               </div>
-            </div>
-            <div class="bundle-monitor-price-box" title="Bundle set selling price">
-              <span class="bundle-price-val">${money(bundlePrice)}</span>
-              <span class="bundle-price-lbl">per set</span>
-            </div>
-          </div>
-          <div class="bundle-monitor-body">
-            <div class="bundle-components-label">Components (${bundle.components?.length || 0})</div>
-            <div class="bundle-monitor-components">${components}</div>
-          </div>
-          <div class="bundle-monitor-metrics">
-            <div class="bundle-monitor-stat stat-producible ${isZeroSets ? 'is-empty' : ''}" title="Sets that can be produced">
-              <div class="bundle-stat-icon-wrap">
-                ${tankIcon(true)}
+
+              <div data-label="Recipe Components" style="display:flex;flex-direction:column;gap:2px;min-width:0;justify-content:center;">
+                ${componentsMarkup}
               </div>
-              <div class="bundle-stat-info">
-                <strong class="bundle-stat-val">${sets.toLocaleString('en-PH')}</strong>
-                <span class="bundle-stat-lbl">sets producible</span>
+
+              <div data-label="Selling Price" style="font-feature-settings:'tnum';">
+                <strong style="color:#ffffff;font-size:13px;display:block;">${money(bundlePrice)}</strong>
+                <span style="font-size:10px;color:#94a3b8;">per set</span>
+              </div>
+
+              <div data-label="Producible Sets" style="font-feature-settings:'tnum';">
+                <strong style="font-size:14px;color:${isZeroSets ? '#f87171' : '#34d399'};display:block;">${sets.toLocaleString('en-PH')}</strong>
+                <span style="font-size:10px;color:#94a3b8;">ready to serve</span>
+              </div>
+
+              <div data-label="Status">
+                <span class="stock-pill ${isZeroSets ? 'stock-low' : 'stock-normal'}" style="font-size:11px;">
+                  ${isZeroSets ? 'Zero Stock' : 'In Stock'}
+                </span>
+              </div>
+
+              <div data-label="Action" style="display:flex;gap:6px;justify-content:flex-end;">
+                <button class="icon-button" data-edit="${bundle.id}" aria-label="Edit ${escapeHtml(bundle.name)}" title="Edit bundle recipe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+                <button class="icon-button primary-icon" data-product-price-override="${bundle.id}" aria-label="Override price" title="Override selling price"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m20.6 13.4-7.2 7.2a2 2 0 0 1-2.8 0l-8.2-8.2A2 2 0 0 1 2 11V4a2 2 0 0 1 2-2h7a2 2 0 0 1 1.4.6l8.2 8.2a2 2 0 0 1 0 2.6Z"/><circle cx="7" cy="7" r="1"/></svg></button>
+                ${currentSession?.account?.role !== 'staff' ? `<button class="icon-button danger-icon" data-delete="${bundle.id}" aria-label="Delete" title="Delete bundle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>` : ''}
               </div>
             </div>
+          `;
+        }).join('') : `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#c084fc;background:rgba(168,85,247,0.1);border-color:rgba(168,85,247,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M7 3h10l2 4-2 14H7L5 7l2-4Z"/><path d="M5 7h14M9 3v4m6-4v4"/><path d="M9 12h6M9 16h6"/>
+              </svg>
+            </div>
+            <h4 class="std-empty-title">No Bundles Found</h4>
+            <p class="std-empty-desc">
+              ${term || activeBundleFilter !== 'all'
+                ? 'No configured bundle sets match your current search or filter criteria.'
+                : 'No bundles or combo sets have been configured yet. Register a bundle in Product Registration.'}
+            </p>
+            <button type="button" class="button button-primary" id="bundleEmptyAddBtn" style="margin-top:8px;font-size:12px;padding:8px 16px;">
+              + Register Bundle / Set
+            </button>
           </div>
-        </article>
-      `;
-    }).join('') || '<div class="empty-state"><p>No bundles found</p><small>Create a Bundle / Set in Product Registration to monitor it here.</small></div>'}
-    ${paginationHtml}
+        `}
+      </div>
+
+      ${paginationHtml}
+    </div>
   `;
-  bindPaginationEvents_(table);
+
+  bindPaginationEvents_(table, renderBundleMonitoring);
+
+  table.querySelector('#bundleRegisterHeroBtn')?.addEventListener('click', () => openForm('product'));
+  table.querySelector('#bundleEmptyAddBtn')?.addEventListener('click', () => openForm('product'));
+
+  table.querySelectorAll('[data-bundle-filter]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeBundleFilter = chip.dataset.bundleFilter;
+      renderBundleMonitoring();
+    });
+  });
+
+  table.querySelectorAll('[data-edit]').forEach((button) => button.addEventListener('click', () => openForm('edit', button.dataset.edit)));
+  table.querySelectorAll('[data-product-price-override]').forEach((button) => button.addEventListener('click', () => openProductPriceOverride(button.dataset.productPriceOverride)));
+  table.querySelectorAll('[data-delete]').forEach((button) => button.addEventListener('click', () => deleteProduct(button.dataset.delete)));
 }
 
 function formatTimeHuman(value) {
@@ -7273,9 +8410,35 @@ function renderQuarantinedItems() {
       (itemsByCase[item.caseId] ||= []).push(item);
       return itemsByCase;
     }, {});
-  const cases = inventoryQuarantineCases
-    .filter((item) => pendingItemsByCase[item.id] && `${item.id} ${item.reference} ${item.sourceType} ${item.supplierReference} ${item.sourceBranchName} ${item.reason} ${item.status}`.toLowerCase().includes(term))
+
+  const allCases = inventoryQuarantineCases.filter((item) => pendingItemsByCase[item.id]);
+
+  // Metrics calculation
+  const totalCases = allCases.length;
+  let totalHeldUnits = 0;
+  let stockInCount = 0;
+  let transferCount = 0;
+
+  allCases.forEach((c) => {
+    if (c.sourceType === 'stock_in') stockInCount++;
+    else transferCount++;
+    const items = pendingItemsByCase[c.id] || [];
+    items.forEach((item) => { totalHeldUnits += Number(item.qty || 0); });
+  });
+
+  // Filter by active chip and search
+  const cases = allCases
+    .filter((item) => {
+      if (activeQuarantineFilter === 'stock_in' && item.sourceType !== 'stock_in') return false;
+      if (activeQuarantineFilter === 'transfer' && item.sourceType === 'stock_in') return false;
+      if (term) {
+        const matchStr = `${item.id} ${item.reference} ${item.sourceType} ${item.supplierReference || ''} ${item.sourceBranchName || ''} ${item.reason || ''} ${item.status}`.toLowerCase();
+        if (!matchStr.includes(term)) return false;
+      }
+      return true;
+    })
     .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+
   const pagination = paginateItems_(cases);
   const pagedCases = pagination.pagedItems;
   const paginationHtml = renderPaginationControls_(pagination, 'quarantine cases');
@@ -7338,39 +8501,122 @@ function renderQuarantinedItems() {
       </div>`;
 
   table.innerHTML = `
-    <div class="quarantine-view">
-      <div class="quarantine-banner">
-        <div class="quarantine-banner-leading">
-          <div class="quarantine-banner-icon">
+    <div class="std-view theme-orange">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
+              <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/>
+              <path d="M12 8v4"/><path d="M12 16h.01"/>
             </svg>
           </div>
-          <div class="quarantine-banner-text">
-            <strong class="quarantine-banner-title">Quarantine &amp; Quality Inspection Area</strong>
-            <p class="quarantine-banner-desc">Stock listed here is isolated from available inventory. Inspect each item carefully before authorizing disposition.</p>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">QUALITY CONTROL &bull; STOCK ISOLATION</span>
+            <strong class="std-hero-title">Quarantine &amp; Quality Inspection</strong>
+            <p class="std-hero-desc">Inventory holding area for goods isolated from available stock. Inspect flagged items carefully before authorizing restocking, return, or disposal.</p>
           </div>
         </div>
-        <div class="quarantine-banner-status">
-          <button class="button button-secondary quarantine-report-link-btn" type="button" id="quarantineReportNavBtn" style="height:32px;padding:0 12px;font-size:12px;gap:6px;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+        <div class="std-hero-actions">
+          <button class="button button-secondary std-record-btn" type="button" id="quarantineReportNavBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="m9 15 2 2 4-4"/><path d="M9 11h6"/></svg>
             <span>Quarantine Report</span>
           </button>
-          ${cases.length > 0
-            ? `<span class="quarantine-status-pill has-items"><span class="quarantine-pulse-dot"></span> ${cases.length} ${cases.length === 1 ? 'Case Pending' : 'Cases Pending'}</span>`
-            : `<span class="quarantine-status-pill all-clear"><span class="quarantine-pulse-dot"></span> Holding Area Clear</span>`
-          }
         </div>
       </div>
-      ${casesHtml}
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-orange">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">PENDING CASES</span>
+            <strong class="std-kpi-value" style="color:#fb923c;">${totalCases}</strong>
+            <span class="std-kpi-sub">${totalCases === 0 ? 'Holding area clear' : `${totalCases} case${totalCases === 1 ? '' : 's'} awaiting audit`}</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-rose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">UNITS IN HOLDING</span>
+            <strong class="std-kpi-value text-rose">${totalHeldUnits.toLocaleString('en-PH')}</strong>
+            <span class="std-kpi-sub">Isolated from sellable stock</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v14"/><path d="m19 9-7 7-7-7"/><circle cx="12" cy="21" r="1"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">STOCK-IN CASES</span>
+            <strong class="std-kpi-value text-sky">${stockInCount}</strong>
+            <span class="std-kpi-sub">Flagged supplier receipts</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">TRANSFER CASES</span>
+            <strong class="std-kpi-value text-purple">${transferCount}</strong>
+            <span class="std-kpi-sub">Flagged branch transfers</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        <div class="std-filter-chips" role="tablist" aria-label="Filter quarantine cases">
+          <button type="button" class="std-chip ${activeQuarantineFilter === 'all' ? 'active' : ''}" data-quarantine-filter="all">
+            <span class="std-chip-dot" style="background:#fb923c;"></span>
+            <span class="std-chip-label">All Cases</span>
+            <span class="std-chip-badge">${totalCases}</span>
+          </button>
+          <button type="button" class="std-chip ${activeQuarantineFilter === 'stock_in' ? 'active' : ''}" data-quarantine-filter="stock_in">
+            <span class="std-chip-dot" style="background:#38bdf8;"></span>
+            <span class="std-chip-label">Stock-In Receipts</span>
+            <span class="std-chip-badge">${stockInCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeQuarantineFilter === 'transfer' ? 'active' : ''}" data-quarantine-filter="transfer">
+            <span class="std-chip-dot" style="background:#c084fc;"></span>
+            <span class="std-chip-label">Transfer Receipts</span>
+            <span class="std-chip-badge">${transferCount}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="quarantine-cases-list" style="display:flex;flex-direction:column;gap:14px;width:100%;">
+        ${casesHtml}
+      </div>
+
       ${paginationHtml}
     </div>
   `;
+
   bindPaginationEvents_(table);
   table.querySelectorAll('[data-quarantine-item]').forEach((button) => button.addEventListener('click', () => resolveInventoryQuarantineItem_(button.dataset.quarantineItem, button.dataset.quarantineResolution)));
   table.querySelector('#quarantineReportNavBtn')?.addEventListener('click', () => setView('quarantineReport'));
+
+  table.querySelectorAll('[data-quarantine-filter]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeQuarantineFilter = chip.dataset.quarantineFilter;
+      renderQuarantinedItems();
+    });
+  });
 }
 
 async function resolveInventoryQuarantineItem_(itemId, resolution) {
@@ -8042,8 +9288,8 @@ function renderCustomers() {
   const term = ($('#searchInput')?.value || '').trim().toLowerCase();
   const table = $('#inventoryTable');
   if (!table) return;
-  const rows = sortByName_(customers.filter((customer) => `${customer.name} ${customer.phone} ${customer.address}`.toLowerCase().includes(term)));
-  const paginated = paginateItems_(rows);
+
+  // 1. Calculate balances per customer
   const paidByCredit = creditPayments.reduce((totals, payment) => {
     const creditId = payment.creditId || payment.saleId;
     totals[creditId] = (totals[creditId] || 0) + Number(payment.amount || 0);
@@ -8062,26 +9308,264 @@ function renderCustomers() {
   };
   salesHistory.filter((sale) => sale.paymentType === 'credit').forEach((sale) => addBalance({ creditId: sale.saleId, saleId: sale.saleId, sourceType: 'sale', customerId: sale.customerId, total: sale.total }));
   openingCreditAccounts.forEach((account) => addBalance(account));
+
+  // 2. Metrics calculation across all customers
+  const totalCustomers = customers.length;
+  let activeCustomers = 0;
+  let totalOutstanding = 0;
+  let customersWithBalance = 0;
+
+  customers.forEach((customer) => {
+    if (customer.status === 'Active') activeCustomers++;
+    const rem = balancesByCustomer[customer.id]?.remaining || 0;
+    if (rem > 0.00001) {
+      customersWithBalance++;
+      totalOutstanding += rem;
+    }
+  });
+
+  const settledCount = totalCustomers - customersWithBalance;
+
+  // 3. Filter customers by chip and search term
+  const filteredCustomers = customers.filter((customer) => {
+    const remaining = balancesByCustomer[customer.id]?.remaining || 0;
+    if (activeCustomerFilter === 'active' && customer.status !== 'Active') return false;
+    if (activeCustomerFilter === 'withBalance' && remaining <= 0.00001) return false;
+    if (activeCustomerFilter === 'settled' && remaining > 0.00001) return false;
+    if (term) {
+      const match = `${customer.name} ${customer.phone || ''} ${customer.address || ''} ${customer.id || ''}`.toLowerCase();
+      if (!match.includes(term)) return false;
+    }
+    return true;
+  });
+
+  const rows = sortByName_(filteredCustomers);
+  const paginated = paginateItems_(rows);
+
   table.innerHTML = `
-    <div class="table-row table-header"><span>Customer</span><span>Contact</span><span>Credit</span><span>Remaining Balance</span><span>Action</span></div>
-    ${paginated.pagedItems.map((customer) => {
-      const customerAccounts = balancesByCustomer[customer.id]?.accounts || [];
-      const paymentAccount = customerAccounts.find((account) => !account.isPaid);
-      const historyAccount = paymentAccount || customerAccounts[0];
-      return `
-      <div class="table-row">
-        <div class="product-cell customer-details-cell"><div class="customer-name-line"><strong class="product-name">${escapeHtml(displayCustomerName(customer.name))}</strong><span class="customer-status-meta stock-pill ${customer.status === 'Active' ? 'stock-normal' : 'stock-low'}" title="${escapeHtml(customer.status)}" aria-label="${escapeHtml(customer.status)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span></div><span class="product-meta">${escapeHtml(customer.id)}</span></div>
-        <div class="row-middle-cells"><div class="product-cell"><strong class="product-name customer-detail-value">${escapeHtml(customer.phone || 'No phone recorded')}</strong><span class="product-meta">${escapeHtml(customer.address || 'No address recorded')}</span></div><div class="product-cell"><strong class="product-name customer-detail-value">Current Credit: ${money(balancesByCustomer[customer.id]?.current || 0)}</strong><span class="product-meta customer-previous-balance">Previous Balance: ${money(balancesByCustomer[customer.id]?.previous || 0)}</span></div><span class="credit-balance">${money(balancesByCustomer[customer.id]?.remaining || 0)}</span></div>
-        <div class="row-action-cell"><span class="table-actions"><button class="icon-button" data-edit-customer="${customer.id}" aria-label="Edit ${escapeHtml(displayCustomerName(customer.name))}" title="Edit customer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>${(balancesByCustomer[customer.id]?.accounts || []).map((account) => !account.isPaid ? `<button class="icon-button success-icon" data-credit-account="${account.creditId}" aria-label="Record payment" title="Record payment"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/><path d="M12 15h.01"/></svg></button>` : '').join('')}<button class="icon-button primary-icon" data-view-payment-history="${customer.id}" aria-label="Payment history" title="Payment history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button></span></div>
+    <div class="std-view theme-sky">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">CUSTOMER DIRECTORY &bull; RECEIVABLES</span>
+            <strong class="std-hero-title">Customer Accounts &amp; Credit Portfolios</strong>
+            <p class="std-hero-desc">Registered retail clients, contact profiles, credit limits, and real-time ledger balances. Record customer payments and view transaction histories.</p>
+          </div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="button button-primary std-record-btn" type="button" id="addCustomerHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            <span>Add Customer</span>
+          </button>
+        </div>
       </div>
-    `;
-    }).join('') || '<div class="empty-state"><p>No customers found</p><small>Add a customer for this branch.</small></div>'}
-    ${renderPaginationControls_(paginated, 'customers')}
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">REGISTERED CLIENTS</span>
+            <strong class="std-kpi-value text-sky">${totalCustomers}</strong>
+            <span class="std-kpi-sub">Master client directory</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">ACTIVE ACCOUNTS</span>
+            <strong class="std-kpi-value text-emerald">${activeCustomers}</strong>
+            <span class="std-kpi-sub">Good standing &amp; active</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-crimson">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 6v12M17 10h-7a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H7"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">TOTAL OUTSTANDING CREDIT</span>
+            <strong class="std-kpi-value text-crimson">${money(totalOutstanding)}</strong>
+            <span class="std-kpi-sub">Receivables balance due</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="18" height="18" x="3" y="3" rx="2"/>
+              <path d="M3 9h18M9 21V9"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">CLIENTS WITH BALANCE</span>
+            <strong class="std-kpi-value text-amber">${customersWithBalance}</strong>
+            <span class="std-kpi-sub">${settledCount} fully settled</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        <div class="std-chip-group">
+          <button type="button" class="std-chip ${activeCustomerFilter === 'all' ? 'active' : ''}" data-customer-filter="all">
+            <span class="std-chip-dot"></span>
+            <span class="std-chip-label">All Customers</span>
+            <span class="std-chip-badge">${totalCustomers}</span>
+          </button>
+          <button type="button" class="std-chip ${activeCustomerFilter === 'active' ? 'active' : ''}" data-customer-filter="active">
+            <span class="std-chip-dot" style="background:#34d399;"></span>
+            <span class="std-chip-label">Active</span>
+            <span class="std-chip-badge">${activeCustomers}</span>
+          </button>
+          <button type="button" class="std-chip ${activeCustomerFilter === 'withBalance' ? 'active' : ''}" data-customer-filter="withBalance">
+            <span class="std-chip-dot" style="background:#f87171;"></span>
+            <span class="std-chip-label">With Balance (&gt; ₱0)</span>
+            <span class="std-chip-badge">${customersWithBalance}</span>
+          </button>
+          <button type="button" class="std-chip ${activeCustomerFilter === 'settled' ? 'active' : ''}" data-customer-filter="settled">
+            <span class="std-chip-dot" style="background:#38bdf8;"></span>
+            <span class="std-chip-label">Fully Settled</span>
+            <span class="std-chip-badge">${settledCount}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-customers">
+          <span>Customer</span>
+          <span>Contact &amp; Address</span>
+          <span>Credit Breakdown</span>
+          <span>Remaining Balance</span>
+          <span style="text-align: right;">Action</span>
+        </div>
+
+        ${paginated.pagedItems.length ? paginated.pagedItems.map((customer) => {
+          const customerSummary = balancesByCustomer[customer.id] || { current: 0, previous: 0, remaining: 0, accounts: [] };
+          const remaining = customerSummary.remaining || 0;
+          const hasBalance = remaining > 0.00001;
+          const unpaidAccounts = (customerSummary.accounts || []).filter((a) => !a.isPaid);
+
+          return `
+            <div class="std-table-row grid-cols-customers">
+              <div class="product-cell" data-label="Customer">
+                <strong class="product-name" style="font-size:13.5px;color:#fff;">${escapeHtml(displayCustomerName(customer.name))}</strong>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
+                  <span class="product-meta" style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:11px;">${escapeHtml(customer.id)}</span>
+                  <span class="stock-pill ${customer.status === 'Active' ? 'stock-normal' : 'stock-low'}" style="font-size:10px;padding:1px 6px;">
+                    ${escapeHtml(customer.status || 'Active')}
+                  </span>
+                </div>
+              </div>
+
+              <div data-label="Contact &amp; Address" style="display:flex;flex-direction:column;gap:3px;">
+                <strong class="product-name" style="font-size:12.5px;color:#e2e8f0;">${escapeHtml(customer.phone || 'No phone recorded')}</strong>
+                <span class="product-meta" style="font-size:11.5px;color:#94a3b8;">${escapeHtml(customer.address || 'No address recorded')}</span>
+              </div>
+
+              <div data-label="Credit Breakdown" style="display:flex;flex-direction:column;gap:3px;">
+                <div style="font-size:12px;color:#cbd5e1;">
+                  <span style="color:#64748b;font-size:11px;">Current:</span>
+                  <strong>${money(customerSummary.current || 0)}</strong>
+                </div>
+                <div style="font-size:11.5px;color:#94a3b8;">
+                  <span style="color:#64748b;font-size:11px;">Previous:</span>
+                  ${money(customerSummary.previous || 0)}
+                </div>
+              </div>
+
+              <div data-label="Remaining Balance">
+                <strong class="price-text" style="font-size:14px;color:${hasBalance ? '#f87171' : '#34d399'};">
+                  ${money(remaining)}
+                </strong>
+                <div style="font-size:10.5px;color:${hasBalance ? 'rgba(248,113,113,0.7)' : 'rgba(52,211,153,0.7)'};font-weight:600;margin-top:1px;">
+                  ${hasBalance ? 'Balance Outstanding' : 'Fully Settled'}
+                </div>
+              </div>
+
+              <div data-label="Action" style="text-align: right;">
+                <span class="table-actions" style="display:inline-flex;gap:6px;align-items:center;justify-content:flex-end;">
+                  <button class="icon-button" data-edit-customer="${customer.id}" aria-label="Edit ${escapeHtml(displayCustomerName(customer.name))}" title="Edit customer">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                  </button>
+                  ${unpaidAccounts.length ? `
+                    <button class="icon-button success-icon" data-credit-account="${unpaidAccounts[0].creditId}" aria-label="Record payment" title="Record credit payment">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/><path d="M12 15h.01"/></svg>
+                    </button>
+                  ` : ''}
+                  <button class="icon-button primary-icon" data-view-payment-history="${customer.id}" aria-label="Payment history" title="Payment ledger history">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  </button>
+                </span>
+              </div>
+            </div>
+          `;
+        }).join('') : `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="background:rgba(56,189,248,0.1);color:#38bdf8;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:28px;height:28px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            </div>
+            <strong>${term ? 'No matching customers found' : 'No customers on record'}</strong>
+            <p>${term ? 'No customer profiles match your search query.' : 'Register customer accounts to manage credit sales, contact directories, and transaction histories.'}</p>
+            ${!term ? `
+              <button class="button button-primary std-record-btn" type="button" id="customerEmptyAddBtn" style="margin-top:14px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M12 5v14M5 12h14"/></svg>
+                <span>Add Customer</span>
+              </button>
+            ` : ''}
+          </div>
+        `}
+      </div>
+
+      ${renderPaginationControls_(paginated, 'customers')}
+    </div>
   `;
+
   bindPaginationEvents_(table, renderCustomers);
-  table.querySelectorAll('[data-edit-customer]').forEach((button) => button.addEventListener('click', () => openForm('editCustomer', button.dataset.editCustomer)));
-  table.querySelectorAll('[data-credit-account]').forEach((button) => button.addEventListener('click', () => openCreditPayment(button.dataset.creditAccount)));
-  table.querySelectorAll('[data-view-payment-history]').forEach((button) => button.addEventListener('click', () => openCreditHistory(button.dataset.viewPaymentHistory)));
+
+  // Bind Buttons
+  table.querySelector('#addCustomerHeroBtn')?.addEventListener('click', () => openForm('customer'));
+  table.querySelector('#customerEmptyAddBtn')?.addEventListener('click', () => openForm('customer'));
+
+  // Bind Filter Chips
+  table.querySelectorAll('[data-customer-filter]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeCustomerFilter = chip.dataset.customerFilter;
+      renderCustomers();
+    });
+  });
+
+  // Bind Row Actions
+  table.querySelectorAll('[data-edit-customer]').forEach((button) => {
+    button.addEventListener('click', () => openForm('editCustomer', button.dataset.editCustomer));
+  });
+  table.querySelectorAll('[data-credit-account]').forEach((button) => {
+    button.addEventListener('click', () => openCreditPayment(button.dataset.creditAccount));
+  });
+  table.querySelectorAll('[data-view-payment-history]').forEach((button) => {
+    button.addEventListener('click', () => openCreditHistory(button.dataset.viewPaymentHistory));
+  });
 }
 
 function renderCreditPayments() {
@@ -8138,118 +9622,312 @@ function renderCreditPayments() {
       return (!dateFrom || (aDate && aDate >= dateFrom)) && (!dateTo || (aDate && aDate <= dateTo));
     })
     .map((acc) => {
-    const total = Number(acc.total || 0);
-    const paid = paidByCredit[acc.creditId] || 0;
-    const balance = Math.max(total - paid, 0);
-    const statusKey = balance <= 0.00001 ? 'settled' : paid > 0 ? 'partial' : 'unpaid';
-    return {
-      id: acc.creditId,
-      saleId: acc.creditId,
-      sourceType: 'opening',
-      sourceLabel: 'Previous Balance',
-      customerId: acc.customerId,
-      customerName: acc.customerName,
-      date: acc.date,
-      total,
-      paid,
-      balance,
-      itemCount: 0,
-      items: [],
-      itemsSummary: acc.reference || 'Previous Balance Account',
-      statusKey,
-    };
-  });
+      const total = Number(acc.total || 0);
+      const paid = paidByCredit[acc.creditId] || 0;
+      const balance = Math.max(total - paid, 0);
+      const statusKey = balance <= 0.00001 ? 'settled' : paid > 0 ? 'partial' : 'unpaid';
+      return {
+        id: acc.creditId,
+        saleId: acc.creditId,
+        sourceType: 'opening',
+        sourceLabel: 'Previous Balance',
+        customerId: acc.customerId,
+        customerName: acc.customerName,
+        date: acc.date,
+        total,
+        paid,
+        balance,
+        itemCount: 0,
+        items: [],
+        itemsSummary: acc.reference || 'Previous Balance Account',
+        statusKey,
+      };
+    });
 
   const allCreditAccounts = [...creditSales, ...openingAccounts].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
-  // Search filtering
+  // Metrics calculation
+  let totalCreditIssued = 0;
+  let totalCreditPaid = 0;
+  let totalOutstanding = 0;
+  let unpaidCount = 0;
+  let partialCount = 0;
+  let settledCount = 0;
+
+  allCreditAccounts.forEach((acc) => {
+    totalCreditIssued += acc.total;
+    totalCreditPaid += acc.paid;
+    totalOutstanding += acc.balance;
+    if (acc.statusKey === 'settled') settledCount++;
+    else if (acc.statusKey === 'partial') partialCount++;
+    else unpaidCount++;
+  });
+
+  const settlementRate = totalCreditIssued > 0 ? Math.round((totalCreditPaid / totalCreditIssued) * 100) : 100;
+
+  // Search and chip filtering
   const filteredAccounts = allCreditAccounts.filter((account) => {
-    const matchesTerm = `${account.saleId} ${account.customerName} ${account.customerId || ''} ${account.itemsSummary}`.toLowerCase().includes(term);
-    return matchesTerm;
+    if (activeCreditFilter === 'unpaid' && account.statusKey !== 'unpaid') return false;
+    if (activeCreditFilter === 'partial' && account.statusKey !== 'partial') return false;
+    if (activeCreditFilter === 'settled' && account.statusKey !== 'settled') return false;
+    if (term) {
+      const matchesTerm = `${account.saleId} ${account.customerName} ${account.customerId || ''} ${account.itemsSummary}`.toLowerCase().includes(term);
+      if (!matchesTerm) return false;
+    }
+    return true;
   });
 
   const paginated = paginateItems_(filteredAccounts);
 
   table.innerHTML = `
-    <div class="table-row table-header">
-      <span>Customer</span>
-      <span>Credit Sale</span>
-      <span>Credit Date</span>
-      <span>Item Count</span>
-      <span>Credit Amount</span>
-      <span>Action</span>
-    </div>
-    ${paginated.pagedItems.map((account) => {
-      const dateObj = account.date ? new Date(account.date) : null;
-      const formattedDate = dateObj && !isNaN(dateObj.getTime())
-        ? dateObj.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
-        : '—';
-      const formattedTime = dateObj && !isNaN(dateObj.getTime())
-        ? dateObj.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })
-        : '';
-
-      return `
-        <div class="table-row">
-          <div class="product-cell customer-details-cell">
-            <div class="customer-name-line">
-              <strong class="product-name">${escapeHtml(displayCustomerName(account.customerName))}</strong>
-            </div>
-            <span class="product-meta">${escapeHtml(account.customerId || 'No ID')}</span>
+    <div class="std-view theme-crimson">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="14" x="2" y="5" rx="2"/>
+              <line x1="2" x2="22" y1="10" y2="10"/>
+              <path d="M6 15h.01M10 15h2"/>
+            </svg>
           </div>
-          <div class="row-middle-cells">
-            <div class="product-cell credit-sale-cell">
-              <div class="credit-sale-ref-row">
-                <svg class="credit-sale-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                <strong class="product-name credit-sale-ref">${escapeHtml(account.saleId)}</strong>
-              </div>
-              <span class="product-meta credit-items-summary" title="${escapeHtml(account.itemsSummary)}">${escapeHtml(account.itemsSummary)}</span>
-            </div>
-            <div class="product-cell credit-date-cell">
-              <span class="credit-date-text">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-                <strong>${escapeHtml(formattedDate)}</strong>
-              </span>
-              ${formattedTime ? `<span class="product-meta credit-time-meta">${escapeHtml(formattedTime)}</span>` : ''}
-            </div>
-            <div class="credit-items-cell">
-              <span class="stock-pill stock-quantity credit-qty-pill">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-                <span>${account.itemCount.toLocaleString('en-PH')} unit${account.itemCount === 1 ? '' : 's'}</span>
-              </span>
-            </div>
-            <div class="credit-amount-cell">
-              <strong class="price-text credit-total-price">${money(account.total)}</strong>
-            </div>
-          </div>
-          <div class="row-action-cell">
-            ${account.sourceType === 'sale'
-              ? `<span class="table-actions"><button class="icon-button primary-icon" data-view-credit-sale="${escapeHtml(account.saleId)}" aria-label="View credit sale ${escapeHtml(account.saleId)}" title="View credit sale details"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></span>`
-              : `<span class="table-actions"><button class="icon-button primary-icon" data-view-credit-history="${escapeHtml(account.customerId || account.id)}" aria-label="View credit ledger" title="View credit account history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button></span>`}
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">CREDIT LEDGER &bull; AR RECEIVABLES</span>
+            <strong class="std-hero-title">Credit Sales &amp; Payment History</strong>
+            <p class="std-hero-desc">Detailed ledger of customer credit sales, repayments, outstanding balances, and account aging. Track credit invoices, payment timelines, and settlement compliance.</p>
           </div>
         </div>
-      `;
-    }).join('') || `
-      <div class="empty-state">
-        <p>${term ? 'No matching credit records' : 'No credit sales found'}</p>
-        <small>${term ? 'Try adjusting your search query above.' : 'Credit sales for the selected branch will appear here.'}</small>
-        ${term ? `<button type="button" class="button button-secondary credit-reset-filters-btn" id="creditResetFiltersBtn" style="margin-top:12px;font-size:12px;padding:6px 14px;">Reset Search</button>` : ''}
+        <div class="std-hero-actions">
+          <button class="button button-primary std-record-btn" type="button" id="viewCustomersHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Customer Directory</span>
+          </button>
+        </div>
       </div>
-    `}
-    ${renderPaginationControls_(paginated, 'credit records')}
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 6v12M17 10h-7a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H7"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">TOTAL CREDIT ISSUED</span>
+            <strong class="std-kpi-value text-amber">${money(totalCreditIssued)}</strong>
+            <span class="std-kpi-sub">${allCreditAccounts.length} credit records</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">COLLECTED / REPAID</span>
+            <strong class="std-kpi-value text-emerald">${money(totalCreditPaid)}</strong>
+            <span class="std-kpi-sub">Total credit repayments</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-crimson">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">OUTSTANDING RECEIVABLES</span>
+            <strong class="std-kpi-value text-crimson">${money(totalOutstanding)}</strong>
+            <span class="std-kpi-sub">${unpaidCount + partialCount} accounts with balance</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">SETTLEMENT RATE</span>
+            <strong class="std-kpi-value text-sky">${settlementRate}%</strong>
+            <span class="std-kpi-sub">${settledCount} accounts fully cleared</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        <div class="std-chip-group">
+          <button type="button" class="std-chip ${activeCreditFilter === 'all' ? 'active' : ''}" data-credit-filter="all">
+            <span class="std-chip-dot"></span>
+            <span class="std-chip-label">All Records</span>
+            <span class="std-chip-badge">${allCreditAccounts.length}</span>
+          </button>
+          <button type="button" class="std-chip ${activeCreditFilter === 'unpaid' ? 'active' : ''}" data-credit-filter="unpaid">
+            <span class="std-chip-dot" style="background:#f87171;"></span>
+            <span class="std-chip-label">Unpaid</span>
+            <span class="std-chip-badge">${unpaidCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeCreditFilter === 'partial' ? 'active' : ''}" data-credit-filter="partial">
+            <span class="std-chip-dot" style="background:#fbbf24;"></span>
+            <span class="std-chip-label">Partially Paid</span>
+            <span class="std-chip-badge">${partialCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeCreditFilter === 'settled' ? 'active' : ''}" data-credit-filter="settled">
+            <span class="std-chip-dot" style="background:#34d399;"></span>
+            <span class="std-chip-label">Settled</span>
+            <span class="std-chip-badge">${settledCount}</span>
+          </button>
+        </div>
+
+        <div class="std-quick-dates">
+          <span class="std-quick-dates-label">Presets:</span>
+          <button type="button" class="std-date-btn" data-credit-preset="thisMonth">This Month</button>
+          <button type="button" class="std-date-btn" data-credit-preset="last30">Last 30 Days</button>
+          <button type="button" class="std-date-btn" data-credit-preset="all">All Time</button>
+        </div>
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-credits">
+          <span>Customer</span>
+          <span>Credit Reference</span>
+          <span>Credit Date</span>
+          <span>Item Count</span>
+          <span>Credit Amount</span>
+          <span style="text-align: right;">Action</span>
+        </div>
+
+        ${paginated.pagedItems.length ? paginated.pagedItems.map((account) => {
+          const dateObj = account.date ? new Date(account.date) : null;
+          const formattedDate = dateObj && !isNaN(dateObj.getTime())
+            ? dateObj.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+            : '—';
+          const formattedTime = dateObj && !isNaN(dateObj.getTime())
+            ? dateObj.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })
+            : '';
+
+          return `
+            <div class="std-table-row grid-cols-credits">
+              <div class="product-cell" data-label="Customer">
+                <strong class="product-name" style="font-size:13px;color:#fff;">${escapeHtml(displayCustomerName(account.customerName))}</strong>
+                <span class="product-meta" style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:10.5px;">${escapeHtml(account.customerId || 'No ID')}</span>
+              </div>
+
+              <div data-label="Credit Reference" style="display:flex;flex-direction:column;gap:3px;">
+                <div class="credit-sale-ref-row">
+                  <strong class="product-name" style="font-size:12px;color:#38bdf8;font-family:ui-monospace,SFMono-Regular,monospace;">${escapeHtml(account.saleId)}</strong>
+                  <span class="stock-pill ${account.statusKey === 'settled' ? 'stock-normal' : account.statusKey === 'partial' ? 'stock-warning' : 'stock-low'}" style="font-size:9.5px;padding:1px 5px;">
+                    ${account.statusKey === 'settled' ? 'Settled' : account.statusKey === 'partial' ? 'Partial' : 'Unpaid'}
+                  </span>
+                </div>
+                <span class="product-meta" style="font-size:11px;color:#94a3b8;" title="${escapeHtml(account.itemsSummary)}">${escapeHtml(account.itemsSummary)}</span>
+              </div>
+
+              <div data-label="Credit Date" style="display:flex;flex-direction:column;gap:2px;">
+                <span style="font-size:12px;font-weight:600;color:#e2e8f0;">${escapeHtml(formattedDate)}</span>
+                ${formattedTime ? `<span class="product-meta" style="font-size:10.5px;">${escapeHtml(formattedTime)}</span>` : ''}
+              </div>
+
+              <div data-label="Item Count">
+                <span class="stock-pill stock-quantity" style="font-size:11px;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                  <span>${account.itemCount.toLocaleString('en-PH')} unit${account.itemCount === 1 ? '' : 's'}</span>
+                </span>
+              </div>
+
+              <div data-label="Credit Amount" style="display:flex;flex-direction:column;gap:2px;">
+                <strong class="price-text" style="font-size:13.5px;color:#fff;">${money(account.total)}</strong>
+                <div style="font-size:11px;color:${account.statusKey === 'settled' ? '#34d399' : '#f87171'};font-weight:600;">
+                  ${account.statusKey === 'settled' ? 'Settled (Paid)' : `Bal: ${money(account.balance)}`}
+                </div>
+              </div>
+
+              <div data-label="Action" style="text-align: right;">
+                <span class="table-actions" style="display:inline-flex;gap:6px;align-items:center;justify-content:flex-end;">
+                  ${account.sourceType === 'sale' ? `
+                    <button class="icon-button primary-icon" data-view-credit-sale="${escapeHtml(account.saleId)}" aria-label="View credit sale ${escapeHtml(account.saleId)}" title="View credit sale details">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                  ` : `
+                    <button class="icon-button primary-icon" data-view-credit-history="${escapeHtml(account.customerId || account.id)}" aria-label="View credit ledger" title="View credit account history">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </button>
+                  `}
+                </span>
+              </div>
+            </div>
+          `;
+        }).join('') : `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="background:rgba(239,68,68,0.1);color:#f87171;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:28px;height:28px;"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+            </div>
+            <strong>${term ? 'No matching credit records' : 'No credit records on file'}</strong>
+            <p>${term ? 'No credit records match your search query.' : 'Credit sales and customer receivables for the selected date range will appear here.'}</p>
+            ${term ? `
+              <button type="button" class="button button-secondary std-record-btn" id="creditResetFiltersBtn" style="margin-top:14px;">Reset Search</button>
+            ` : ''}
+          </div>
+        `}
+      </div>
+
+      ${renderPaginationControls_(paginated, 'credit records')}
+    </div>
   `;
 
   bindPaginationEvents_(table, renderCreditPayments);
 
-  // Bind reset button
-  const resetBtn = $('#creditResetFiltersBtn');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
-      const searchInput = $('#searchInput');
-      if (searchInput) searchInput.value = '';
+  // Bind Header Button
+  table.querySelector('#viewCustomersHeroBtn')?.addEventListener('click', () => setView('customers'));
+
+  // Bind Reset
+  table.querySelector('#creditResetFiltersBtn')?.addEventListener('click', () => {
+    const searchInput = $('#searchInput');
+    if (searchInput) searchInput.value = '';
+    renderCreditPayments();
+  });
+
+  // Bind Chips
+  table.querySelectorAll('[data-credit-filter]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeCreditFilter = chip.dataset.creditFilter;
       renderCreditPayments();
     });
-  }
+  });
 
+  // Bind Presets
+  table.querySelectorAll('[data-credit-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.creditPreset;
+      const fromInput = $('#creditsDateFrom');
+      const toInput = $('#creditsDateTo');
+      if (!fromInput || !toInput) return;
+
+      const now = new Date();
+      if (preset === 'thisMonth') {
+        fromInput.value = formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
+        toInput.value = formatDateInput(now);
+      } else if (preset === 'last30') {
+        const past = new Date();
+        past.setDate(past.getDate() - 30);
+        fromInput.value = formatDateInput(past);
+        toInput.value = formatDateInput(now);
+      } else if (preset === 'all') {
+        fromInput.value = '';
+        toInput.value = '';
+      }
+      renderCreditPayments();
+    });
+  });
+
+  // Bind Row Actions
   table.querySelectorAll('[data-view-credit-sale]').forEach((button) => {
     button.addEventListener('click', () => {
       const sale = salesHistory.find((item) => item.saleId === button.dataset.viewCreditSale);
@@ -8271,60 +9949,282 @@ function renderDailySpotCash() {
   const dateTo = $('#dailySpotCashDateTo')?.value || '';
   const table = $('#inventoryTable');
   if (!table) return;
-  const filtered = dailySpotCash
-    .filter((item) => {
-      const matchesTerm = `${item.businessDate} ${item.openingCash} ${item.notes || ''}`.toLowerCase().includes(term);
-      const itemDate = saleDateKey(item.businessDate || item.createdAt);
-      const matchesDate = (!dateFrom || (itemDate && itemDate >= dateFrom)) && (!dateTo || (itemDate && itemDate <= dateTo));
-      return matchesTerm && matchesDate;
-    })
-    .sort((a, b) => new Date(b.businessDate) - new Date(a.businessDate));
-  const paginated = paginateItems_(filtered);
+
+  // 1. Date filtered dataset
+  const dateFiltered = dailySpotCash.filter((item) => {
+    const itemDate = saleDateKey(item.businessDate || item.createdAt);
+    if (dateFrom && itemDate < dateFrom) return false;
+    if (dateTo && itemDate > dateTo) return false;
+    return true;
+  });
+
+  // 2. Metrics calculation
+  const totalEntries = dateFiltered.length;
+  const totalFloats = dateFiltered.reduce((sum, item) => sum + Number(item.openingCash || 0), 0);
+  const sortedByDate = [...dateFiltered].sort((a, b) => new Date(b.businessDate) - new Date(a.businessDate));
+  const latestEntry = sortedByDate[0];
+  const latestFloat = latestEntry ? Number(latestEntry.openingCash || 0) : 0;
+  const avgFloat = totalEntries > 0 ? Math.round(totalFloats / totalEntries) : 0;
+
+  // Filter chips counts
+  let standardCount = 0;
+  let lowCount = 0;
+  dateFiltered.forEach((item) => {
+    if (Number(item.openingCash || 0) >= 5000) standardCount++;
+    else lowCount++;
+  });
+
+  // 3. Apply active chip filter & search term
+  const finalFiltered = sortedByDate.filter((item) => {
+    const cash = Number(item.openingCash || 0);
+    if (activeSpotCashFilter === 'standard' && cash < 5000) return false;
+    if (activeSpotCashFilter === 'low' && cash >= 5000) return false;
+    if (term) {
+      const searchTarget = `${item.businessDate} ${item.openingCash} ${item.notes || ''}`.toLowerCase();
+      if (!searchTarget.includes(term)) return false;
+    }
+    return true;
+  });
+
+  const paginated = paginateItems_(finalFiltered);
 
   table.innerHTML = `
-    <div class="table-row table-header">
-      <span>Business Date</span>
-      <span>Opening Cash Float</span>
-      <span>Notes</span>
-      <span>Last Updated</span>
-      <span>Action</span>
-    </div>
-    ${paginated.pagedItems.map((item) => {
-      const dateObj = item.businessDate ? new Date(`${item.businessDate}T00:00:00`) : null;
-      const formattedDate = dateObj && !isNaN(dateObj.getTime())
-        ? dateObj.toLocaleDateString('en-PH', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
-        : item.businessDate;
-      const formattedUpdated = item.updatedAt
-        ? new Date(item.updatedAt).toLocaleString('en-PH', { dateStyle: 'short', timeStyle: 'short' })
-        : '—';
-      return `
-        <div class="table-row">
-          <div class="product-cell">
-            <strong class="product-name">${escapeHtml(formattedDate)}</strong>
-            <span class="product-meta">${escapeHtml(item.businessDate)}</span>
+    <div class="std-view theme-amber">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="12" x="2" y="6" rx="2"/>
+              <circle cx="12" cy="12" r="2"/>
+              <path d="M6 12h.01M18 12h.01"/>
+            </svg>
           </div>
-          <div class="row-middle-cells">
-            <strong class="price-text" style="color:var(--accent-emerald, #10b981); font-size:14px;">${money(item.openingCash)}</strong>
-            <span class="branch-address" title="${escapeHtml(item.notes || '')}">${escapeHtml(item.notes || '—')}</span>
-            <span class="product-meta" style="font-size:11.5px;">${escapeHtml(formattedUpdated)}</span>
-          </div>
-          <div class="row-action-cell">
-            <span class="table-actions">
-              <button class="icon-button" data-edit-spot-cash="${item.id}" aria-label="Edit Daily Spot Cash" title="Edit Daily Spot Cash">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-              </button>
-              <button class="icon-button danger-icon" data-delete-spot-cash="${item.id}" aria-label="Delete Daily Spot Cash" title="Delete Daily Spot Cash">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-              </button>
-            </span>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">BRANCH OPERATIONS &bull; CASH DRAWER FLOATS</span>
+            <strong class="std-hero-title">Daily Spot Cash Register</strong>
+            <p class="std-hero-desc">Audit trail for starting drawer cash floats and opening registers. Preserves daily cash reconciliation and drawer accountability.</p>
           </div>
         </div>
-      `;
-    }).join('') || '<div class="empty-state"><p>No Daily Spot Cash recorded</p><small>Record the opening cash before branch operations begin.</small></div>'}
-    ${renderPaginationControls_(paginated, 'spot cash records')}
+        <div class="std-hero-actions">
+          <button class="button button-primary std-record-btn" type="button" id="recordDailySpotCashBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Add Daily Spot Cash</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="12" x="2" y="6" rx="2"/>
+              <circle cx="12" cy="12" r="2"/>
+              <path d="M6 12h.01M18 12h.01"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">LATEST OPENING FLOAT</span>
+            <strong class="std-kpi-value text-amber">${money(latestFloat)}</strong>
+            <span class="std-kpi-sub">${latestEntry ? `Date: ${latestEntry.businessDate}` : 'No float on record'}</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 6v12M17 10h-7a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H7"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">PERIOD TOTAL FLOATS</span>
+            <strong class="std-kpi-value text-emerald">${money(totalFloats)}</strong>
+            <span class="std-kpi-sub">${totalEntries === 1 ? '1 float logged' : `${totalEntries} floats logged`}</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">AVERAGE DAILY FLOAT</span>
+            <strong class="std-kpi-value text-sky">${money(avgFloat)}</strong>
+            <span class="std-kpi-sub">Typical opening drawer</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+              <line x1="16" x2="16" y1="2" y2="6"/>
+              <line x1="8" x2="8" y1="2" y2="6"/>
+              <line x1="3" x2="21" y1="10" y2="10"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">OPERATING DAYS</span>
+            <strong class="std-kpi-value text-purple">${totalEntries}</strong>
+            <span class="std-kpi-sub">Recorded sessions</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        <div class="std-filter-chips" role="tablist" aria-label="Filter spot cash">
+          <button type="button" class="std-chip ${activeSpotCashFilter === 'all' ? 'active' : ''}" data-spot-filter="all">
+            <span class="std-chip-dot" style="background:#fbbf24;"></span>
+            <span class="std-chip-label">All Floats</span>
+            <span class="std-chip-badge">${totalEntries}</span>
+          </button>
+          <button type="button" class="std-chip ${activeSpotCashFilter === 'standard' ? 'active' : ''}" data-spot-filter="standard">
+            <span class="std-chip-dot" style="background:#10b981;"></span>
+            <span class="std-chip-label">Standard (&ge; ₱5,000)</span>
+            <span class="std-chip-badge">${standardCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeSpotCashFilter === 'low' ? 'active' : ''}" data-spot-filter="low">
+            <span class="std-chip-dot" style="background:#f87171;"></span>
+            <span class="std-chip-label">Low Float (&lt; ₱5,000)</span>
+            <span class="std-chip-badge">${lowCount}</span>
+          </button>
+        </div>
+
+        <div class="std-quick-dates">
+          <span class="std-quick-dates-label">Presets:</span>
+          <button type="button" class="std-date-btn" data-spot-preset="thisMonth">This Month</button>
+          <button type="button" class="std-date-btn" data-spot-preset="last30">Last 30 Days</button>
+          <button type="button" class="std-date-btn" data-spot-preset="all">All Time</button>
+        </div>
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-spotcash">
+          <span>Business Date</span>
+          <span>Opening Float</span>
+          <span>Notes &amp; Purpose</span>
+          <span>Last Updated</span>
+          <span style="text-align: right;">Action</span>
+        </div>
+
+        ${paginated.pagedItems.length ? paginated.pagedItems.map((item) => {
+          const dateObj = item.businessDate ? new Date(`${item.businessDate}T00:00:00`) : null;
+          const formattedDate = dateObj && !isNaN(dateObj.getTime())
+            ? dateObj.toLocaleDateString('en-PH', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
+            : item.businessDate;
+          const formattedUpdated = item.updatedAt
+            ? new Date(item.updatedAt).toLocaleString('en-PH', { dateStyle: 'short', timeStyle: 'short' })
+            : '—';
+          const isStandard = Number(item.openingCash || 0) >= 5000;
+
+          return `
+            <div class="std-table-row grid-cols-spotcash">
+              <div class="product-cell" data-label="Date">
+                <strong class="product-name" style="font-size:13px;color:#fff;">${escapeHtml(formattedDate)}</strong>
+                <span class="product-meta" style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:10.5px;">${escapeHtml(item.businessDate)}</span>
+              </div>
+              <div data-label="Opening Float" style="display:flex;align-items:center;gap:6px;">
+                <strong style="color:var(--accent-emerald, #10b981); font-size:14px; font-weight:800; font-feature-settings:'tnum';">${money(item.openingCash)}</strong>
+                <span class="stock-pill ${isStandard ? 'stock-normal' : 'stock-low'}" style="font-size:10px;padding:1px 6px;">${isStandard ? 'Standard' : 'Low'}</span>
+              </div>
+              <div data-label="Notes" style="font-size:12px;color:#cbd5e1;min-width:0;">
+                <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(item.notes || '')}">${escapeHtml(item.notes || '—')}</span>
+              </div>
+              <div data-label="Updated" style="font-size:11px;color:#94a3b8;">
+                ${escapeHtml(formattedUpdated)}
+              </div>
+              <div data-label="Action" style="display:flex;gap:6px;justify-content:flex-end;">
+                <button class="icon-button" data-edit-spot-cash="${item.id}" aria-label="Edit Daily Spot Cash" title="Edit Daily Spot Cash">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                </button>
+                <button class="icon-button danger-icon" data-delete-spot-cash="${item.id}" aria-label="Delete Daily Spot Cash" title="Delete Daily Spot Cash">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('') : `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#fbbf24;background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/>
+              </svg>
+            </div>
+            <h4 class="std-empty-title">No Daily Spot Cash Records Found</h4>
+            <p class="std-empty-desc">
+              ${term || activeSpotCashFilter !== 'all' || dateFrom || dateTo
+                ? 'No opening float entries match your current search, filter, or selected date range.'
+                : 'No drawer floats recorded for this branch yet. Add the opening cash float to begin.'}
+            </p>
+            ${term || activeSpotCashFilter !== 'all' || dateFrom || dateTo ? `
+              <button type="button" class="button button-secondary" id="spotResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters &amp; Date Range
+              </button>
+            ` : `
+              <button type="button" class="button button-primary" id="spotEmptyAddBtn" style="margin-top:8px;font-size:12px;padding:8px 16px;">
+                + Add Daily Spot Cash
+              </button>
+            `}
+          </div>
+        `}
+      </div>
+
+      ${renderPaginationControls_(paginated, 'spot cash records')}
+    </div>
   `;
 
   bindPaginationEvents_(table, renderDailySpotCash);
+
+  // Bind Buttons
+  table.querySelector('#recordDailySpotCashBtn')?.addEventListener('click', () => openForm('dailySpotCash'));
+  table.querySelector('#spotEmptyAddBtn')?.addEventListener('click', () => openForm('dailySpotCash'));
+
+  // Bind Chips
+  table.querySelectorAll('[data-spot-filter]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeSpotCashFilter = chip.dataset.spotFilter;
+      renderDailySpotCash();
+    });
+  });
+
+  // Bind Quick Presets
+  table.querySelectorAll('[data-spot-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.spotPreset;
+      const fromInput = $('#dailySpotCashDateFrom');
+      const toInput = $('#dailySpotCashDateTo');
+      if (!fromInput || !toInput) return;
+
+      const now = new Date();
+      if (preset === 'thisMonth') {
+        fromInput.value = formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
+        toInput.value = formatDateInput(now);
+      } else if (preset === 'last30') {
+        const d = new Date();
+        d.setDate(d.getDate() - 29);
+        fromInput.value = formatDateInput(d);
+        toInput.value = formatDateInput(now);
+      } else if (preset === 'all') {
+        fromInput.value = '';
+        toInput.value = '';
+      }
+      syncCustomDatePicker(fromInput);
+      syncCustomDatePicker(toInput);
+      renderDailySpotCash();
+    });
+  });
+
+  // Bind Reset
+  table.querySelector('#spotResetFiltersBtn')?.addEventListener('click', () => {
+    const searchInput = $('#searchInput');
+    if (searchInput) searchInput.value = '';
+    activeSpotCashFilter = 'all';
+    ensureDailySpotCashDateDefaults();
+    renderDailySpotCash();
+  });
 
   table.querySelectorAll('[data-edit-spot-cash]').forEach((button) => {
     button.addEventListener('click', () => openForm('editDailySpotCash', button.dataset.editSpotCash));
@@ -9590,6 +11490,7 @@ function renderTransfers() {
   const dateTo = $('#transfersDateTo')?.value || '';
   const table = $('#inventoryTable');
   if (!table) return;
+
   const grouped = new Map();
   transfers.forEach((transfer) => {
     const key = transfer.batchId || transfer.id;
@@ -9597,14 +11498,52 @@ function renderTransfers() {
     group.members.push(transfer);
     grouped.set(key, group);
   });
-  const rows = [...grouped.values()].filter((transfer) => {
-    const matchesTerm = `${transfer.id} ${transfer.sourceBranchName} ${transfer.destinationBranchName} ${transfer.members.map((item) => item.productName).join(' ')} ${transfer.status}`.toLowerCase().includes(term);
+
+  const allTransfers = [...grouped.values()];
+
+  // 1. Date filtered transfers
+  const dateFiltered = allTransfers.filter((transfer) => {
     const rawDate = transfer.createdAt || transfer.date || transfer.members?.[0]?.createdAt || transfer.members?.[0]?.date || '';
     const tDate = saleDateKey(rawDate);
     const matchesDate = (!dateFrom || (tDate && tDate >= dateFrom)) && (!dateTo || (tDate && tDate <= dateTo));
-    return matchesTerm && matchesDate;
+    return matchesDate;
   });
-  const paginated = paginateItems_(rows);
+
+  // 2. Metrics calculation
+  const totalTransfers = dateFiltered.length;
+  let inTransitCount = 0;
+  let receivedCount = 0;
+  let draftCount = 0;
+  let cancelledCount = 0;
+  let totalUnits = 0;
+
+  dateFiltered.forEach((t) => {
+    if (t.status === 'In Transit') inTransitCount++;
+    else if (t.status === 'Received') receivedCount++;
+    else if (t.status === 'Draft') draftCount++;
+    else if (t.status === 'Cancelled') cancelledCount++;
+
+    if (t.isBatch) {
+      t.members.forEach((m) => { totalUnits += Number(m.qty || 0); });
+    } else {
+      totalUnits += Number(t.qty || 0);
+    }
+  });
+
+  // 3. Search and Status filter
+  const finalFiltered = dateFiltered.filter((transfer) => {
+    if (activeTransferStatusFilter !== 'all' && (transfer.status || '').toLowerCase() !== activeTransferStatusFilter.toLowerCase()) {
+      return false;
+    }
+    if (term) {
+      const searchTarget = `${transfer.id} ${transfer.sourceBranchName} ${transfer.destinationBranchName} ${transfer.members.map((item) => item.productName).join(' ')} ${transfer.status}`.toLowerCase();
+      if (!searchTarget.includes(term)) return false;
+    }
+    return true;
+  });
+
+  const paginated = paginateItems_(finalFiltered);
+
   const action = (transfer) => {
     if (transfer.status === 'Draft' && transfer.sourceBranchId === activeBranchId) {
       return `
@@ -9624,36 +11563,253 @@ function renderTransfers() {
     }
     return '<span style="color:var(--text-muted);font-size:13px;font-weight:600;padding-left:4px;">&mdash;</span>';
   };
+
   table.innerHTML = `
-    <div class="table-row table-header">
-      <span>Transfer</span>
-      <span>Route</span>
-      <span>Product</span>
-      <span>Status</span>
-      <span>Action</span>
-    </div>
-    ${paginated.pagedItems.map((transfer) => `
-      <div class="table-row">
-        <div class="product-cell">
-          <strong class="product-name">${escapeHtml(transfer.id)}</strong>
-          <span class="product-meta">${escapeHtml(transfer.createdAt ? new Date(transfer.createdAt).toLocaleDateString('en-PH') : '')}</span>
-        </div>
-        <div class="row-middle-cells">
-          <span class="branch-address">${escapeHtml(transfer.sourceBranchName)} to ${escapeHtml(transfer.destinationBranchName)}</span>
-          <div class="product-cell">
-            <strong class="product-name">${escapeHtml(transfer.isBatch ? `${transfer.members.length} transfer items` : transfer.productName)}</strong>
-            <span class="product-meta">${escapeHtml(transfer.isBatch ? transfer.members.map((item) => `${item.productName} (${item.qty} ${item.unit})`).join(' • ') : `${transfer.qty} ${transfer.unit}`)}</span>
+    <div class="std-view theme-purple">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>
+            </svg>
           </div>
-          <span class="stock-pill ${transfer.status === 'Received' ? 'stock-normal' : transfer.status === 'Cancelled' ? 'stock-low' : 'category-badge'}">${escapeHtml(transfer.status)}</span>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">BRANCH LOGISTICS &bull; INTER-BRANCH ROUTING</span>
+            <strong class="std-hero-title">Stock Transfer Manifest</strong>
+            <p class="std-hero-desc">Chain of custody audit trail for branch stock transfers. Track outgoing dispatches, in-transit cargo, and verified branch receipts.</p>
+          </div>
         </div>
-        <div class="row-action-cell">
-          <span class="table-actions">${action(transfer)}</span>
+        <div class="std-hero-actions">
+          <button class="button button-primary std-record-btn" type="button" id="createTransferHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Create Transfer</span>
+          </button>
         </div>
       </div>
-    `).join('') || '<div class="empty-state"><p>No stock transfers found</p><small>Create a transfer from the selected branch.</small></div>'}
-    ${renderPaginationControls_(paginated, 'transfers')}
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">TRANSFERS IN RANGE</span>
+            <strong class="std-kpi-value text-sky">${totalTransfers}</strong>
+            <span class="std-kpi-sub">${totalTransfers === 1 ? '1 manifest recorded' : `${totalTransfers} manifests recorded`}</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">IN TRANSIT</span>
+            <strong class="std-kpi-value text-amber">${inTransitCount}</strong>
+            <span class="std-kpi-sub">En route between branches</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">COMPLETED &bull; RECEIVED</span>
+            <strong class="std-kpi-value text-emerald">${receivedCount}</strong>
+            <span class="std-kpi-sub">Successfully reconciled</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">TOTAL UNITS ROUTED</span>
+            <strong class="std-kpi-value text-purple">${totalUnits.toLocaleString('en-PH')}</strong>
+            <span class="std-kpi-sub">Inventory items moved</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        <div class="std-filter-chips" role="tablist" aria-label="Filter transfers">
+          <button type="button" class="std-chip ${activeTransferStatusFilter === 'all' ? 'active' : ''}" data-transfer-status="all">
+            <span class="std-chip-dot" style="background:#c084fc;"></span>
+            <span class="std-chip-label">All Transfers</span>
+            <span class="std-chip-badge">${totalTransfers}</span>
+          </button>
+          <button type="button" class="std-chip ${activeTransferStatusFilter === 'in transit' ? 'active' : ''}" data-transfer-status="In Transit">
+            <span class="std-chip-dot" style="background:#f59e0b;"></span>
+            <span class="std-chip-label">In Transit</span>
+            <span class="std-chip-badge">${inTransitCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeTransferStatusFilter === 'draft' ? 'active' : ''}" data-transfer-status="Draft">
+            <span class="std-chip-dot" style="background:#94a3b8;"></span>
+            <span class="std-chip-label">Draft</span>
+            <span class="std-chip-badge">${draftCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeTransferStatusFilter === 'received' ? 'active' : ''}" data-transfer-status="Received">
+            <span class="std-chip-dot" style="background:#10b981;"></span>
+            <span class="std-chip-label">Received</span>
+            <span class="std-chip-badge">${receivedCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeTransferStatusFilter === 'cancelled' ? 'active' : ''}" data-transfer-status="Cancelled">
+            <span class="std-chip-dot" style="background:#ef4444;"></span>
+            <span class="std-chip-label">Cancelled</span>
+            <span class="std-chip-badge">${cancelledCount}</span>
+          </button>
+        </div>
+
+        <div class="std-quick-dates">
+          <span class="std-quick-dates-label">Presets:</span>
+          <button type="button" class="std-date-btn" data-transfer-preset="thisMonth">This Month</button>
+          <button type="button" class="std-date-btn" data-transfer-preset="last30">Last 30 Days</button>
+          <button type="button" class="std-date-btn" data-transfer-preset="all">All Time</button>
+        </div>
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-transfers">
+          <span>Transfer ID &amp; Date</span>
+          <span>Routing</span>
+          <span>Manifest Items</span>
+          <span>Status</span>
+          <span style="text-align: right;">Action</span>
+        </div>
+
+        ${paginated.pagedItems.length ? paginated.pagedItems.map((transfer) => {
+          const rawDate = transfer.createdAt || transfer.date || transfer.members?.[0]?.createdAt || '';
+          const dateObj = rawDate ? new Date(rawDate) : null;
+          const formattedDate = dateObj && !isNaN(dateObj.getTime())
+            ? dateObj.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+            : '—';
+          const formattedTime = dateObj && !isNaN(dateObj.getTime())
+            ? dateObj.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })
+            : '';
+
+          const statusClass = transfer.status === 'Received' ? 'stock-normal'
+            : transfer.status === 'In Transit' ? 'category-badge'
+            : transfer.status === 'Cancelled' ? 'stock-low'
+            : 'category-badge';
+
+          return `
+            <div class="std-table-row grid-cols-transfers">
+              <div class="product-cell" data-label="Transfer">
+                <strong class="product-name" style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:12.5px;color:#fff;">${escapeHtml(transfer.id)}</strong>
+                <span class="product-meta">${escapeHtml(formattedDate)}${formattedTime ? ` &bull; ${escapeHtml(formattedTime)}` : ''}</span>
+              </div>
+              <div data-label="Route" style="display:flex;align-items:center;gap:6px;font-size:12.5px;min-width:0;">
+                <span style="color:#7dd3fc;font-weight:700;">${escapeHtml(transfer.sourceBranchName)}</span>
+                <span style="color:#64748b;">&rarr;</span>
+                <span style="color:#38bdf8;font-weight:700;">${escapeHtml(transfer.destinationBranchName)}</span>
+              </div>
+              <div data-label="Items" style="min-width:0;">
+                <strong style="display:block;font-size:13px;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                  ${escapeHtml(transfer.isBatch ? `${transfer.members.length} transfer line items` : transfer.productName)}
+                </strong>
+                <span style="display:block;font-size:11px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                  ${escapeHtml(transfer.isBatch ? transfer.members.map((item) => `${item.productName} (${item.qty} ${item.unit})`).join(' • ') : `${transfer.qty} ${transfer.unit}`)}
+                </span>
+              </div>
+              <div data-label="Status">
+                <span class="stock-pill ${statusClass}" style="font-size:11px;">${escapeHtml(transfer.status)}</span>
+              </div>
+              <div data-label="Action" style="display:flex;gap:6px;justify-content:flex-end;">
+                <span class="table-actions">${action(transfer)}</span>
+              </div>
+            </div>
+          `;
+        }).join('') : `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#c084fc;background:rgba(168,85,247,0.1);border-color:rgba(168,85,247,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>
+              </svg>
+            </div>
+            <h4 class="std-empty-title">No Stock Transfers Found</h4>
+            <p class="std-empty-desc">
+              ${term || activeTransferStatusFilter !== 'all' || dateFrom || dateTo
+                ? 'No stock transfer manifests match your current search, status, or date range.'
+                : 'No stock transfers logged for this branch yet. Create a transfer to move inventory.'}
+            </p>
+            ${term || activeTransferStatusFilter !== 'all' || dateFrom || dateTo ? `
+              <button type="button" class="button button-secondary" id="transferResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters &amp; Date Range
+              </button>
+            ` : `
+              <button type="button" class="button button-primary" id="transferEmptyAddBtn" style="margin-top:8px;font-size:12px;padding:8px 16px;">
+                + Create Transfer
+              </button>
+            `}
+          </div>
+        `}
+      </div>
+
+      ${renderPaginationControls_(paginated, 'transfers')}
+    </div>
   `;
+
   bindPaginationEvents_(table, renderTransfers);
+
+  // Bind Buttons
+  table.querySelector('#createTransferHeroBtn')?.addEventListener('click', () => openForm('stockTransfers'));
+  table.querySelector('#transferEmptyAddBtn')?.addEventListener('click', () => openForm('stockTransfers'));
+
+  // Bind Status Chips
+  table.querySelectorAll('[data-transfer-status]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeTransferStatusFilter = chip.dataset.transferStatus;
+      renderTransfers();
+    });
+  });
+
+  // Bind Quick Presets
+  table.querySelectorAll('[data-transfer-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.transferPreset;
+      const fromInput = $('#transfersDateFrom');
+      const toInput = $('#transfersDateTo');
+      if (!fromInput || !toInput) return;
+
+      const now = new Date();
+      if (preset === 'thisMonth') {
+        fromInput.value = formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
+        toInput.value = formatDateInput(now);
+      } else if (preset === 'last30') {
+        const d = new Date();
+        d.setDate(d.getDate() - 29);
+        fromInput.value = formatDateInput(d);
+        toInput.value = formatDateInput(now);
+      } else if (preset === 'all') {
+        fromInput.value = '';
+        toInput.value = '';
+      }
+      syncCustomDatePicker(fromInput);
+      syncCustomDatePicker(toInput);
+      renderTransfers();
+    });
+  });
+
+  // Bind Reset
+  table.querySelector('#transferResetFiltersBtn')?.addEventListener('click', () => {
+    const searchInput = $('#searchInput');
+    if (searchInput) searchInput.value = '';
+    activeTransferStatusFilter = 'all';
+    ensureTransfersDateDefaults();
+    renderTransfers();
+  });
+
   table.querySelectorAll('[data-transfer-action]').forEach((button) => button.addEventListener('click', () => handleTransferAction(button)));
 }
 
@@ -11567,7 +13723,7 @@ function setView(view, preserveSidebarOpen = false, deferDataRender = false) {
     dailyExpenses: ['BRANCH OPERATIONS', 'Daily Expenses', 'DAILY EXPENSES', 'Cash-only Daily Expenses'],
     bankTransactions: ['BRANCH OPERATIONS', 'Bank Transactions', 'BANK LEDGER', 'Deposits, Withdrawals, and Running Balance'],
     staffAccounts: ['ADMINISTRATION', 'Staff Accounts', 'STAFF ACCOUNTS', 'Manage Staff Access'],
-    adminAccount: ['ADMINISTRATION', 'Admin Account', 'ADMINISTRATION', 'Administrator Accounts'],
+    adminAccount: ['ADMINISTRATION', 'Admin Accounts', 'ADMINISTRATION', 'Administrator Accounts'],
   }[view] || ['WORKSPACE', 'Point of Sale', 'INVENTORY', 'Available Products'];
 
   $('#pageEyebrow').textContent = details[0];
@@ -11655,7 +13811,26 @@ function setView(view, preserveSidebarOpen = false, deferDataRender = false) {
     cartSection.style.display = isPos ? '' : 'none';
   }
   const sectionActions = $('#sectionActions');
-  if (sectionActions) sectionActions.style.display = isPos || view === 'bundleMonitoring' || view === 'credits' || view === 'sales' || view === 'inventoryReports' || view === 'quarantine' || view === 'lossDamages' || view === 'quarantineReport' || view === 'waiterQueue' || view === 'kitchenDisplay' ? 'none' : 'flex';
+  const hideSectionActions = isPos ||
+    view === 'bundleMonitoring' ||
+    view === 'inventory' ||
+    view === 'credits' ||
+    view === 'sales' ||
+    view === 'inventoryReports' ||
+    view === 'quarantine' ||
+    view === 'lossDamages' ||
+    view === 'quarantineReport' ||
+    view === 'waiterQueue' ||
+    view === 'kitchenDisplay' ||
+    view === 'products' ||
+    view === 'dailySpotCash' ||
+    view === 'dailyExpenses' ||
+    view === 'bankTransactions' ||
+    view === 'transfers' ||
+    view === 'customers' ||
+    view === 'staffAccounts' ||
+    view === 'adminAccount';
+  if (sectionActions) sectionActions.style.display = hideSectionActions ? 'none' : 'flex';
   const addBtn = $('#addProductButton');
   if (addBtn) addBtn.hidden = view !== 'products';
   const addExistingProductBtn = $('#addExistingProductButton');
