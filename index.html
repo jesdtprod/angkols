@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=45" />
+    <link rel="stylesheet" href="styles.css?v=51" />
     <link rel="stylesheet" href="kpi-order.css?v=1" />
     <link rel="stylesheet" href="sales-return-components.css" />
   </head>
@@ -80,6 +80,10 @@
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
             Quarantined Items
           </button>
+          <button class="nav-item" type="button" data-view="lossDamages">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="m9 11 6 6m0-6-6 6"/></svg>
+            Loss &amp; Damages
+          </button>
           <p class="nav-label">BRANCH OPERATIONS</p>
           <button class="nav-item" type="button" data-view="transfers">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
@@ -92,6 +96,10 @@
           <button class="nav-item" type="button" data-view="dailyExpenses">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3h16v18H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
             Daily Expenses
+          </button>
+          <button class="nav-item" type="button" data-view="bankTransactions">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h12M6 14h4"/></svg>
+            Bank Transactions
           </button>
           <p class="nav-label">CUSTOMER ACCOUNTS</p>
           <button class="nav-item" type="button" data-view="customers">
@@ -229,6 +237,10 @@
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                   <span>Add Daily Expense</span>
                 </button>
+                <button class="button button-primary" id="addBankTransactionButton" hidden>
+                  <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                  <span>Add Bank Transaction</span>
+                </button>
                 <button class="button button-primary" id="addStaffButton" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>
                   <span>Add Staff</span>
@@ -307,6 +319,22 @@
                 </div>
                 <div class="sales-date-control">
                   <input id="creditsDateTo" type="date" aria-label="Date To" />
+                </div>
+              </div>
+              <div class="sales-date-range" id="lossDamagesDateRange" hidden>
+                <div class="sales-date-control">
+                  <input id="lossDamagesDateFrom" type="date" aria-label="Date From" />
+                </div>
+                <div class="sales-date-control">
+                  <input id="lossDamagesDateTo" type="date" aria-label="Date To" />
+                </div>
+              </div>
+              <div class="sales-date-range" id="bankTransactionsDateRange" hidden>
+                <div class="sales-date-control">
+                  <input id="bankTransactionsDateFrom" type="date" aria-label="Date From" />
+                </div>
+                <div class="sales-date-control">
+                  <input id="bankTransactionsDateTo" type="date" aria-label="Date To" />
                 </div>
               </div>
               <button class="button button-primary" id="generateInventoryPdfButton" hidden>
@@ -1204,7 +1232,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="supabase-config.js?v=2"></script>
-    <script src="app.js?v=table-line-layout-1"></script>
+    <script src="app.js?v=standard-expenses-bank-redesign-1"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js?v=product-kitchen-restore-1'));

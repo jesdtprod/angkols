@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" href="assets/angkols-logo.png?v=2">
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=2">
   
-  <link rel="stylesheet" href="table-order.css?v=14">
+  <link rel="stylesheet" href="table-order.css?v=16">
   
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="supabase-config.js"></script>
@@ -161,7 +161,9 @@
             <h3>Your Order</h3>
             <span class="cart-items-counter" id="desktopCartItemBadge">0 items</span>
           </div>
-          <button type="button" class="btn-clear-cart" id="desktopBtnClearCart" style="display: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Clear</button>
+          <div class="cart-header-actions">
+            <button type="button" class="btn-clear-cart" id="desktopBtnClearCart" style="display: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Clear</button>
+          </div>
         </div>
 
         <div class="cart-scroll-area" id="desktopCartItemList">
@@ -222,18 +224,20 @@
   <div class="drawer-backdrop" id="drawerBackdrop"></div>
   <div class="cart-drawer" id="cartDrawer" role="dialog" aria-modal="true" aria-label="Mobile Order Cart">
     <div class="drawer-drag-handle"></div>
-    <button type="button" class="drawer-close-btn" id="btnCloseDrawer" aria-label="Close cart">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
-        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    </button>
 
     <div class="cart-header">
       <div class="cart-title-wrap">
         <h3>Your Order</h3>
         <span class="cart-items-counter" id="mobileDrawerCountBadge">0 items</span>
       </div>
-      <button type="button" class="btn-clear-cart" id="mobileBtnClearCart" style="display: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Clear</button>
+      <div class="cart-header-actions">
+        <button type="button" class="btn-clear-cart" id="mobileBtnClearCart" style="display: none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>Clear</button>
+        <button type="button" class="drawer-close-btn" id="btnCloseDrawer" aria-label="Close cart">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div class="cart-scroll-area" id="mobileCartItemList">
@@ -637,12 +641,21 @@
 
                   <div class="recent-order-items-box">
                     <ul class="recent-order-items-list">
-                      ${enrichedItems.map((item) => `
+                      ${enrichedItems.map((item) => {
+                        const isItemServed = statusMeta.slug === 'served' || String(item.status || item.kitchenStatus || '').toLowerCase() === 'served' || (Number(item.servedQty || 0) >= Number(item.qty || 1));
+                        return `
                         <li class="recent-order-item-row">
                           <div class="recent-item-main">
                             <span class="recent-item-qty">${item.qty}&times;</span>
                             <div class="recent-item-info">
-                              <span class="recent-item-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+                              <div class="recent-item-name-wrap">
+                                <span class="recent-item-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+                                ${isItemServed ? `
+                                  <span class="recent-item-served-check" title="Served to table" aria-label="Served to table">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>
+                                  </span>
+                                ` : ''}
+                              </div>
                               ${item.notes ? `<small class="recent-item-note">&ldquo;${escapeHtml(item.notes)}&rdquo;</small>` : ''}
                             </div>
                           </div>
@@ -651,7 +664,8 @@
                             <span class="recent-item-total-price">${pesoShort(item.lineTotal)}</span>
                           </div>
                         </li>
-                      `).join('')}
+                      `;
+                      }).join('')}
                     </ul>
                   </div>
 
@@ -715,11 +729,19 @@
                   const qty = Number(item.qty || 0);
                   const lineTotal = Number(item.total || 0);
                   const unitPrice = qty ? lineTotal / qty : 0;
+                  const isItemServed = isAllServed || String(item.kitchenStatus || item.status || '').toLowerCase() === 'served';
                   return `<li class="recent-order-item-row">
                     <div class="recent-item-main">
                       <span class="recent-item-qty">${qty}&times;</span>
                       <div class="recent-item-info">
-                        <span class="recent-item-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+                        <div class="recent-item-name-wrap">
+                          <span class="recent-item-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+                          ${isItemServed ? `
+                            <span class="recent-item-served-check" title="Served to table" aria-label="Served to table">
+                              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>
+                            </span>
+                          ` : ''}
+                        </div>
                         ${item.notes ? `<small class="recent-item-note">&ldquo;${escapeHtml(item.notes)}&rdquo;</small>` : ''}
                       </div>
                     </div>
@@ -1064,8 +1086,8 @@
         // Clear buttons visibility
         const desktopClear = document.getElementById('desktopBtnClearCart');
         const mobileClear = document.getElementById('mobileBtnClearCart');
-        if (desktopClear) desktopClear.style.display = cart.length ? 'block' : 'none';
-        if (mobileClear) mobileClear.style.display = cart.length ? 'block' : 'none';
+        if (desktopClear) desktopClear.style.display = cart.length ? 'inline-flex' : 'none';
+        if (mobileClear) mobileClear.style.display = cart.length ? 'inline-flex' : 'none';
 
         // Toggle Floating Mobile Bottom Bar
         const mobileBottomBar = document.getElementById('mobileBottomBar');

@@ -852,6 +852,37 @@ input:focus, textarea:focus {
   line-height: 1.2;
 }
 
+.recent-item-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.recent-item-served-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  color: #34d399;
+}
+
+.recent-item-served-check svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.8;
+}
+
+.recent-order-card.status-cancelled .recent-item-served-check {
+  display: none !important;
+}
+
 .recent-item-name {
   color: #ffffff;
   font-weight: 600;
@@ -1908,8 +1939,10 @@ input:focus, textarea:focus {
   overflow: hidden;
 }
 
-.cart-drawer .cart-header {
-  padding-right: 44px;
+.cart-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .cart-drawer.open {
@@ -1932,16 +1965,31 @@ input:focus, textarea:focus {
 }
 
 .drawer-close-btn {
-  position: absolute;
-  top: 16px;
-  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   color: var(--text-muted);
-  padding: 6px;
+  background: transparent;
+  border: none;
   border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
 }
 .drawer-close-btn:hover {
   color: var(--text-white);
   background: rgba(255, 255, 255, 0.1);
+}
+.drawer-close-btn:active {
+  transform: scale(0.92);
+}
+.drawer-close-btn svg {
+  display: block;
 }
 
 /* ==========================================================================

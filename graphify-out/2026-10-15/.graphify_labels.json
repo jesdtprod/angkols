@@ -2,7 +2,7 @@
   "0": "app.js",
   "1": "setView",
   "2": "initCustomDropdowns",
-  "3": "renderCart",
+  "3": "renderKitchenDisplay_",
   "4": "showToast",
   "5": "FR Merchandise POS",
   "6": "Review Focus",
@@ -25,8 +25,9 @@
   "23": "graphify reference: GitHub clone and cross-repo merge",
   "24": "graphify reference: transcribe video and audio",
   "25": "extraction-spec.md",
-  "26": "renderBranchSelector",
+  "26": "renderCart",
   "27": "wA",
+  "28": "DESIGN.md",
   "29": "te",
   "30": "gs",
   "31": "UA",
@@ -36,5 +37,10 @@
   "35": "dA",
   "36": "Kr",
   "37": "Lr",
-  "38": "ref_node_child_process"
+  "38": "ref_node_child_process",
+  "39": "updating-code.md",
+  "40": "analyze-edit.md",
+  "41": "SECURITY.md",
+  "42": "openReportInNewPage_",
+  "43": "initCustomDatePickers"
 }

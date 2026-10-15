@@ -23,10 +23,12 @@ let saleReturnItems = [];
 let inventoryReturnLots = [];
 let inventoryQuarantineCases = [];
 let inventoryQuarantineItems = [];
+let inventoryLosses = [];
 let inventoryReportData = {};
 let stockInHistory = [];
 let dailySpotCash = [];
 let dailyExpenses = [];
+let bankTransactions = [];
 let sellingPriceBatches = [];
 let bundleComponents = [];
 let bundleAvailability = {};
@@ -55,6 +57,9 @@ let toastTimer = null;
 let refreshInFlight = null;
 let pendingTransferReceipt = null;
 let activeQuarantineFilter = 'all';
+let activeLossReasonFilter = 'all';
+let activeBankLedgerFilter = 'all';
+let activeExpenseCategoryFilter = 'all';
 let dashboardDate = formatDateInput(new Date());
 const TABLE_PAGE_SIZE = 10;
 const PRODUCTS_PAGE_SIZE = 10;
@@ -248,9 +253,8 @@ function ensureSalesDateDefaults() {
   if (!dateFrom || !dateTo) return;
 
   const today = new Date();
-  const todayStr = formatDateInput(today);
-  if (!dateFrom.value) dateFrom.value = todayStr;
-  if (!dateTo.value) dateTo.value = todayStr;
+  if (!dateFrom.value) dateFrom.value = formatDateInput(new Date(today.getFullYear(), today.getMonth(), 1));
+  if (!dateTo.value) dateTo.value = formatDateInput(today);
   syncCustomDatePicker(dateFrom);
   syncCustomDatePicker(dateTo);
 }
@@ -273,9 +277,8 @@ function ensureTransfersDateDefaults() {
   if (!dateFrom || !dateTo) return;
 
   const today = new Date();
-  const todayStr = formatDateInput(today);
-  if (!dateFrom.value) dateFrom.value = todayStr;
-  if (!dateTo.value) dateTo.value = todayStr;
+  if (!dateFrom.value) dateFrom.value = formatDateInput(new Date(today.getFullYear(), today.getMonth(), 1));
+  if (!dateTo.value) dateTo.value = formatDateInput(today);
   syncCustomDatePicker(dateFrom);
   syncCustomDatePicker(dateTo);
 }
@@ -286,9 +289,8 @@ function ensureDailySpotCashDateDefaults() {
   if (!dateFrom || !dateTo) return;
 
   const today = new Date();
-  const todayStr = formatDateInput(today);
-  if (!dateFrom.value) dateFrom.value = todayStr;
-  if (!dateTo.value) dateTo.value = todayStr;
+  if (!dateFrom.value) dateFrom.value = formatDateInput(new Date(today.getFullYear(), today.getMonth(), 1));
+  if (!dateTo.value) dateTo.value = formatDateInput(today);
   syncCustomDatePicker(dateFrom);
   syncCustomDatePicker(dateTo);
 }
@@ -299,9 +301,8 @@ function ensureDailyExpensesDateDefaults() {
   if (!dateFrom || !dateTo) return;
 
   const today = new Date();
-  const todayStr = formatDateInput(today);
-  if (!dateFrom.value) dateFrom.value = todayStr;
-  if (!dateTo.value) dateTo.value = todayStr;
+  if (!dateFrom.value) dateFrom.value = formatDateInput(new Date(today.getFullYear(), today.getMonth(), 1));
+  if (!dateTo.value) dateTo.value = formatDateInput(today);
   syncCustomDatePicker(dateFrom);
   syncCustomDatePicker(dateTo);
 }
@@ -312,9 +313,32 @@ function ensureCreditsDateDefaults() {
   if (!dateFrom || !dateTo) return;
 
   const today = new Date();
-  const todayStr = formatDateInput(today);
-  if (!dateFrom.value) dateFrom.value = todayStr;
-  if (!dateTo.value) dateTo.value = todayStr;
+  if (!dateFrom.value) dateFrom.value = formatDateInput(new Date(today.getFullYear(), today.getMonth(), 1));
+  if (!dateTo.value) dateTo.value = formatDateInput(today);
+  syncCustomDatePicker(dateFrom);
+  syncCustomDatePicker(dateTo);
+}
+
+function ensureLossDamagesDateDefaults() {
+  const dateFrom = $('#lossDamagesDateFrom');
+  const dateTo = $('#lossDamagesDateTo');
+  if (!dateFrom || !dateTo) return;
+
+  const today = new Date();
+  if (!dateFrom.value) dateFrom.value = formatDateInput(new Date(today.getFullYear(), today.getMonth(), 1));
+  if (!dateTo.value) dateTo.value = formatDateInput(today);
+  syncCustomDatePicker(dateFrom);
+  syncCustomDatePicker(dateTo);
+}
+
+function ensureBankTransactionsDateDefaults() {
+  const dateFrom = $('#bankTransactionsDateFrom');
+  const dateTo = $('#bankTransactionsDateTo');
+  if (!dateFrom || !dateTo) return;
+
+  const today = new Date();
+  if (!dateFrom.value) dateFrom.value = formatDateInput(new Date(today.getFullYear(), today.getMonth(), 1));
+  if (!dateTo.value) dateTo.value = formatDateInput(today);
   syncCustomDatePicker(dateFrom);
   syncCustomDatePicker(dateTo);
 }
@@ -1938,8 +1962,10 @@ async function getAppData_(branchId) {
     client.from('inventory_return_lots').select('*').eq('branch_id', branchId),
     client.from('inventory_quarantine_cases').select('*').eq('branch_id', branchId),
     client.from('inventory_quarantine_items').select('*'),
+    client.from('inventory_losses').select('*').eq('branch_id', branchId).order('occurred_at', { ascending: false }),
     client.from('daily_spot_cash').select('*').eq('branch_id', branchId).is('deleted_at', null).order('business_date', { ascending: false }),
     client.from('daily_expenses').select('*').eq('branch_id', branchId).is('deleted_at', null).order('business_date', { ascending: false }),
+    client.from('bank_transactions').select('*').eq('branch_id', branchId).is('deleted_at', null).order('business_date', { ascending: false }).order('created_at', { ascending: false }),
     client.from('restaurant_tables').select('*').eq('branch_id', branchId).order('name'),
     client.from('restaurant_orders').select('*').eq('branch_id', branchId).order('opened_at', { ascending: false }),
     client.from('restaurant_order_items').select('*'),
@@ -1951,7 +1977,7 @@ async function getAppData_(branchId) {
     results.push(...await Promise.all(queries.slice(index, index + 5)));
   }
   results.forEach((result) => throwIfError_(result.error));
-  const [branchRows, productRows, branchProductRows, inventoryRows, customerRows, transferRows, saleRows, saleItemRows, paymentRows, openingCreditRows, stockInRows, sellingPriceBatchRows, bundleComponentRows, bundleAvailabilityRows, saleReturnRows, saleReturnItemRows, returnLotRows, quarantineCaseRows, quarantineItemRows, dailySpotCashRows, dailyExpenseRows, tableRows, tableOrderRows, tableOrderItemRows, kitchenTicketRows, kitchenTicketItemRows] = results.map((result) => result.data || []);
+  const [branchRows, productRows, branchProductRows, inventoryRows, customerRows, transferRows, saleRows, saleItemRows, paymentRows, openingCreditRows, stockInRows, sellingPriceBatchRows, bundleComponentRows, bundleAvailabilityRows, saleReturnRows, saleReturnItemRows, returnLotRows, quarantineCaseRows, quarantineItemRows, lossRows, dailySpotCashRows, dailyExpenseRows, bankTransactionRows, tableRows, tableOrderRows, tableOrderItemRows, kitchenTicketRows, kitchenTicketItemRows] = results.map((result) => result.data || []);
   const branchMap = Object.fromEntries(branchRows.map((row) => [row.branch_id, row]));
   const productMap = Object.fromEntries(productRows.map((row) => [row.product_id, row]));
   const customerMap = Object.fromEntries(customerRows.map((row) => [row.customer_id, row]));
@@ -2010,10 +2036,11 @@ async function getAppData_(branchId) {
     };
   }).sort((a, b) => new Date(b.date) - new Date(a.date));
   const inventoryReport = {};
-  const movement = (id) => inventoryReport[id] || (inventoryReport[id] = { qtySold: 0, qtyStockIn: 0, qtyTransferIn: 0, qtyTransferOut: 0 });
+  const movement = (id) => inventoryReport[id] || (inventoryReport[id] = { qtySold: 0, qtyStockIn: 0, qtyLoss: 0, qtyTransferIn: 0, qtyTransferOut: 0 });
   const completedSales = new Set(saleRows.filter((sale) => sale.status === 'completed').map((sale) => sale.sale_id));
   saleItemRows.forEach((item) => { if (completedSales.has(item.sale_id)) movement(item.product_id).qtySold += Number(item.qty || 0); });
   stockInRows.forEach((item) => { if (item.status === 'Completed') movement(item.product_id).qtyStockIn += Number(item.qty || 0); });
+  lossRows.forEach((item) => { movement(item.product_id).qtyLoss += Number(item.qty || 0); });
   transferRows.forEach((item) => {
     if (item.source_branch_id === branchId && ['In Transit', 'Received'].includes(item.status)) movement(item.product_id).qtyTransferOut += Number(item.qty || 0);
     if (item.destination_branch_id === branchId && item.status === 'Received') movement(item.product_id).qtyTransferIn += Number(item.qty || 0);
@@ -2046,8 +2073,10 @@ async function getAppData_(branchId) {
     })),
     inventoryQuarantineCases: quarantineCaseRows.map((row) => ({ id: row.case_id, branchId: row.branch_id, sourceType: row.source_type, reference: row.source_reference, sourceBranchId: row.source_branch_id || '', sourceBranchName: branchMap[row.source_branch_id]?.name || '', supplierReference: row.supplier_reference || '', reason: row.reason || '', status: row.status, createdAt: row.created_at, resolvedAt: row.resolved_at || null })),
     inventoryQuarantineItems: quarantineItemRows.map((row) => ({ id: row.quarantine_item_id, caseId: row.case_id, productId: row.product_id, productName: productMap[row.product_id]?.name || row.product_id, unit: productMap[row.product_id]?.unit || 'unit', qty: Number(row.qty || 0), sellingPrice: row.selling_price === null ? null : Number(row.selling_price), resolution: row.resolution || 'quarantine', resolvedAt: row.resolved_at || null })),
+    inventoryLosses: lossRows.map((row) => ({ id: row.loss_id, productId: row.product_id, productName: productMap[row.product_id]?.name || row.product_id, unit: productMap[row.product_id]?.unit || 'unit', qty: Number(row.qty || 0), reason: row.reason || 'Other', notes: row.notes || '', occurredAt: row.occurred_at || row.created_at, createdAt: row.created_at })).sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt)),
     dailySpotCash: dailySpotCashRows.map((row) => ({ id: row.spot_cash_id, branchId: row.branch_id, businessDate: row.business_date, openingCash: Number(row.opening_cash || 0), notes: row.notes || '', createdAt: row.created_at, updatedAt: row.updated_at })),
     dailyExpenses: dailyExpenseRows.map((row) => ({ id: row.expense_id, businessDate: row.business_date, category: row.category, description: row.description, amount: Number(row.amount), receiptReference: row.receipt_reference || '', updatedAt: row.updated_at })),
+    bankTransactions: bankTransactionRows.map((row) => ({ id: row.transaction_id, businessDate: row.business_date, type: row.transaction_type, method: row.payment_method, amount: Number(row.amount || 0), bankName: row.bank_name || '', chequeNumber: row.cheque_number || '', reference: row.reference || '', details: row.details || '', createdAt: row.created_at })),
     inventoryReport,
     stockInHistory: stockInRows.map((row) => ({
       id: row.stock_in_id,
@@ -2132,6 +2161,18 @@ async function api(action, payload = {}) {
   }
   if (action === 'receiveStockInBatch') {
     const { data, error } = await client.rpc('receive_stock_in_batch_with_quarantine', { target_branch_id: payload.branchId, receipt_lines: payload.lines, supplier_reference_input: payload.supplierReference || '' });
+    throwIfError_(error);
+    return data;
+  }
+  if (action === 'recordInventoryLoss') {
+    const { data, error } = await client.rpc('record_inventory_loss', {
+      target_branch_id: payload.branchId,
+      target_product_id: payload.productId,
+      quantity_input: Number(payload.qty),
+      reason_input: payload.reason,
+      notes_input: payload.notes || '',
+      occurred_at_input: payload.occurredAt || new Date().toISOString(),
+    });
     throwIfError_(error);
     return data;
   }
@@ -2449,17 +2490,16 @@ function renderSkeletonTable() {
           </div>
 
           <div class="table-tab-summary-card">
-            <div class="table-tab-stat">
-              <div class="skeleton-shimmer" style="width: 42px; height: 11px; margin-bottom: 6px;"></div>
-              <div class="skeleton-shimmer" style="width: 24px; height: 18px;"></div>
+            <div class="tab-summary-main">
+              <div class="skeleton-shimmer" style="width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;"></div>
+              <div class="tab-summary-info" style="gap: 6px;">
+                <div class="skeleton-shimmer" style="width: 80px; height: 11px;"></div>
+                <div class="skeleton-shimmer" style="width: 85px; height: 16px;"></div>
+              </div>
             </div>
-            <div class="table-tab-stat">
-              <div class="skeleton-shimmer" style="width: 36px; height: 11px; margin-bottom: 6px;"></div>
-              <div class="skeleton-shimmer" style="width: 55px; height: 18px;"></div>
-            </div>
-            <div class="table-tab-stat stat-total">
-              <div class="skeleton-shimmer" style="width: 52px; height: 11px; margin-bottom: 6px;"></div>
-              <div class="skeleton-shimmer" style="width: 80px; height: 18px;"></div>
+            <div class="tab-summary-total-tile" style="min-width: 115px; padding: 8px 14px;">
+              <div class="skeleton-shimmer" style="width: 58px; height: 10px; margin-bottom: 5px; margin-left: auto;"></div>
+              <div class="skeleton-shimmer" style="width: 90px; height: 18px; margin-left: auto;"></div>
             </div>
           </div>
 
@@ -2553,6 +2593,204 @@ function renderSkeletonTable() {
         </div>
       </div>
     `).join('');
+    return;
+  }
+
+  if (activeView === 'lossDamages') {
+    table.innerHTML = `
+      <div class="loss-damages-view">
+        <div class="loss-hero-card" style="pointer-events: none;">
+          <div class="loss-hero-leading">
+            <div class="skeleton-shimmer" style="width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;"></div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+              <div class="skeleton-shimmer" style="width: 140px; height: 11px;"></div>
+              <div class="skeleton-shimmer" style="width: 200px; height: 22px;"></div>
+              <div class="skeleton-shimmer" style="width: 60%; height: 13px;"></div>
+            </div>
+          </div>
+          <div class="skeleton-shimmer" style="width: 170px; height: 42px; border-radius: 10px;"></div>
+        </div>
+
+        <div class="loss-kpi-grid">
+          ${Array.from({ length: 4 }).map(() => `
+            <div class="loss-kpi-card" style="pointer-events: none;">
+              <div class="skeleton-shimmer" style="width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;"></div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                <div class="skeleton-shimmer" style="width: 80px; height: 10px;"></div>
+                <div class="skeleton-shimmer" style="width: 65px; height: 20px;"></div>
+                <div class="skeleton-shimmer" style="width: 100px; height: 10px;"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="loss-toolbar-strip" style="pointer-events: none;">
+          <div class="skeleton-shimmer" style="width: 340px; height: 32px; border-radius: 999px;"></div>
+          <div class="skeleton-shimmer" style="width: 180px; height: 32px; border-radius: 8px;"></div>
+        </div>
+
+        <div class="loss-table-shell" style="pointer-events: none;">
+          <div class="loss-table-header">
+            <span class="col-product"><div class="skeleton-shimmer" style="width: 120px; height: 12px;"></div></span>
+            <span class="col-qty"><div class="skeleton-shimmer" style="width: 60px; height: 12px;"></div></span>
+            <span class="col-reason"><div class="skeleton-shimmer" style="width: 60px; height: 12px;"></div></span>
+            <span class="col-date"><div class="skeleton-shimmer" style="width: 80px; height: 12px;"></div></span>
+            <span class="col-notes"><div class="skeleton-shimmer" style="width: 90px; height: 12px;"></div></span>
+            <span class="col-impact"><div class="skeleton-shimmer" style="width: 70px; height: 12px;"></div></span>
+          </div>
+          ${Array.from({ length: 3 }).map(() => `
+            <div class="loss-table-row">
+              <div class="col-product loss-product-cell">
+                <div class="skeleton-shimmer" style="width: 40px; height: 40px; border-radius: 9px; flex-shrink: 0;"></div>
+                <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
+                  <div class="skeleton-shimmer" style="width: 130px; height: 14px;"></div>
+                  <div class="skeleton-shimmer" style="width: 75px; height: 12px;"></div>
+                </div>
+              </div>
+              <div class="col-qty"><div class="skeleton-shimmer" style="width: 65px; height: 24px; border-radius: 999px;"></div></div>
+              <div class="col-reason"><div class="skeleton-shimmer" style="width: 75px; height: 24px; border-radius: 999px;"></div></div>
+              <div class="col-date">
+                <div class="skeleton-shimmer" style="width: 80px; height: 13px; margin-bottom: 4px;"></div>
+                <div class="skeleton-shimmer" style="width: 50px; height: 10px;"></div>
+              </div>
+              <div class="col-notes"><div class="skeleton-shimmer" style="width: 110px; height: 12px;"></div></div>
+              <div class="col-impact"><div class="skeleton-shimmer" style="width: 65px; height: 14px;"></div></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (activeView === 'bankTransactions') {
+    table.innerHTML = `
+      <div class="bank-ledger-view">
+        <div class="bank-hero-card" style="pointer-events: none;">
+          <div class="bank-hero-leading">
+            <div class="skeleton-shimmer" style="width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;"></div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+              <div class="skeleton-shimmer" style="width: 150px; height: 11px;"></div>
+              <div class="skeleton-shimmer" style="width: 220px; height: 22px;"></div>
+              <div class="skeleton-shimmer" style="width: 60%; height: 13px;"></div>
+            </div>
+          </div>
+          <div class="skeleton-shimmer" style="width: 170px; height: 42px; border-radius: 10px;"></div>
+        </div>
+
+        <div class="bank-kpi-grid">
+          ${Array.from({ length: 4 }).map(() => `
+            <div class="bank-kpi-card" style="pointer-events: none;">
+              <div class="skeleton-shimmer" style="width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;"></div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                <div class="skeleton-shimmer" style="width: 80px; height: 10px;"></div>
+                <div class="skeleton-shimmer" style="width: 75px; height: 20px;"></div>
+                <div class="skeleton-shimmer" style="width: 110px; height: 10px;"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="bank-toolbar-strip" style="pointer-events: none;">
+          <div class="skeleton-shimmer" style="width: 320px; height: 32px; border-radius: 999px;"></div>
+          <div class="skeleton-shimmer" style="width: 180px; height: 32px; border-radius: 8px;"></div>
+        </div>
+
+        <div class="bank-table-shell" style="pointer-events: none;">
+          <div class="bank-table-header">
+            <span><div class="skeleton-shimmer" style="width: 90px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 130px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 50px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 55px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 60px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 65px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 85px; height: 12px;"></div></span>
+          </div>
+          ${Array.from({ length: 3 }).map(() => `
+            <div class="bank-table-row">
+              <div>
+                <div class="skeleton-shimmer" style="width: 80px; height: 13px; margin-bottom: 4px;"></div>
+                <div class="skeleton-shimmer" style="width: 50px; height: 10px;"></div>
+              </div>
+              <div>
+                <div class="skeleton-shimmer" style="width: 150px; height: 14px; margin-bottom: 4px;"></div>
+                <div class="skeleton-shimmer" style="width: 90px; height: 11px;"></div>
+              </div>
+              <div><div class="skeleton-shimmer" style="width: 65px; height: 24px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 60px; height: 24px; border-radius: 6px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 70px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 70px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 85px; height: 16px;"></div></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (activeView === 'dailyExpenses') {
+    table.innerHTML = `
+      <div class="expenses-ledger-view">
+        <div class="expenses-hero-card" style="pointer-events: none;">
+          <div class="expenses-hero-leading">
+            <div class="skeleton-shimmer" style="width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;"></div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+              <div class="skeleton-shimmer" style="width: 150px; height: 11px;"></div>
+              <div class="skeleton-shimmer" style="width: 220px; height: 22px;"></div>
+              <div class="skeleton-shimmer" style="width: 60%; height: 13px;"></div>
+            </div>
+          </div>
+          <div class="skeleton-shimmer" style="width: 170px; height: 42px; border-radius: 10px;"></div>
+        </div>
+
+        <div class="expenses-kpi-grid">
+          ${Array.from({ length: 4 }).map(() => `
+            <div class="expenses-kpi-card" style="pointer-events: none;">
+              <div class="skeleton-shimmer" style="width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;"></div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                <div class="skeleton-shimmer" style="width: 80px; height: 10px;"></div>
+                <div class="skeleton-shimmer" style="width: 75px; height: 20px;"></div>
+                <div class="skeleton-shimmer" style="width: 110px; height: 10px;"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="expenses-toolbar-strip" style="pointer-events: none;">
+          <div class="skeleton-shimmer" style="width: 320px; height: 32px; border-radius: 999px;"></div>
+          <div class="skeleton-shimmer" style="width: 180px; height: 32px; border-radius: 8px;"></div>
+        </div>
+
+        <div class="expenses-table-shell" style="pointer-events: none;">
+          <div class="expenses-table-header">
+            <span><div class="skeleton-shimmer" style="width: 90px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 80px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 70px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 160px; height: 12px;"></div></span>
+            <span style="text-align: right;"><div class="skeleton-shimmer" style="width: 50px; height: 12px; margin-left: auto;"></div></span>
+          </div>
+          ${Array.from({ length: 3 }).map(() => `
+            <div class="expenses-table-row">
+              <div>
+                <div class="skeleton-shimmer" style="width: 80px; height: 13px; margin-bottom: 4px;"></div>
+                <div class="skeleton-shimmer" style="width: 50px; height: 10px;"></div>
+              </div>
+              <div><div class="skeleton-shimmer" style="width: 75px; height: 24px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 80px; height: 16px;"></div></div>
+              <div>
+                <div class="skeleton-shimmer" style="width: 180px; height: 14px; margin-bottom: 4px;"></div>
+                <div class="skeleton-shimmer" style="width: 90px; height: 10px;"></div>
+              </div>
+              <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                <div class="skeleton-shimmer" style="width: 28px; height: 28px; border-radius: 6px;"></div>
+                <div class="skeleton-shimmer" style="width: 28px; height: 28px; border-radius: 6px;"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
     return;
   }
 
@@ -3435,7 +3673,7 @@ function initCustomDatePickers(container = document) {
       const todayDate = today.getDate();
 
       const selectedIso = input.value || '';
-      const isDateFrom = input.id === 'salesDateFrom' || input.id === 'quarantineDateFrom' || input.id === 'transfersDateFrom' || input.id === 'dailySpotCashDateFrom' || input.id === 'dailyExpensesDateFrom' || input.id === 'creditsDateFrom';
+      const isDateFrom = input.id === 'salesDateFrom' || input.id === 'quarantineDateFrom' || input.id === 'transfersDateFrom' || input.id === 'dailySpotCashDateFrom' || input.id === 'dailyExpensesDateFrom' || input.id === 'creditsDateFrom' || input.id === 'lossDamagesDateFrom' || input.id === 'bankTransactionsDateFrom';
       const otherInput = input.id === 'salesDateFrom'
         ? $('#salesDateTo')
         : input.id === 'salesDateTo'
@@ -3460,6 +3698,14 @@ function initCustomDatePickers(container = document) {
         ? $('#creditsDateTo')
         : input.id === 'creditsDateTo'
         ? $('#creditsDateFrom')
+        : input.id === 'lossDamagesDateFrom'
+        ? $('#lossDamagesDateTo')
+        : input.id === 'lossDamagesDateTo'
+        ? $('#lossDamagesDateFrom')
+        : input.id === 'bankTransactionsDateFrom'
+        ? $('#bankTransactionsDateTo')
+        : input.id === 'bankTransactionsDateTo'
+        ? $('#bankTransactionsDateFrom')
         : null;
       const otherIso = otherInput?.value || '';
 
@@ -3807,7 +4053,7 @@ function getInventoryReportStatus(product) {
 }
 
 function getInventoryReportMovement(productId) {
-  return inventoryReportData[productId] || { qtySold: 0, qtyStockIn: 0, qtyTransferIn: 0, qtyTransferOut: 0 };
+  return inventoryReportData[productId] || { qtySold: 0, qtyStockIn: 0, qtyLoss: 0, qtyTransferIn: 0, qtyTransferOut: 0 };
 }
 
 function formatTransferQuantity(movement) {
@@ -3836,7 +4082,7 @@ function renderInventoryReports() {
   const paginationHtml = renderPaginationControls_(pagination, 'report records');
 
   table.innerHTML = `
-    <div class="table-row table-header"><span>Product</span><span>Qty Sold</span><span>Qty Stock In</span><span>Qty Transfer</span><span>Qty Remaining</span><span>Status</span></div>
+    <div class="table-row table-header"><span>Product</span><span>Qty Sold</span><span>Qty Stock In</span><span>Qty Loss</span><span>Qty Transfer</span><span>Qty Remaining</span><span>Status</span></div>
     ${rows.map((product) => {
       const qty = Math.max(Number(product.qty) || 0, 0);
       const status = getInventoryReportStatus(product);
@@ -3846,6 +4092,7 @@ function renderInventoryReports() {
         <div class="row-middle-cells">
           <span class="stock-pill stock-quantity report-qty-sold" data-report-label="Sold">${(Number(movement.qtySold) || 0).toLocaleString('en-PH')} ${escapeHtml(product.unit || 'unit')}</span>
           <span class="stock-pill stock-quantity report-qty-stock-in" data-report-label="Stock In">${(Number(movement.qtyStockIn) || 0).toLocaleString('en-PH')} ${escapeHtml(product.unit || 'unit')}</span>
+          <span class="stock-pill stock-quantity stock-low" data-report-label="Loss">${(Number(movement.qtyLoss) || 0).toLocaleString('en-PH')} ${escapeHtml(product.unit || 'unit')}</span>
           <span class="transfer-quantity" data-report-label="Transfer">${renderTransferQuantity(movement)}</span>
           <span class="stock-pill stock-quantity report-qty-remaining" data-report-label="Remaining">${qty.toLocaleString('en-PH')} ${escapeHtml(product.unit || 'unit')}</span>
           <span class="stock-pill report-stock-status ${status.className}" data-report-label="Status">${status.label}</span>
@@ -5091,16 +5338,33 @@ function renderTableService() {
 
           ${selectedOrder ? `
             <div class="table-tab-summary-card">
-              <div class="table-tab-stat">
-                <span class="table-tab-stat-lbl">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 11px; height: 11px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                  Party
-                </span>
-                <strong class="table-tab-stat-val">${escapeHtml(selectedOrder.customerName || 'Walk-in')}</strong>
+              <div class="tab-summary-main">
+                <div class="tab-summary-avatar" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </div>
+                <div class="tab-summary-info">
+                  <div class="tab-summary-meta-line">
+                    <span class="tab-summary-kicker">PARTY</span>
+                    ${groupedSelectedItems.length ? `
+                      <span class="tab-summary-sep">&bull;</span>
+                      <span class="tab-summary-stat-pill">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        ${groupedSelectedItems.length} ${groupedSelectedItems.length === 1 ? 'item' : 'items'}
+                      </span>
+                    ` : ''}
+                  </div>
+                  <strong class="tab-summary-party-name" title="${escapeHtml(selectedOrder.customerName || 'Walk-in')}">
+                    ${escapeHtml(selectedOrder.customerName || 'Walk-in')}
+                  </strong>
+                </div>
               </div>
-              <div class="table-tab-stat stat-total">
-                <span class="table-tab-stat-lbl">Total Due</span>
-                <strong class="table-tab-stat-val text-accent">${money(subtotal)}</strong>
+
+              <div class="tab-summary-total-tile">
+                <span class="tab-summary-total-lbl">TOTAL DUE</span>
+                <strong class="tab-summary-total-val">${money(subtotal)}</strong>
               </div>
             </div>
 
@@ -5109,10 +5373,12 @@ function renderTableService() {
               <div class="table-order-lines">
                 ${groupedSelectedItems.length ? groupedSelectedItems.map((item) => {
                   const product = productMap.get(item.productId);
+                  const isKitchenItem = Boolean(product?.kitchenEnabled);
                   const matchingKitchenItems = selectedKitchenItems.filter((kitchenItem) => kitchenItem.productId === item.productId);
                   const matchingStatuses = matchingKitchenItems.map((kitchenItem) => kitchenItem.status);
                   const servedQty = matchingKitchenItems.filter((kitchenItem) => kitchenItem.status === 'Served').reduce((sum, kitchenItem) => sum + kitchenItem.qty, 0);
-                  const kitchenStatus = servedQty >= item.qty ? 'Served'
+                  const kitchenStatus = !isKitchenItem ? 'Served'
+                    : servedQty >= item.qty ? 'Served'
                     : servedQty > 0 ? 'Partially served'
                       : matchingStatuses.includes('Ready') ? 'Ready to serve'
                         : matchingStatuses.includes('Preparing') ? 'Cooking'
@@ -5123,17 +5389,10 @@ function renderTableService() {
                       <div class="table-line-main">
                         <div class="table-line-title-row">
                           <strong class="table-line-name" title="${escapeHtml(product?.name || 'Item')}">${escapeHtml(product?.name || 'Item')}</strong>
-                          ${kitchenStatus === 'Served' ? `
-                            <span class="table-line-served-check" title="Served to table" aria-label="Served to table">
-                              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>
-                            </span>
-                          ` : ''}
-                          ${product?.kitchenEnabled ? `
-                            <span class="table-line-kitchen-badge status-${kitchenStatusClass}">
-                              <span class="kitchen-badge-dot"></span>
-                              <span>${kitchenStatus}</span>
-                            </span>
-                          ` : ''}
+                          <span class="table-line-kitchen-badge status-${kitchenStatusClass}">
+                            <span class="kitchen-badge-dot"></span>
+                            <span>${kitchenStatus}</span>
+                          </span>
                         </div>
                         <div class="table-line-sub-row">
                           <span class="table-line-qty-price">${item.qty} &times; ${money(item.price)}</span>
@@ -5562,9 +5821,11 @@ async function renderWaiterQueue_() {
       kitchenTicketsByRequest.set(ticket.request_id, requestTickets);
     });
 
-    const activeRequests = (requests || []).filter((r) => ['Pending', 'Claimed'].includes(r.status));
+    // A claim is owned by exactly one waiter. Other waiters should receive the
+    // realtime update but must no longer see that request as actionable work.
+    const activeRequests = (requests || []).filter((r) => r.status === 'Pending' || (r.status === 'Claimed' && r.claimed_by === currentUserId));
     const pendingRequests = activeRequests.filter((r) => r.status === 'Pending');
-    const claimedByMeRequests = (requests || []).filter((r) => r.claimed_by === currentUserId);
+    const claimedByMeRequests = activeRequests.filter((r) => r.status === 'Claimed' && r.claimed_by === currentUserId);
     const totalCount = activeRequests.length;
 
     // Search filter
@@ -6386,6 +6647,7 @@ function renderInventory() {
   if (activeView === 'kitchenDisplay') return renderKitchenDisplay_();
   if (activeView === 'bundleMonitoring') { renderBundleMonitoring(); return; }
   if (activeView === 'quarantine') { renderQuarantinedItems(); return; }
+  if (activeView === 'lossDamages') { renderLossDamages(); return; }
   if (activeView === 'quarantineReport') { renderQuarantineReport(); return; }
   if (activeView === 'inventoryReports') {
     renderInventoryReports();
@@ -6416,6 +6678,7 @@ function renderInventory() {
     return;
   }
   if (activeView === 'dailyExpenses') { renderDailyExpenses(); return; }
+  if (activeView === 'bankTransactions') { renderBankTransactions(); return; }
   if (activeView === 'staffAccounts') { renderStaffAccounts(); return; }
   if (activeView === 'adminAccount') { renderAdminAccount(); return; }
   const term = ($('#searchInput')?.value || '').trim().toLowerCase();
@@ -6650,6 +6913,354 @@ function renderBundleMonitoring() {
     ${paginationHtml}
   `;
   bindPaginationEvents_(table);
+}
+
+function formatTimeHuman(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+function formatDateHuman(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value || '') : date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function renderLossDamages() {
+  const table = $('#inventoryTable');
+  if (!table) return;
+
+  const dateFrom = $('#lossDamagesDateFrom')?.value || '';
+  const dateTo = $('#lossDamagesDateTo')?.value || '';
+  const term = ($('#searchInput')?.value || '').trim().toLowerCase();
+  const productMap = new Map(products.map((p) => [p.id, p]));
+
+  // Date range filter
+  const dateFilteredRecords = inventoryLosses.filter((item) => {
+    const rawDate = item.occurredAt || item.createdAt;
+    if (!rawDate) return true;
+    const itemDate = formatDateInput(new Date(rawDate));
+    if (dateFrom && itemDate < dateFrom) return false;
+    if (dateTo && itemDate > dateTo) return false;
+    return true;
+  });
+
+  // KPI Calculations on the date-filtered window
+  const totalIncidents = dateFilteredRecords.length;
+  const totalUnits = dateFilteredRecords.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+  const totalEstCost = dateFilteredRecords.reduce((sum, item) => {
+    const p = productMap.get(item.productId);
+    const unitCost = Number(p?.cost || p?.sellingPrice || p?.price || 0);
+    return sum + (unitCost * Number(item.qty || 0));
+  }, 0);
+
+  // Reason breakdown counts
+  const reasonCounts = {
+    all: dateFilteredRecords.length,
+    Expired: 0,
+    Damaged: 0,
+    Spoiled: 0,
+    Broken: 0,
+    Missing: 0,
+    Other: 0
+  };
+  dateFilteredRecords.forEach((item) => {
+    const r = item.reason || 'Other';
+    if (reasonCounts[r] !== undefined) {
+      reasonCounts[r]++;
+    } else {
+      reasonCounts.Other = (reasonCounts.Other || 0) + 1;
+    }
+  });
+
+  let topReason = 'None';
+  let topReasonMax = 0;
+  ['Expired', 'Damaged', 'Spoiled', 'Broken', 'Missing', 'Other'].forEach((r) => {
+    if ((reasonCounts[r] || 0) > topReasonMax) {
+      topReasonMax = reasonCounts[r];
+      topReason = r;
+    }
+  });
+  const topReasonPercent = totalIncidents > 0 ? Math.round((topReasonMax / totalIncidents) * 100) : 0;
+
+  // Filter by active reason chip and search term
+  const finalFiltered = dateFilteredRecords.filter((item) => {
+    if (activeLossReasonFilter !== 'all' && (item.reason || 'Other').toLowerCase() !== activeLossReasonFilter.toLowerCase()) {
+      return false;
+    }
+    if (term) {
+      const target = `${item.id} ${item.productName} ${item.reason} ${item.notes}`.toLowerCase();
+      if (!target.includes(term)) return false;
+    }
+    return true;
+  });
+
+  const pagination = paginateItems_(finalFiltered);
+
+  table.innerHTML = `
+    <div class="loss-damages-view">
+      <div class="loss-hero-card">
+        <div class="loss-hero-glow"></div>
+        <div class="loss-hero-leading">
+          <div class="loss-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              <path d="m9 11 6 6m0-6-6 6"/>
+            </svg>
+          </div>
+          <div class="loss-hero-text">
+            <span class="loss-hero-kicker">STOCK AUDIT &bull; INVENTORY WRITE-OFFS</span>
+            <strong class="loss-hero-title">Loss &amp; Damages Register</strong>
+            <p class="loss-hero-desc">Audit trail for expired, spoiled, broken, or unaccounted stock. Every write-off immediately deducts branch inventory and preserves full audit records.</p>
+          </div>
+        </div>
+        <div class="loss-hero-actions">
+          <button class="button button-danger loss-record-btn" type="button" id="recordLossButton">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Record Loss / Damage</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="loss-kpi-grid">
+        <div class="loss-kpi-card">
+          <div class="loss-kpi-icon icon-incidents">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="m9 14 2 2 4-4"/></svg>
+          </div>
+          <div class="loss-kpi-content">
+            <span class="loss-kpi-label">INCIDENTS IN RANGE</span>
+            <strong class="loss-kpi-value">${totalIncidents}</strong>
+            <span class="loss-kpi-sub">${totalIncidents === 1 ? '1 write-off logged' : `${totalIncidents} write-offs logged`}</span>
+          </div>
+        </div>
+
+        <div class="loss-kpi-card">
+          <div class="loss-kpi-icon icon-units">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          </div>
+          <div class="loss-kpi-content">
+            <span class="loss-kpi-label">TOTAL UNITS DEDUCTED</span>
+            <strong class="loss-kpi-value text-danger">-${totalUnits.toLocaleString('en-PH')}</strong>
+            <span class="loss-kpi-sub">Removed from active branch stock</span>
+          </div>
+        </div>
+
+        <div class="loss-kpi-card">
+          <div class="loss-kpi-icon icon-cost">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v12M17 10h-7a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H7"/>
+          </svg>
+          </div>
+          <div class="loss-kpi-content">
+            <span class="loss-kpi-label">ESTIMATED VALUE LOSS</span>
+            <strong class="loss-kpi-value text-amber">${money(totalEstCost)}</strong>
+            <span class="loss-kpi-sub">Cost / valuation write-off</span>
+          </div>
+        </div>
+
+        <div class="loss-kpi-card">
+          <div class="loss-kpi-icon icon-reason">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div class="loss-kpi-content">
+            <span class="loss-kpi-label">PRIMARY WRITE-OFF REASON</span>
+            <strong class="loss-kpi-value">${escapeHtml(topReason)}</strong>
+            <span class="loss-kpi-sub">${topReasonMax > 0 ? `${topReasonMax} item${topReasonMax === 1 ? '' : 's'} (${topReasonPercent}%)` : 'No write-offs'}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="loss-toolbar-strip">
+        <div class="loss-reason-chips" role="tablist" aria-label="Filter by reason">
+          ${[
+            { key: 'all', label: 'All Causes', count: reasonCounts.all },
+            { key: 'Expired', label: 'Expired', count: reasonCounts.Expired || 0, dotClass: 'dot-expired' },
+            { key: 'Damaged', label: 'Damaged', count: reasonCounts.Damaged || 0, dotClass: 'dot-damaged' },
+            { key: 'Spoiled', label: 'Spoiled', count: reasonCounts.Spoiled || 0, dotClass: 'dot-spoiled' },
+            { key: 'Broken', label: 'Broken', count: reasonCounts.Broken || 0, dotClass: 'dot-broken' },
+            { key: 'Missing', label: 'Missing', count: reasonCounts.Missing || 0, dotClass: 'dot-missing' },
+            { key: 'Other', label: 'Other', count: reasonCounts.Other || 0, dotClass: 'dot-other' },
+          ].map((chip) => `
+            <button
+              type="button"
+              class="loss-chip ${activeLossReasonFilter.toLowerCase() === chip.key.toLowerCase() ? 'active' : ''}"
+              data-loss-reason="${chip.key}">
+              ${chip.dotClass ? `<span class="loss-chip-dot ${chip.dotClass}"></span>` : ''}
+              <span class="loss-chip-label">${chip.label}</span>
+              <span class="loss-chip-badge">${chip.count}</span>
+            </button>
+          `).join('')}
+        </div>
+
+        <div class="loss-quick-dates">
+          <span class="loss-quick-dates-label">Presets:</span>
+          <button type="button" class="loss-date-btn" data-date-preset="thisMonth">This Month</button>
+          <button type="button" class="loss-date-btn" data-date-preset="last30">Last 30 Days</button>
+          <button type="button" class="loss-date-btn" data-date-preset="all">All Time</button>
+        </div>
+      </div>
+
+      <div class="loss-table-shell">
+        <div class="loss-table-header">
+          <span class="col-product">Product &amp; Reference</span>
+          <span class="col-qty">Written Off</span>
+          <span class="col-reason">Reason</span>
+          <span class="col-date">Date Recorded</span>
+          <span class="col-notes">Audit Notes</span>
+          <span class="col-impact">Est. Value</span>
+        </div>
+
+        ${pagination.pagedItems.length ? pagination.pagedItems.map((item) => {
+          const product = productMap.get(item.productId);
+          const imgUrl = item.image || product?.image || '';
+          const unitCost = Number(product?.cost || product?.sellingPrice || product?.price || 0);
+          const estLoss = unitCost * Number(item.qty || 0);
+          const reasonLower = (item.reason || 'other').toLowerCase();
+          const reasonBadgeClass = reasonLower === 'expired' ? 'reason-expired'
+            : reasonLower === 'damaged' || reasonLower === 'broken' ? 'reason-damaged'
+            : reasonLower === 'spoiled' ? 'reason-spoiled'
+            : reasonLower === 'missing' ? 'reason-missing'
+            : 'reason-other';
+
+          return `
+            <div class="loss-table-row">
+              <div class="col-product loss-product-cell" data-label="Product">
+                <span class="loss-prod-thumb">
+                  ${imgUrl ? `
+                    <img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(item.productName)}" onerror="this.onerror=null;this.parentElement.innerHTML='<span class=\\'loss-prod-fallback\\'><svg viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'2\\'><path d=\\'M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2\\'/><path d=\\'M7 2v20\\'/><path d=\\'M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7\\'/></svg></span>';" />
+                  ` : `
+                    <span class="loss-prod-fallback">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+                    </span>
+                  `}
+                </span>
+                <div class="loss-prod-info">
+                  <strong class="loss-prod-name" title="${escapeHtml(item.productName)}">${escapeHtml(item.productName)}</strong>
+                  <div class="loss-prod-meta">
+                    <span class="loss-id-pill" title="Audit reference ID">#${escapeHtml(item.id)}</span>
+                    ${product?.category ? `<span class="loss-cat-pill">${escapeHtml(product.category)}</span>` : ''}
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-qty loss-qty-cell" data-label="Written Off">
+                <span class="loss-qty-badge">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <span>${Number(item.qty).toLocaleString('en-PH')} ${escapeHtml(item.unit || 'unit')}</span>
+                </span>
+              </div>
+
+              <div class="col-reason loss-reason-cell" data-label="Reason">
+                <span class="loss-reason-badge ${reasonBadgeClass}">
+                  <span class="reason-dot"></span>
+                  <span>${escapeHtml(item.reason || 'Other')}</span>
+                </span>
+              </div>
+
+              <div class="col-date loss-date-cell" data-label="Date">
+                <span class="loss-date-main">${escapeHtml(formatDateHuman(item.occurredAt || item.createdAt))}</span>
+                <span class="loss-date-sub">${escapeHtml(formatTimeHuman(item.occurredAt || item.createdAt))}</span>
+              </div>
+
+              <div class="col-notes loss-notes-cell" data-label="Notes">
+                ${item.notes ? `
+                  <span class="loss-notes-text" title="${escapeHtml(item.notes)}">
+                    &ldquo;${escapeHtml(item.notes)}&rdquo;
+                  </span>
+                ` : `
+                  <span class="loss-notes-empty">&mdash;</span>
+                `}
+              </div>
+
+              <div class="col-impact loss-impact-cell" data-label="Est. Value">
+                ${estLoss > 0 ? `
+                  <strong class="loss-impact-val">${money(estLoss)}</strong>
+                  <span class="loss-impact-lbl">Est. cost loss</span>
+                ` : `
+                  <span class="loss-impact-val neutral">&mdash;</span>
+                `}
+              </div>
+            </div>
+          `;
+        }).join('') : `
+          <div class="loss-empty-state">
+            <div class="loss-empty-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="m9 9 6 6m0-6-6 6"/>
+              </svg>
+            </div>
+            <strong class="loss-empty-title">No loss or damage records found</strong>
+            <p class="loss-empty-desc">
+              ${term || activeLossReasonFilter !== 'all' || dateFrom || dateTo
+                ? 'Try adjusting your search query, cause filter, or date range.'
+                : 'No inventory write-offs have been recorded yet.'}
+            </p>
+            <div class="loss-empty-actions">
+              ${term || activeLossReasonFilter !== 'all' || dateFrom || dateTo ? `
+                <button class="button button-secondary" type="button" id="resetLossFiltersBtn">Reset Filters</button>
+              ` : ''}
+              <button class="button button-danger" type="button" id="emptyRecordLossBtn">Record Loss / Damage</button>
+            </div>
+          </div>
+        `}
+
+        ${renderPaginationControls_(pagination, 'loss records')}
+      </div>
+    </div>
+  `;
+
+  bindPaginationEvents_(table);
+
+  table.querySelector('#recordLossButton')?.addEventListener('click', () => openForm('lossDamage'));
+  table.querySelector('#emptyRecordLossBtn')?.addEventListener('click', () => openForm('lossDamage'));
+
+  table.querySelectorAll('.loss-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeLossReasonFilter = chip.dataset.lossReason || 'all';
+      viewCurrentPages['lossDamages'] = 1;
+      renderLossDamages();
+    });
+  });
+
+  table.querySelectorAll('.loss-date-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.datePreset;
+      const dateFromEl = $('#lossDamagesDateFrom');
+      const dateToEl = $('#lossDamagesDateTo');
+      const today = new Date();
+      if (preset === 'thisMonth') {
+        if (dateFromEl) dateFromEl.value = formatDateInput(new Date(today.getFullYear(), today.getMonth(), 1));
+        if (dateToEl) dateToEl.value = formatDateInput(today);
+      } else if (preset === 'last30') {
+        const past30 = new Date();
+        past30.setDate(past30.getDate() - 30);
+        if (dateFromEl) dateFromEl.value = formatDateInput(past30);
+        if (dateToEl) dateToEl.value = formatDateInput(today);
+      } else if (preset === 'all') {
+        if (dateFromEl) dateFromEl.value = '';
+        if (dateToEl) dateToEl.value = '';
+      }
+      if (dateFromEl) syncCustomDatePicker(dateFromEl);
+      if (dateToEl) syncCustomDatePicker(dateToEl);
+      viewCurrentPages['lossDamages'] = 1;
+      renderInventory();
+    });
+  });
+
+  table.querySelector('#resetLossFiltersBtn')?.addEventListener('click', () => {
+    const searchInput = $('#searchInput');
+    if (searchInput) searchInput.value = '';
+    activeLossReasonFilter = 'all';
+    const dateFromEl = $('#lossDamagesDateFrom');
+    const dateToEl = $('#lossDamagesDateTo');
+    const today = new Date();
+    if (dateFromEl) dateFromEl.value = formatDateInput(new Date(today.getFullYear(), today.getMonth(), 1));
+    if (dateToEl) dateToEl.value = formatDateInput(today);
+    if (dateFromEl) syncCustomDatePicker(dateFromEl);
+    if (dateToEl) syncCustomDatePicker(dateToEl);
+    viewCurrentPages['lossDamages'] = 1;
+    renderInventory();
+  });
 }
 
 function renderQuarantinedItems() {
@@ -7730,66 +8341,678 @@ function renderDailyExpenses() {
   const dateTo = $('#dailyExpensesDateTo')?.value || '';
   const table = $('#inventoryTable');
   if (!table) return;
-  const filtered = dailyExpenses
-    .filter((item) => {
-      const matchesTerm = `${item.businessDate} ${item.category} ${item.description || ''} ${item.receiptReference || ''} ${item.amount}`.toLowerCase().includes(term);
-      const itemDate = saleDateKey(item.businessDate || item.createdAt);
-      const matchesDate = (!dateFrom || (itemDate && itemDate >= dateFrom)) && (!dateTo || (itemDate && itemDate <= dateTo));
-      return matchesTerm && matchesDate;
-    })
-    .sort((a, b) => new Date(b.businessDate) - new Date(a.businessDate));
-  const paginated = paginateItems_(filtered);
+
+  // 1. Date range filter
+  const dateFiltered = dailyExpenses.filter((item) => {
+    const itemDate = saleDateKey(item.businessDate || item.createdAt);
+    if (dateFrom && itemDate < dateFrom) return false;
+    if (dateTo && itemDate > dateTo) return false;
+    return true;
+  });
+
+  // 2. KPI metrics calculations
+  const totalDisbursements = dateFiltered.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const totalIncidents = dateFiltered.length;
+  let largestExpense = 0;
+  let largestExpenseCat = '';
+  const categoryTotals = {};
+  const categoryCounts = { all: totalIncidents };
+
+  dateFiltered.forEach((item) => {
+    const amt = Number(item.amount || 0);
+    if (amt > largestExpense) {
+      largestExpense = amt;
+      largestExpenseCat = item.category || 'General';
+    }
+    const cat = item.category || 'Other';
+    categoryTotals[cat] = (categoryTotals[cat] || 0) + amt;
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+  });
+
+  let topCategory = 'None';
+  let topCategoryTotal = 0;
+  Object.entries(categoryTotals).forEach(([cat, tot]) => {
+    if (tot > topCategoryTotal) {
+      topCategoryTotal = tot;
+      topCategory = cat;
+    }
+  });
+  const topCategoryPercent = totalDisbursements > 0 ? Math.round((topCategoryTotal / totalDisbursements) * 100) : 0;
+
+  // 3. Category chips list (All Categories + distinct categories present or standard categories)
+  const standardCats = ['Ingredients', 'Utilities', 'Supplies', 'Salaries', 'Maintenance', 'Marketing', 'Other'];
+  const allCatsInSet = new Set([...standardCats, ...Object.keys(categoryTotals)]);
+  const categoryChips = [
+    { key: 'all', label: 'All Categories', count: totalIncidents },
+    ...Array.from(allCatsInSet).map((cat) => ({
+      key: cat,
+      label: cat,
+      count: categoryCounts[cat] || 0,
+    })),
+  ];
+
+  // 4. Filter by active category chip and search term
+  const finalFiltered = dateFiltered.filter((item) => {
+    if (activeExpenseCategoryFilter !== 'all' && (item.category || 'Other').toLowerCase() !== activeExpenseCategoryFilter.toLowerCase()) {
+      return false;
+    }
+    if (term) {
+      const searchTarget = `${item.businessDate} ${item.category} ${item.description || ''} ${item.receiptReference || ''} ${item.amount}`.toLowerCase();
+      if (!searchTarget.includes(term)) return false;
+    }
+    return true;
+  });
+
+  // Sort descending by business date
+  const sorted = [...finalFiltered].sort((a, b) => new Date(b.businessDate) - new Date(a.businessDate));
+  const paginated = paginateItems_(sorted);
 
   table.innerHTML = `
-    <div class="table-row table-header">
-      <span>Business Date</span>
-      <span>Category</span>
-      <span>Amount</span>
-      <span>Description & Receipt</span>
-      <span>Action</span>
-    </div>
-    ${paginated.pagedItems.map((item) => {
-      const dateObj = item.businessDate ? new Date(`${item.businessDate}T00:00:00`) : null;
-      const formattedDate = dateObj && !isNaN(dateObj.getTime())
-        ? dateObj.toLocaleDateString('en-PH', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
-        : item.businessDate;
-      return `
-        <div class="table-row">
-          <div class="product-cell">
-            <strong class="product-name">${escapeHtml(formattedDate)}</strong>
-            <span class="product-meta">${escapeHtml(item.businessDate)}</span>
+    <div class="expenses-ledger-view">
+      <div class="expenses-hero-card">
+        <div class="expenses-hero-glow"></div>
+        <div class="expenses-hero-leading">
+          <div class="expenses-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/>
+              <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/>
+              <path d="M12 6v12"/>
+            </svg>
           </div>
-          <div class="row-middle-cells">
-            <span class="category-badge">${escapeHtml(item.category)}</span>
-            <strong class="price-text" style="color: #f87171; font-size: 14px;">${money(item.amount)}</strong>
-            <div class="product-cell" style="min-width:0;">
-              <span class="branch-address" title="${escapeHtml(item.description || '')}">${escapeHtml(item.description || '—')}</span>
-              ${item.receiptReference ? `<span class="product-meta" style="font-size:11px;">Ref: ${escapeHtml(item.receiptReference)}</span>` : ''}
-            </div>
-          </div>
-          <div class="row-action-cell">
-            <span class="table-actions">
-              <button class="icon-button" data-edit-expense="${item.id}" aria-label="Edit Daily Expense" title="Edit Daily Expense">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-              </button>
-              <button class="icon-button danger-icon" data-delete-expense="${item.id}" aria-label="Delete Daily Expense" title="Delete Daily Expense">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-              </button>
-            </span>
+          <div class="expenses-hero-text">
+            <span class="expenses-hero-kicker">BRANCH OPERATIONS &bull; CASH DISBURSEMENTS</span>
+            <strong class="expenses-hero-title">Daily Expenses Register</strong>
+            <p class="expenses-hero-desc">Audit trail for operational cash outflows, petty cash purchases, utilities, and branch supplies with receipt references.</p>
           </div>
         </div>
-      `;
-    }).join('') || '<div class="empty-state"><p>No Daily Expenses recorded</p><small>Track cash expenses for this branch.</small></div>'}
-    ${renderPaginationControls_(paginated, 'expenses')}
+        <div class="expenses-hero-actions">
+          <button class="button button-primary expenses-record-btn" type="button" id="recordDailyExpenseButton">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Record Daily Expense</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="expenses-kpi-grid">
+        <div class="expenses-kpi-card">
+          <div class="expenses-kpi-icon icon-total">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 6v12M17 10h-7a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H7"/>
+            </svg>
+          </div>
+          <div class="expenses-kpi-content">
+            <span class="expenses-kpi-label">TOTAL DISBURSEMENTS (RANGE)</span>
+            <strong class="expenses-kpi-value text-rose">${money(totalDisbursements)}</strong>
+            <span class="expenses-kpi-sub">${totalIncidents === 1 ? '1 expense logged' : `${totalIncidents} expenses logged`}</span>
+          </div>
+        </div>
+
+        <div class="expenses-kpi-card">
+          <div class="expenses-kpi-icon icon-count">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+          </div>
+          <div class="expenses-kpi-content">
+            <span class="expenses-kpi-label">TOTAL TRANSACTIONS</span>
+            <strong class="expenses-kpi-value text-amber">${totalIncidents}</strong>
+            <span class="expenses-kpi-sub">Expense vouchers in range</span>
+          </div>
+        </div>
+
+        <div class="expenses-kpi-card">
+          <div class="expenses-kpi-icon icon-largest">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+              <polyline points="17 6 23 6 23 12"/>
+            </svg>
+          </div>
+          <div class="expenses-kpi-content">
+            <span class="expenses-kpi-label">LARGEST SINGLE EXPENSE</span>
+            <strong class="expenses-kpi-value text-amber">${money(largestExpense)}</strong>
+            <span class="expenses-kpi-sub">${largestExpenseCat ? `${escapeHtml(largestExpenseCat)} category` : 'No expenses in range'}</span>
+          </div>
+        </div>
+
+        <div class="expenses-kpi-card">
+          <div class="expenses-kpi-icon icon-category">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+              <line x1="7" y1="7" x2="7.01" y2="7"/>
+            </svg>
+          </div>
+          <div class="expenses-kpi-content">
+            <span class="expenses-kpi-label">PRIMARY EXPENSE CATEGORY</span>
+            <strong class="expenses-kpi-value text-purple">${escapeHtml(topCategory)}</strong>
+            <span class="expenses-kpi-sub">${topCategoryTotal > 0 ? `${money(topCategoryTotal)} (${topCategoryPercent}%)` : 'No expenses'}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="expenses-toolbar-strip">
+        <div class="expenses-filter-chips" role="tablist" aria-label="Filter expenses by category">
+          ${categoryChips.map((chip) => `
+            <button
+              type="button"
+              class="expenses-chip ${activeExpenseCategoryFilter.toLowerCase() === chip.key.toLowerCase() ? 'active' : ''}"
+              data-expense-cat="${chip.key}">
+              ${chip.key !== 'all' ? '<span class="expenses-chip-dot"></span>' : ''}
+              <span>${escapeHtml(chip.label)}</span>
+              <span class="expenses-chip-badge">${chip.count}</span>
+            </button>
+          `).join('')}
+        </div>
+
+        <div class="expenses-quick-dates">
+          <span class="expenses-quick-dates-label">Presets:</span>
+          <button type="button" class="expenses-date-btn" data-expense-preset="thisMonth">This Month</button>
+          <button type="button" class="expenses-date-btn" data-expense-preset="last30">Last 30 Days</button>
+          <button type="button" class="expenses-date-btn" data-expense-preset="all">All Time</button>
+        </div>
+      </div>
+
+      <div class="expenses-table-shell">
+        <div class="expenses-table-header">
+          <span>Date &amp; Receipt</span>
+          <span>Category</span>
+          <span>Amount</span>
+          <span>Description &amp; Details</span>
+          <span style="text-align: right;">Action</span>
+        </div>
+
+        ${paginated.pagedItems.length ? paginated.pagedItems.map((item) => {
+          const dateObj = item.businessDate ? new Date(`${item.businessDate}T00:00:00`) : null;
+          const formattedDate = dateObj && !isNaN(dateObj.getTime())
+            ? dateObj.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+            : item.businessDate;
+
+          return `
+            <div class="expenses-table-row">
+              <div class="expense-date-cell" data-label="Date &amp; Receipt">
+                <span class="expense-date-main">${escapeHtml(formattedDate)}</span>
+                ${item.receiptReference ? `
+                  <span class="expense-ref-pill">Ref: ${escapeHtml(item.receiptReference)}</span>
+                ` : `
+                  <span class="expense-ref-pill">#${escapeHtml((item.id || '').slice(0, 8))}</span>
+                `}
+              </div>
+
+              <div data-label="Category">
+                <span class="expense-cat-badge">
+                  <span>${escapeHtml(item.category || 'General')}</span>
+                </span>
+              </div>
+
+              <div data-label="Amount">
+                <strong class="expense-amount">${money(item.amount)}</strong>
+              </div>
+
+              <div class="expense-desc-cell" data-label="Description">
+                <span class="expense-desc-text" title="${escapeHtml(item.description || '')}">${escapeHtml(item.description || '—')}</span>
+                ${item.updatedAt ? `<span class="expense-receipt-meta">Updated: ${new Date(item.updatedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}</span>` : ''}
+              </div>
+
+              <div class="expense-action-cell" data-label="Action">
+                <button class="icon-button" data-edit-expense="${item.id}" aria-label="Edit Daily Expense" title="Edit Daily Expense">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                </button>
+                <button class="icon-button danger-icon" data-delete-expense="${item.id}" aria-label="Delete Daily Expense" title="Delete Daily Expense">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('') : `
+          <div class="expenses-empty-state">
+            <div class="expenses-empty-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 6v12M17 10h-7a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H7"/>
+              </svg>
+            </div>
+            <strong class="expenses-empty-title">No daily expenses found</strong>
+            <p class="expenses-empty-desc">
+              ${term || activeExpenseCategoryFilter !== 'all' || dateFrom || dateTo
+                ? 'No expense vouchers match your current search, filter, or selected date range.'
+                : 'No expenses recorded for this branch yet. Click below to add the first expense voucher.'}
+            </p>
+            ${term || activeExpenseCategoryFilter !== 'all' || dateFrom || dateTo ? `
+              <button type="button" class="button button-secondary" id="expenseResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters &amp; Date Range
+              </button>
+            ` : `
+              <button type="button" class="button button-primary" id="expenseEmptyAddBtn" style="margin-top:8px;font-size:12px;padding:8px 16px;">
+                + Add Daily Expense
+              </button>
+            `}
+          </div>
+        `}
+      </div>
+
+      ${renderPaginationControls_(paginated, 'expenses')}
+    </div>
   `;
 
   bindPaginationEvents_(table, renderDailyExpenses);
 
+  // Bind Record buttons
+  table.querySelector('#recordDailyExpenseButton')?.addEventListener('click', () => openForm('dailyExpenses'));
+  table.querySelector('#expenseEmptyAddBtn')?.addEventListener('click', () => openForm('dailyExpenses'));
+
+  // Bind Category Chips
+  table.querySelectorAll('[data-expense-cat]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeExpenseCategoryFilter = chip.dataset.expenseCat;
+      renderDailyExpenses();
+    });
+  });
+
+  // Bind Quick Date Presets
+  table.querySelectorAll('[data-expense-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.expensePreset;
+      const fromInput = $('#dailyExpensesDateFrom');
+      const toInput = $('#dailyExpensesDateTo');
+      if (!fromInput || !toInput) return;
+
+      const now = new Date();
+      if (preset === 'thisMonth') {
+        fromInput.value = formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
+        toInput.value = formatDateInput(now);
+      } else if (preset === 'last30') {
+        const d = new Date();
+        d.setDate(d.getDate() - 29);
+        fromInput.value = formatDateInput(d);
+        toInput.value = formatDateInput(now);
+      } else if (preset === 'all') {
+        fromInput.value = '';
+        toInput.value = '';
+      }
+      syncCustomDatePicker(fromInput);
+      syncCustomDatePicker(toInput);
+      renderDailyExpenses();
+    });
+  });
+
+  // Bind Reset button
+  table.querySelector('#expenseResetFiltersBtn')?.addEventListener('click', () => {
+    const searchInput = $('#searchInput');
+    if (searchInput) searchInput.value = '';
+    activeExpenseCategoryFilter = 'all';
+    ensureDailyExpensesDateDefaults();
+    renderDailyExpenses();
+  });
+
+  // Bind Edit & Delete
   table.querySelectorAll('[data-edit-expense]').forEach((button) => {
     button.addEventListener('click', () => openForm('editDailyExpense', button.dataset.editExpense));
   });
   table.querySelectorAll('[data-delete-expense]').forEach((button) => {
     button.addEventListener('click', () => deleteDailyExpense(button.dataset.deleteExpense));
+  });
+}
+
+function renderBankTransactions() {
+  const table = $('#inventoryTable');
+  if (!table) return;
+
+  ensureBankTransactionsDateDefaults();
+  const dateFrom = $('#bankTransactionsDateFrom')?.value || '';
+  const dateTo = $('#bankTransactionsDateTo')?.value || '';
+  const term = ($('#searchInput')?.value || '').trim().toLowerCase();
+
+  // 1. Sort all branch transactions chronologically from earliest to latest
+  // to calculate the exact immutable chronological running balance.
+  const chronologicalAll = [...bankTransactions].sort((a, b) => {
+    const timeA = new Date(`${a.businessDate}T00:00:00`).getTime();
+    const timeB = new Date(`${b.businessDate}T00:00:00`).getTime();
+    if (timeA !== timeB) return timeA - timeB;
+    return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+  });
+
+  let cumulativeBalance = 0;
+  const fullLedger = chronologicalAll.map((item) => {
+    const isDeposit = item.type === 'Deposit';
+    const amt = Number(item.amount || 0);
+    cumulativeBalance += isDeposit ? amt : -amt;
+    return {
+      ...item,
+      runningBalance: cumulativeBalance,
+    };
+  });
+
+  // Overall active branch bank position
+  const currentOverallBalance = cumulativeBalance;
+
+  // 2. Filter by date range for current view and KPI period metrics
+  const dateFiltered = fullLedger.filter((item) => {
+    const itemDate = item.businessDate;
+    if (dateFrom && itemDate < dateFrom) return false;
+    if (dateTo && itemDate > dateTo) return false;
+    return true;
+  });
+
+  // 3. Compute KPI metrics for the filtered date window
+  let totalDeposits = 0;
+  let depositCount = 0;
+  let totalWithdrawals = 0;
+  let withdrawalCount = 0;
+  let cashCount = 0;
+  let chequeCount = 0;
+
+  dateFiltered.forEach((item) => {
+    const amt = Number(item.amount || 0);
+    if (item.type === 'Deposit') {
+      totalDeposits += amt;
+      depositCount++;
+    } else {
+      totalWithdrawals += amt;
+      withdrawalCount++;
+    }
+    if (item.method === 'Cash') cashCount++;
+    if (item.method === 'Cheque') chequeCount++;
+  });
+
+  const periodNetFlow = totalDeposits - totalWithdrawals;
+
+  // 4. Apply chip filter and search term
+  const finalFiltered = dateFiltered.filter((item) => {
+    if (activeBankLedgerFilter === 'Deposit' && item.type !== 'Deposit') return false;
+    if (activeBankLedgerFilter === 'Withdrawal' && item.type !== 'Withdrawal') return false;
+    if (activeBankLedgerFilter === 'Cash' && item.method !== 'Cash') return false;
+    if (activeBankLedgerFilter === 'Cheque' && item.method !== 'Cheque') return false;
+
+    if (term) {
+      const searchTarget = `${item.businessDate} ${item.type} ${item.method} ${item.bankName || ''} ${item.chequeNumber || ''} ${item.reference || ''} ${item.details || ''} ${item.amount}`.toLowerCase();
+      if (!searchTarget.includes(term)) return false;
+    }
+    return true;
+  });
+
+  // 5. Present reverse chronologically (newest first)
+  const displayRows = [...finalFiltered].reverse();
+  const paginated = paginateItems_(displayRows);
+
+  table.innerHTML = `
+    <div class="bank-ledger-view">
+      <div class="bank-hero-card">
+        <div class="bank-hero-glow"></div>
+        <div class="bank-hero-leading">
+          <div class="bank-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="5" width="20" height="14" rx="2"/>
+              <line x1="2" x2="22" y1="10" y2="10"/>
+              <path d="M6 15h4"/>
+            </svg>
+          </div>
+          <div class="bank-hero-text">
+            <span class="bank-hero-kicker">BRANCH OPERATIONS &bull; BANK LEDGER &bull; CASHFLOW AUDIT</span>
+            <strong class="bank-hero-title">Bank Transactions &amp; Running Balance</strong>
+            <p class="bank-hero-desc">Audit trail for deposits, cheque clearing, cash bankings, and operational disbursements with real-time balance reconciliation.</p>
+          </div>
+        </div>
+        <div class="bank-hero-actions">
+          <button class="button button-primary bank-record-btn" type="button" id="recordBankTransactionButton">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Record Transaction</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="bank-kpi-grid">
+        <div class="bank-kpi-card">
+          <div class="bank-kpi-icon icon-balance">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="5" width="20" height="14" rx="2"/>
+              <path d="M6 10h12M6 14h4"/>
+            </svg>
+          </div>
+          <div class="bank-kpi-content">
+            <span class="bank-kpi-label">CURRENT RUNNING BALANCE</span>
+            <strong class="bank-kpi-value ${currentOverallBalance >= 0 ? 'text-emerald' : 'text-rose'}">${money(currentOverallBalance)}</strong>
+            <span class="bank-kpi-sub">Active branch bank position</span>
+          </div>
+        </div>
+
+        <div class="bank-kpi-card">
+          <div class="bank-kpi-icon icon-deposits">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="18 15 12 9 6 15"/>
+              <line x1="12" y1="9" x2="12" y2="21"/>
+              <path d="M20 4H4"/>
+            </svg>
+          </div>
+          <div class="bank-kpi-content">
+            <span class="bank-kpi-label">TOTAL DEPOSITS (RANGE)</span>
+            <strong class="bank-kpi-value text-emerald">+${money(totalDeposits)}</strong>
+            <span class="bank-kpi-sub">${depositCount} deposit${depositCount === 1 ? '' : 's'} in selected range</span>
+          </div>
+        </div>
+
+        <div class="bank-kpi-card">
+          <div class="bank-kpi-icon icon-withdrawals">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+              <path d="M20 20H4"/>
+            </svg>
+          </div>
+          <div class="bank-kpi-content">
+            <span class="bank-kpi-label">TOTAL WITHDRAWALS (RANGE)</span>
+            <strong class="bank-kpi-value text-rose">-${money(totalWithdrawals)}</strong>
+            <span class="bank-kpi-sub">${withdrawalCount} withdrawal${withdrawalCount === 1 ? '' : 's'} in selected range</span>
+          </div>
+        </div>
+
+        <div class="bank-kpi-card">
+          <div class="bank-kpi-icon icon-cashflow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+          </div>
+          <div class="bank-kpi-content">
+            <span class="bank-kpi-label">NET CASH FLOW (RANGE)</span>
+            <strong class="bank-kpi-value ${periodNetFlow >= 0 ? 'text-emerald' : 'text-rose'}">${periodNetFlow >= 0 ? '+' : ''}${money(periodNetFlow)}</strong>
+            <span class="bank-kpi-sub">${periodNetFlow >= 0 ? 'Net positive period surplus' : 'Net negative period deficit'}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bank-toolbar-strip">
+        <div class="bank-filter-chips" role="tablist" aria-label="Filter transactions">
+          <button type="button" class="bank-chip ${activeBankLedgerFilter === 'all' ? 'active' : ''}" data-bank-filter="all">
+            <span>All Entries</span>
+            <span class="bank-chip-badge">${dateFiltered.length}</span>
+          </button>
+          <button type="button" class="bank-chip ${activeBankLedgerFilter === 'Deposit' ? 'active' : ''}" data-bank-filter="Deposit">
+            <span class="bank-chip-dot dot-deposit"></span>
+            <span>Deposits</span>
+            <span class="bank-chip-badge">${depositCount}</span>
+          </button>
+          <button type="button" class="bank-chip ${activeBankLedgerFilter === 'Withdrawal' ? 'active' : ''}" data-bank-filter="Withdrawal">
+            <span class="bank-chip-dot dot-withdrawal"></span>
+            <span>Withdrawals</span>
+            <span class="bank-chip-badge">${withdrawalCount}</span>
+          </button>
+          <button type="button" class="bank-chip ${activeBankLedgerFilter === 'Cash' ? 'active' : ''}" data-bank-filter="Cash">
+            <span class="bank-chip-dot dot-cash"></span>
+            <span>Cash</span>
+            <span class="bank-chip-badge">${cashCount}</span>
+          </button>
+          <button type="button" class="bank-chip ${activeBankLedgerFilter === 'Cheque' ? 'active' : ''}" data-bank-filter="Cheque">
+            <span class="bank-chip-dot dot-cheque"></span>
+            <span>Cheque</span>
+            <span class="bank-chip-badge">${chequeCount}</span>
+          </button>
+        </div>
+
+        <div class="bank-quick-dates">
+          <span class="bank-quick-dates-label">Presets:</span>
+          <button type="button" class="bank-date-btn" data-bank-preset="thisMonth">This Month</button>
+          <button type="button" class="bank-date-btn" data-bank-preset="last30">Last 30 Days</button>
+          <button type="button" class="bank-date-btn" data-bank-preset="all">All Time</button>
+        </div>
+      </div>
+
+      <div class="bank-table-shell">
+        <div class="bank-table-header">
+          <span>Date &amp; Reference</span>
+          <span>Transaction Details</span>
+          <span>Type</span>
+          <span>Method</span>
+          <span>Deposit (+)</span>
+          <span>Withdrawal (&minus;)</span>
+          <span>Running Balance</span>
+        </div>
+
+        ${paginated.pagedItems.length ? paginated.pagedItems.map((item) => {
+          const dateObj = item.businessDate ? new Date(`${item.businessDate}T00:00:00`) : null;
+          const formattedDate = dateObj && !isNaN(dateObj.getTime())
+            ? dateObj.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+            : item.businessDate;
+          const isDeposit = item.type === 'Deposit';
+          const isCheque = item.method === 'Cheque';
+
+          return `
+            <div class="bank-table-row">
+              <div class="bank-date-cell" data-label="Date &amp; Ref">
+                <span class="bank-date-main">${escapeHtml(formattedDate)}</span>
+                <span class="bank-date-sub">
+                  ${item.reference ? `<span class="bank-ref-pill">Ref: ${escapeHtml(item.reference)}</span>` : `<span class="bank-ref-pill">#${escapeHtml((item.id || '').slice(0, 8))}</span>`}
+                </span>
+              </div>
+
+              <div class="bank-details-cell" data-label="Details">
+                <strong class="bank-txn-details">${escapeHtml(item.details || item.reference || 'Bank transaction')}</strong>
+                ${isCheque ? `
+                  <span class="bank-cheque-tag">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h10M7 11h4"/></svg>
+                    ${escapeHtml(item.bankName || 'Bank')} &bull; Chq #${escapeHtml(item.chequeNumber || '—')}
+                  </span>
+                ` : ''}
+              </div>
+
+              <div data-label="Type">
+                <span class="bank-type-badge ${isDeposit ? 'badge-deposit' : 'badge-withdrawal'}">
+                  ${isDeposit ? `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="7 10 12 5 17 10"/><line x1="12" y1="5" x2="12" y2="19"/></svg>
+                    <span>Deposit</span>
+                  ` : `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="17 14 12 19 7 14"/><line x1="12" y1="19" x2="12" y2="5"/></svg>
+                    <span>Withdrawal</span>
+                  `}
+                </span>
+              </div>
+
+              <div data-label="Method">
+                <span class="bank-method-badge ${isCheque ? 'method-cheque' : 'method-cash'}">
+                  ${isCheque ? `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h10M7 11h4"/></svg>
+                    <span>Cheque</span>
+                  ` : `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
+                    <span>Cash</span>
+                  `}
+                </span>
+              </div>
+
+              <div data-label="Deposit">
+                ${isDeposit ? `<strong class="bank-amount deposit">+${money(item.amount)}</strong>` : `<span class="bank-dash">&mdash;</span>`}
+              </div>
+
+              <div data-label="Withdrawal">
+                ${!isDeposit ? `<strong class="bank-amount withdrawal">-${money(item.amount)}</strong>` : `<span class="bank-dash">&mdash;</span>`}
+              </div>
+
+              <div data-label="Running Balance">
+                <strong class="bank-balance ${item.runningBalance < 0 ? 'negative' : ''}">${money(item.runningBalance)}</strong>
+              </div>
+            </div>
+          `;
+        }).join('') : `
+          <div class="bank-empty-state">
+            <div class="bank-empty-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <rect x="2" y="5" width="20" height="14" rx="2"/>
+                <path d="M6 10h12M6 14h4"/>
+              </svg>
+            </div>
+            <strong class="bank-empty-title">No bank transactions found</strong>
+            <p class="bank-empty-desc">
+              ${term || activeBankLedgerFilter !== 'all' || dateFrom || dateTo
+                ? 'No ledger entries match your current search, filter, or selected date range.'
+                : 'No bank transactions recorded for this branch yet. Click below to add the first deposit or withdrawal.'}
+            </p>
+            ${term || activeBankLedgerFilter !== 'all' || dateFrom || dateTo ? `
+              <button type="button" class="button button-secondary" id="bankResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters &amp; Date Range
+              </button>
+            ` : `
+              <button type="button" class="button button-primary" id="bankEmptyAddBtn" style="margin-top:8px;font-size:12px;padding:8px 16px;">
+                + Add Transaction
+              </button>
+            `}
+          </div>
+        `}
+      </div>
+
+      ${renderPaginationControls_(paginated, 'bank transactions')}
+    </div>
+  `;
+
+  bindPaginationEvents_(table, renderBankTransactions);
+
+  // Bind Record buttons
+  table.querySelector('#recordBankTransactionButton')?.addEventListener('click', () => openForm('bankTransaction'));
+  table.querySelector('#bankEmptyAddBtn')?.addEventListener('click', () => openForm('bankTransaction'));
+
+  // Bind filter chips
+  table.querySelectorAll('[data-bank-filter]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeBankLedgerFilter = chip.dataset.bankFilter;
+      renderBankTransactions();
+    });
+  });
+
+  // Bind Quick Date Presets
+  table.querySelectorAll('[data-bank-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.bankPreset;
+      const fromInput = $('#bankTransactionsDateFrom');
+      const toInput = $('#bankTransactionsDateTo');
+      if (!fromInput || !toInput) return;
+
+      const now = new Date();
+      if (preset === 'thisMonth') {
+        fromInput.value = formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
+        toInput.value = formatDateInput(now);
+      } else if (preset === 'last30') {
+        const d = new Date();
+        d.setDate(d.getDate() - 29);
+        fromInput.value = formatDateInput(d);
+        toInput.value = formatDateInput(now);
+      } else if (preset === 'all') {
+        fromInput.value = '';
+        toInput.value = '';
+      }
+      syncCustomDatePicker(fromInput);
+      syncCustomDatePicker(toInput);
+      renderBankTransactions();
+    });
+  });
+
+  // Bind Reset button
+  table.querySelector('#bankResetFiltersBtn')?.addEventListener('click', () => {
+    const searchInput = $('#searchInput');
+    if (searchInput) searchInput.value = '';
+    activeBankLedgerFilter = 'all';
+    ensureBankTransactionsDateDefaults();
+    renderBankTransactions();
   });
 }
 
@@ -9082,8 +10305,10 @@ async function refresh(showSkeleton = true) {
     inventoryReturnLots = data.inventoryReturnLots || [];
     inventoryQuarantineCases = data.inventoryQuarantineCases || [];
     inventoryQuarantineItems = data.inventoryQuarantineItems || [];
+    inventoryLosses = data.inventoryLosses || [];
     dailySpotCash = data.dailySpotCash || [];
     dailyExpenses = data.dailyExpenses || [];
+    bankTransactions = data.bankTransactions || [];
     restaurantTables = data.restaurantTables || [];
     restaurantOrders = data.restaurantOrders || [];
     restaurantOrderItems = data.restaurantOrderItems || [];
@@ -9264,6 +10489,13 @@ function openForm(type, productId = '') {
       submit: 'Save stock',
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v14"/><path d="m19 9-7 7-7-7"/><circle cx="12" cy="21" r="1"/></svg>`,
     },
+    lossDamage: {
+      title: 'Record Loss / Damage',
+      eyebrow: 'INVENTORY WRITE-OFF',
+      subtitle: 'Deduct an individual product from active branch stock.',
+      submit: 'Record Write-Off',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="m9 11 6 6m0-6-6 6"/></svg>`,
+    },
     branch: {
       title: 'Add branch', eyebrow: 'BRANCH MANAGEMENT', subtitle: 'Create a location for independent inventory and sales.', submit: 'Add branch',
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 7h4M10 12h4M10 17h4"/></svg>`,
@@ -9327,6 +10559,10 @@ function openForm(type, productId = '') {
       subtitle: 'Update the recorded cash expense details.',
       submit: 'Save changes',
       icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>`,
+    },
+    bankTransaction: {
+      title: 'Add Bank Transaction', eyebrow: 'BANK LEDGER', subtitle: 'Record a deposit or withdrawal for the active branch.', submit: 'Save Transaction',
+      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h12M6 14h4"/></svg>`,
     },
     transfer: {
       title: 'New stock transfer', eyebrow: 'BRANCH OPERATIONS', subtitle: 'Create a draft transfer from the selected branch.', submit: 'Create draft',
@@ -10007,6 +11243,17 @@ function openForm(type, productId = '') {
     </div>
   `;
 
+  const bankTransactionFields = `
+    <div class="form-field-group"><label for="modalBankDate"><span class="label-text">Transaction Date <span class="required">*</span></span></label><input id="modalBankDate" name="businessDate" type="date" value="${expenseToday}" required></div>
+    <div class="form-field-group"><label for="modalBankType"><span class="label-text">Transaction Type <span class="required">*</span></span></label><select id="modalBankType" name="transactionType" required><option value="Deposit">Deposit</option><option value="Withdrawal">Withdrawal</option></select></div>
+    <div class="form-field-group"><label for="modalBankMethod"><span class="label-text">Payment Method <span class="required">*</span></span></label><select id="modalBankMethod" name="paymentMethod" required><option value="Cash">Cash</option><option value="Cheque">Cheque</option></select></div>
+    <div class="form-field-group"><label for="modalBankAmount"><span class="label-text">Amount (PHP) <span class="required">*</span></span></label><div class="input-with-prefix"><span class="input-prefix">PHP</span><input id="modalBankAmount" name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required inputmode="decimal"></div></div>
+    <div class="form-field-group" data-cheque-detail hidden><label for="modalBankName"><span class="label-text">Bank Name <span class="required">*</span></span></label><input id="modalBankName" name="bankName" placeholder="Issuing bank" autocomplete="off"></div>
+    <div class="form-field-group" data-cheque-detail hidden><label for="modalChequeNumber"><span class="label-text">Cheque Number <span class="required">*</span></span></label><input id="modalChequeNumber" name="chequeNumber" placeholder="Cheque no." autocomplete="off"></div>
+    <div class="form-field-group full-field"><label for="modalBankReference"><span class="label-text">Reference No. <span class="optional-label">(optional)</span></span></label><input id="modalBankReference" name="reference" placeholder="Deposit slip, voucher, or receipt" autocomplete="off"></div>
+    <div class="form-field-group full-field"><label for="modalBankDetails"><span class="label-text">Details <span class="required">*</span></span></label><textarea id="modalBankDetails" name="details" maxlength="500" placeholder="Purpose or transaction details" required></textarea></div>
+  `;
+
   const selectedRestaurantTable = restaurantTables.find((item) => item.id === productId);
   const selectedRestaurantOrder = restaurantOrders.find((item) => item.id === productId);
   const settledTabItems = selectedRestaurantOrder ? restaurantOrderItems.filter((item) => item.orderId === selectedRestaurantOrder.id) : [];
@@ -10072,12 +11319,20 @@ function openForm(type, productId = '') {
     <div class="form-field-group"><label for="modalTableTendered"><span class="label-text">Cash Tendered (PHP) <span class="required">*</span></span></label><div class="input-with-prefix"><span class="input-prefix">PHP</span><input id="modalTableTendered" name="cashTendered" type="number" min="0" step="0.01" placeholder="0.00" required inputmode="decimal"></div></div>
   `;
 
+  const lossDamageProducts = sortByName_(products.filter((item) => item.productType !== 'bundle' && item.status === 'Active' && Number(item.qty) > 0));
+  const lossDamageFields = `
+    <div class="form-field-group full-field"><label for="modalLossProduct"><span class="label-text">Individual Product <span class="required">*</span></span></label><select id="modalLossProduct" name="productId" required data-searchable="true"><option value="" disabled selected>Select stocked product</option>${lossDamageProducts.map((item) => `<option value="${escapeHtml(item.id)}" data-qty="${Number(item.qty)}">${escapeHtml(item.name)} (${Number(item.qty).toLocaleString('en-PH')} ${escapeHtml(item.unit || 'unit')} available)</option>`).join('')}</select></div>
+    <div class="form-field-group"><label for="modalLossQty"><span class="label-text">Quantity to Write Off <span class="required">*</span></span></label><input id="modalLossQty" name="qty" type="number" min="0.001" step="0.001" required placeholder="0" inputmode="decimal"></div>
+    <div class="form-field-group"><label for="modalLossReason"><span class="label-text">Reason <span class="required">*</span></span></label><select id="modalLossReason" name="reason" required><option value="Damaged">Damaged</option><option value="Expired">Expired</option><option value="Spoiled">Spoiled</option><option value="Broken">Broken</option><option value="Missing">Missing</option><option value="Other">Other</option></select></div>
+    <div class="form-field-group full-field"><label for="modalLossNotes"><span class="label-text">Notes <span class="optional-label">(required for Other)</span></span></label><textarea id="modalLossNotes" name="notes" maxlength="500" placeholder="Describe the incident, count reference, or supporting details"></textarea></div>
+  `;
+
   const container = $('#formFields');
-  const compactFormTypes = new Set(['linkProduct', 'branch', 'editBranch', 'customer', 'editCustomer', 'admin', 'editAdmin', 'resetStaff', 'dailySpotCash', 'editDailySpotCash', 'dailyExpenses', 'editDailyExpense', 'restaurantTable', 'editRestaurantTable', 'restaurantTab', 'settleRestaurantTab']);
+  const compactFormTypes = new Set(['linkProduct', 'branch', 'editBranch', 'customer', 'editCustomer', 'admin', 'editAdmin', 'resetStaff', 'dailySpotCash', 'editDailySpotCash', 'dailyExpenses', 'editDailyExpense', 'bankTransaction', 'restaurantTable', 'editRestaurantTable', 'restaurantTab', 'settleRestaurantTab', 'lossDamage']);
   $('#formDialog').dataset.formLayout = compactFormTypes.has(type) ? 'compact' : 'scrollable';
   $('#formDialog').dataset.formType = type;
   container.scrollTop = 0;
-  container.innerHTML = type === 'product' || type === 'edit' ? productFields : type === 'linkProduct' ? linkProductFields : type === 'branch' || type === 'editBranch' ? branchFields : type === 'customer' || type === 'editCustomer' ? customerFields : type === 'staff' || type === 'editStaff' ? staffFields : type === 'resetStaff' ? resetStaffFields : type === 'admin' || type === 'editAdmin' ? adminFields : type === 'transfer' ? transferFields : type === 'dailySpotCash' || type === 'editDailySpotCash' ? dailySpotCashFields : type === 'dailyExpenses' || type === 'editDailyExpense' ? dailyExpenseFields : type === 'restaurantTable' || type === 'editRestaurantTable' ? restaurantTableFields : type === 'restaurantTab' ? restaurantTabFields : type === 'settleRestaurantTab' ? settleRestaurantTabFields : stockFields;
+  container.innerHTML = type === 'product' || type === 'edit' ? productFields : type === 'linkProduct' ? linkProductFields : type === 'branch' || type === 'editBranch' ? branchFields : type === 'customer' || type === 'editCustomer' ? customerFields : type === 'staff' || type === 'editStaff' ? staffFields : type === 'resetStaff' ? resetStaffFields : type === 'admin' || type === 'editAdmin' ? adminFields : type === 'transfer' ? transferFields : type === 'dailySpotCash' || type === 'editDailySpotCash' ? dailySpotCashFields : type === 'dailyExpenses' || type === 'editDailyExpense' ? dailyExpenseFields : type === 'bankTransaction' ? bankTransactionFields : type === 'restaurantTable' || type === 'editRestaurantTable' ? restaurantTableFields : type === 'restaurantTab' ? restaurantTabFields : type === 'settleRestaurantTab' ? settleRestaurantTabFields : type === 'lossDamage' ? lossDamageFields : stockFields;
 
   // Initialize smooth dropdowns and custom datepickers for newly injected fields
   initCustomDropdowns(container);
@@ -10144,6 +11399,19 @@ function openForm(type, productId = '') {
       $('#modalLinkLowStock').value = option?.dataset.lowStock || 5;
     });
   }
+  const lossProductSelect = $('#modalLossProduct');
+  lossProductSelect?.addEventListener('change', () => {
+    const qtyInput = $('#modalLossQty');
+    const available = Number(lossProductSelect.options[lossProductSelect.selectedIndex]?.dataset.qty || 0);
+    if (qtyInput) { qtyInput.max = String(available); qtyInput.placeholder = `Maximum ${available.toLocaleString('en-PH')}`; }
+  });
+  const bankMethodSelect = $('#modalBankMethod');
+  const syncChequeDetails = () => {
+    const cheque = bankMethodSelect?.value === 'Cheque';
+    container.querySelectorAll('[data-cheque-detail]').forEach((field) => { field.hidden = !cheque; field.querySelectorAll('input').forEach((input) => { input.required = cheque; input.disabled = !cheque; }); });
+  };
+  bankMethodSelect?.addEventListener('change', syncChequeDetails);
+  syncChequeDetails();
 
   const productTypeSelect = $('#modalProductType');
   const setBundleFields = () => {
@@ -10251,16 +11519,19 @@ async function deleteProduct(productId) {
    NAVIGATION & VIEWS
    ========================================================================== */
 function setView(view, preserveSidebarOpen = false, deferDataRender = false) {
-  const validViews = ['dashboard', 'pos', 'tableService', 'waiterQueue', 'kitchenDisplay', 'products', 'bundleMonitoring', 'inventory', 'quarantine', 'quarantineReport', 'branches', 'transfers', 'dailySpotCash', 'dailyExpenses', 'customers', 'credits', 'sales', 'inventoryReports', 'staffAccounts', 'adminAccount'];
+  const validViews = ['dashboard', 'pos', 'tableService', 'waiterQueue', 'kitchenDisplay', 'products', 'bundleMonitoring', 'inventory', 'quarantine', 'lossDamages', 'quarantineReport', 'branches', 'transfers', 'dailySpotCash', 'dailyExpenses', 'bankTransactions', 'customers', 'credits', 'sales', 'inventoryReports', 'staffAccounts', 'adminAccount'];
   const permissions = currentSession?.account?.permissions || ['*'];
   const dailySpotCashNav = document.querySelector('[data-view="dailySpotCash"]');
   if (dailySpotCashNav) dailySpotCashNav.hidden = !permissions.includes('*') && !permissions.includes('dailySpotCash');
   const dailyExpensesNav = document.querySelector('[data-view="dailyExpenses"]');
   if (dailyExpensesNav) dailyExpensesNav.hidden = !permissions.includes('*') && !permissions.includes('dailyExpenses');
+  const bankTransactionsNav = document.querySelector('[data-view="bankTransactions"]');
+  if (bankTransactionsNav) bankTransactionsNav.hidden = !permissions.includes('*') && !permissions.includes('dailyExpenses');
   const isLegacyPosSub = ['tableService', 'waiterQueue'].includes(view) && permissions.includes('pos');
   const isLegacyProdSub = view === 'bundleMonitoring' && permissions.includes('products');
-  const isLegacyInvSub = ['quarantine', 'quarantineReport'].includes(view) && permissions.includes('inventory');
-  const isAllowed = (view === 'dashboard' && currentSession?.account?.role === 'admin') || permissions.includes('*') || permissions.includes(view) || isLegacyPosSub || isLegacyProdSub || isLegacyInvSub;
+  const isLegacyInvSub = ['quarantine', 'lossDamages', 'quarantineReport'].includes(view) && permissions.includes('inventory');
+  const isLegacyFinanceSub = view === 'bankTransactions' && permissions.includes('dailyExpenses');
+  const isAllowed = (view === 'dashboard' && currentSession?.account?.role === 'admin') || permissions.includes('*') || permissions.includes(view) || isLegacyPosSub || isLegacyProdSub || isLegacyInvSub || isLegacyFinanceSub;
   if (!isAllowed) view = permissions.find((p) => validViews.includes(p)) || 'pos';
   if (!validViews.includes(view)) view = 'pos';
   activeView = view;
@@ -10284,6 +11555,7 @@ function setView(view, preserveSidebarOpen = false, deferDataRender = false) {
     bundleMonitoring: ['CATALOG', 'Bundles Monitoring', 'BUNDLE INVENTORY', 'Sellable Bundle Availability'],
     inventory: ['BRANCH INVENTORY', 'Inventory Stock', 'STOCK CONTROL', 'Main Branch Stock'],
     quarantine: ['INVENTORY CONTROL', 'Quarantined Items', 'INSPECTION HOLDING AREA', 'Items Awaiting Disposition'],
+    lossDamages: ['INVENTORY CONTROL', 'Loss & Damages', 'INVENTORY WRITE-OFFS', 'Damaged, Expired, and Missing Stock'],
     quarantineReport: ['REPORTING', 'Quarantine Report', 'QUARANTINE REPORT', 'Branch Quarantine Report'],
     branches: ['BRANCH OPERATIONS', 'Branches', 'LOCATION DIRECTORY', 'Main and Satellite Branches'],
     customers: ['CUSTOMER ACCOUNTS', 'Customers', 'CUSTOMER DIRECTORY', 'Customers in the Selected Branch'],
@@ -10293,6 +11565,7 @@ function setView(view, preserveSidebarOpen = false, deferDataRender = false) {
     transfers: ['BRANCH OPERATIONS', 'Stock Transfers', 'TRANSFER TRACKING', 'Outgoing and Incoming Branch Stock'],
     dailySpotCash: ['BRANCH OPERATIONS', 'Daily Spot Cash', 'OPENING CASH', 'Daily Branch Opening Float'],
     dailyExpenses: ['BRANCH OPERATIONS', 'Daily Expenses', 'DAILY EXPENSES', 'Cash-only Daily Expenses'],
+    bankTransactions: ['BRANCH OPERATIONS', 'Bank Transactions', 'BANK LEDGER', 'Deposits, Withdrawals, and Running Balance'],
     staffAccounts: ['ADMINISTRATION', 'Staff Accounts', 'STAFF ACCOUNTS', 'Manage Staff Access'],
     adminAccount: ['ADMINISTRATION', 'Admin Account', 'ADMINISTRATION', 'Administrator Accounts'],
   }[view] || ['WORKSPACE', 'Point of Sale', 'INVENTORY', 'Available Products'];
@@ -10325,12 +11598,16 @@ function setView(view, preserveSidebarOpen = false, deferDataRender = false) {
       ? 'Search staff name or username...'
       : view === 'quarantine'
       ? 'Search case ID, reference, supplier, or reason...'
+      : view === 'lossDamages'
+      ? 'Search product, reason, note, or loss ID...'
       : view === 'quarantineReport'
       ? 'Search product, case ID, reason, or disposition...'
       : view === 'dailySpotCash'
       ? 'Search date, notes, or opening cash...'
       : view === 'dailyExpenses'
       ? 'Search date, category, description, or receipt...'
+      : view === 'bankTransactions'
+      ? 'Search date, detail, reference, bank, or cheque...'
       : view === 'bundleMonitoring'
       ? 'Search bundle or component...'
       : 'Search product name, SKU, or category...';
@@ -10346,6 +11623,7 @@ function setView(view, preserveSidebarOpen = false, deferDataRender = false) {
     bundleMonitoring: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10l2 4-2 14H7L5 7l2-4Z"/><path d="M5 7h14M9 3v4m6-4v4"/><path d="M9 12h6M9 16h6"/></svg>`,
     inventory: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"/><path d="m7 16.5-4.74-2.85"/><path d="m7 16.5 5-3"/><path d="M7 16.5v5.17"/><path d="M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"/><path d="m17 16.5-5-3"/><path d="m17 16.5 4.74-2.85"/><path d="M17 16.5v5.17"/><path d="M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z"/><path d="M12 8 7.26 5.15"/><path d="m12 8 4.74-2.85"/><path d="M12 13.5V8"/></svg>`,
     quarantine: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>`,
+    lossDamages: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="m9 11 6 6m0-6-6 6"/></svg>`,
     quarantineReport: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="m9 15 2 2 4-4"/><path d="M9 11h6"/></svg>`,
     branches: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 7h4M10 12h4M10 17h4"/></svg>`,
     customers: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg>`,
@@ -10357,6 +11635,7 @@ function setView(view, preserveSidebarOpen = false, deferDataRender = false) {
     adminAccount: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>`,
     dailySpotCash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>`,
     dailyExpenses: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v12"/></svg>`,
+    bankTransactions: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h12M6 14h4"/></svg>`,
   };
 
   const catalogIconWrap = $('#catalogIconWrap');
@@ -10376,7 +11655,7 @@ function setView(view, preserveSidebarOpen = false, deferDataRender = false) {
     cartSection.style.display = isPos ? '' : 'none';
   }
   const sectionActions = $('#sectionActions');
-  if (sectionActions) sectionActions.style.display = isPos || view === 'bundleMonitoring' || view === 'credits' || view === 'sales' || view === 'inventoryReports' || view === 'quarantine' || view === 'quarantineReport' || view === 'waiterQueue' || view === 'kitchenDisplay' ? 'none' : 'flex';
+  if (sectionActions) sectionActions.style.display = isPos || view === 'bundleMonitoring' || view === 'credits' || view === 'sales' || view === 'inventoryReports' || view === 'quarantine' || view === 'lossDamages' || view === 'quarantineReport' || view === 'waiterQueue' || view === 'kitchenDisplay' ? 'none' : 'flex';
   const addBtn = $('#addProductButton');
   if (addBtn) addBtn.hidden = view !== 'products';
   const addExistingProductBtn = $('#addExistingProductButton');
@@ -10395,6 +11674,8 @@ function setView(view, preserveSidebarOpen = false, deferDataRender = false) {
   if (spotCashBtn) spotCashBtn.hidden = view !== 'dailySpotCash';
   const expenseBtn = $('#addDailyExpenseButton');
   if (expenseBtn) expenseBtn.hidden = view !== 'dailyExpenses';
+  const bankTransactionBtn = $('#addBankTransactionButton');
+  if (bankTransactionBtn) bankTransactionBtn.hidden = view !== 'bankTransactions';
   const staffBtn = $('#addStaffButton');
   if (staffBtn) staffBtn.hidden = view !== 'staffAccounts';
   const adminBtn = $('#addAdminButton');
@@ -10422,6 +11703,10 @@ function setView(view, preserveSidebarOpen = false, deferDataRender = false) {
   if (dailyExpensesDateRange) dailyExpensesDateRange.hidden = view !== 'dailyExpenses';
   const creditsDateRange = $('#creditsDateRange');
   if (creditsDateRange) creditsDateRange.hidden = view !== 'credits';
+  const lossDamagesDateRange = $('#lossDamagesDateRange');
+  if (lossDamagesDateRange) lossDamagesDateRange.hidden = view !== 'lossDamages';
+  const bankTransactionsDateRange = $('#bankTransactionsDateRange');
+  if (bankTransactionsDateRange) bankTransactionsDateRange.hidden = view !== 'bankTransactions';
   const profilePanel = $('#accountProfilePanel');
   if (profilePanel && view !== 'adminAccount') profilePanel.hidden = true;
   if (view === 'sales') {
@@ -10443,6 +11728,12 @@ function setView(view, preserveSidebarOpen = false, deferDataRender = false) {
   }
   if (view === 'credits') {
     ensureCreditsDateDefaults();
+  }
+  if (view === 'lossDamages') {
+    ensureLossDamagesDateDefaults();
+  }
+  if (view === 'bankTransactions') {
+    ensureBankTransactionsDateDefaults();
   }
   if (view !== 'sales' && view !== 'quarantineReport') {
     const period = $('#salesPrintPeriod');
@@ -10685,6 +11976,7 @@ $('#addCustomerButton').addEventListener('click', () => openForm('customer'));
 $('#addTransferButton').addEventListener('click', () => openForm('transfer'));
 $('#addDailySpotCashButton')?.addEventListener('click', () => openForm('dailySpotCash'));
 $('#addDailyExpenseButton')?.addEventListener('click', () => openForm('dailyExpenses'));
+$('#addBankTransactionButton')?.addEventListener('click', () => openForm('bankTransaction'));
 $('#addStaffButton').addEventListener('click', () => openForm('staff'));
 $('#addAdminButton').addEventListener('click', () => openForm('admin'));
 $('#addRestaurantTableButton')?.addEventListener('click', () => openForm('restaurantTable'));
@@ -10859,6 +12151,15 @@ $('#modalForm').addEventListener('submit', async (event) => {
     confirmConfig = activeForm === 'admin'
       ? { title: 'Add Administrator', eyebrow: 'ADMINISTRATION', subtitle: 'Confirm full system access', message: `Are you sure you want to make <strong class="confirm-highlight-name">${escapeHtml(name)}</strong> an administrator?`, warning: 'This account will have access to all branches and all menus.', confirmText: 'Add Administrator', confirmType: 'primary' }
       : { title: 'Save Administrator Changes', eyebrow: 'ADMINISTRATION', subtitle: 'Confirm profile update', message: 'Are you sure you want to save these administrator profile changes?', confirmText: 'Save Changes', confirmType: 'primary' };
+  } else if (activeForm === 'lossDamage') {
+    const product = products.find((item) => item.id === form.get('productId'));
+    const qty = Number(form.get('qty') || 0);
+    const reason = String(form.get('reason') || 'Other');
+    const notes = String(form.get('notes') || '').trim();
+    if (!product || product.productType === 'bundle') { showToast('Choose an individual stocked product.', 'error'); return; }
+    if (!Number.isFinite(qty) || qty <= 0 || qty > Number(product.qty)) { showToast(`Quantity cannot exceed the ${Number(product.qty).toLocaleString('en-PH')} available ${product.unit || 'unit'}.`, 'error'); return; }
+    if (reason === 'Other' && !notes) { showToast('Enter notes when the reason is Other.', 'error'); return; }
+    confirmConfig = { title: 'Confirm Inventory Write-Off', eyebrow: 'LOSS & DAMAGES', subtitle: 'This immediately deducts stock', message: `Write off <strong>${qty.toLocaleString('en-PH')} ${escapeHtml(product.unit || 'unit')}</strong> of <strong class="confirm-highlight-name">${escapeHtml(product.name)}</strong> as <strong>${escapeHtml(reason)}</strong>?`, warning: 'This stock deduction is recorded for audit and cannot be undone from this page.', confirmText: 'Record Write-Off', confirmType: 'danger' };
   } else if (activeForm === 'restaurantTable') {
     const name = String(form.get('name') || '').trim();
     confirmConfig = { title: 'Register Dining Table', eyebrow: 'TABLE SERVICE', subtitle: 'Add table to dining floor', message: `Register <strong class="confirm-highlight-name">${escapeHtml(name)}</strong> for this branch?`, confirmText: 'Register Table', confirmType: 'primary' };
@@ -10905,6 +12206,16 @@ $('#modalForm').addEventListener('submit', async (event) => {
       confirmText: activeForm === 'editDailyExpense' ? 'Save Changes' : 'Record Expense',
       confirmType: 'primary',
     };
+  } else if (activeForm === 'bankTransaction') {
+    const type = String(form.get('transactionType') || 'Deposit');
+    const method = String(form.get('paymentMethod') || 'Cash');
+    const amount = Number(form.get('amount') || 0);
+    const details = String(form.get('details') || '').trim();
+    const chequeNumber = String(form.get('chequeNumber') || '').trim();
+    const bankName = String(form.get('bankName') || '').trim();
+    if (!form.get('businessDate') || !Number.isFinite(amount) || amount <= 0 || !details) { showToast('Enter a date, amount, and transaction details.', 'error'); return; }
+    if (method === 'Cheque' && (!bankName || !chequeNumber)) { showToast('Enter the bank name and cheque number.', 'error'); return; }
+    confirmConfig = { title: `Confirm Bank ${type}`, eyebrow: 'BANK LEDGER', subtitle: 'Review the ledger entry', message: `Record a <strong class="confirm-highlight-name">${escapeHtml(method)} ${type.toLowerCase()}</strong> of <strong>${money(amount)}</strong>?`, warning: type === 'Withdrawal' ? 'This reduces the displayed running bank balance.' : 'This increases the displayed running bank balance.', confirmText: 'Save Transaction', confirmType: type === 'Withdrawal' ? 'danger' : 'primary' };
   } else {
     const prod = products.find((p) => p.id === stockInLines[0]?.productId) || allProducts.find((p) => p.id === stockInLines[0]?.productId);
     const qty = stockInLines.reduce((total, line) => total + line.qty, 0);
@@ -10945,6 +12256,17 @@ $('#modalForm').addEventListener('submit', async (event) => {
       products = [{ ...result, qty: 0, sku: result.sku || '' }, ...products];
       allProducts = [{ ...result }, ...allProducts];
       showToast('Product added successfully.', 'success');
+    } else if (activeForm === 'lossDamage') {
+      const productId = String(form.get('productId') || '');
+      const qty = Number(form.get('qty') || 0);
+      const reason = String(form.get('reason') || 'Other');
+      const notes = String(form.get('notes') || '').trim();
+      const product = products.find((item) => item.id === productId);
+      if (!product || product.productType === 'bundle') throw new Error('Choose an individual stocked product.');
+      if (!Number.isFinite(qty) || qty <= 0 || qty > Number(product.qty)) throw new Error(`Quantity cannot exceed the ${Number(product.qty).toLocaleString('en-PH')} available ${product.unit || 'unit'}.`);
+      if (reason === 'Other' && !notes) throw new Error('Enter notes when the reason is Other.');
+      await api('recordInventoryLoss', { branchId: activeBranchId, productId, qty, reason, notes });
+      showToast('Loss / damage recorded and inventory deducted.', 'success');
     } else if (activeForm === 'restaurantTable') {
       const name = String(form.get('name') || '').trim(); const capacity = Number(form.get('capacity'));
       if (!name || !Number.isInteger(capacity) || capacity < 1) throw new Error('Enter a table name and whole-number seat capacity.');
@@ -11052,6 +12374,21 @@ $('#modalForm').addEventListener('submit', async (event) => {
         dailyExpenses = dailyExpenses.map((item) => item.id === editingProductId ? { ...item, businessDate, category, description, amount, receiptReference, updatedAt: new Date().toISOString() } : item);
       }
       showToast(activeForm === 'editDailyExpense' ? 'Daily Expense updated.' : 'Daily Expense recorded.', 'success');
+      backgroundRefresh();
+    } else if (activeForm === 'bankTransaction') {
+      const businessDate = form.get('businessDate');
+      const type = String(form.get('transactionType') || 'Deposit');
+      const method = String(form.get('paymentMethod') || 'Cash');
+      const amount = Number(form.get('amount') || 0);
+      const bankName = String(form.get('bankName') || '').trim();
+      const chequeNumber = String(form.get('chequeNumber') || '').trim();
+      const reference = String(form.get('reference') || '').trim();
+      const details = String(form.get('details') || '').trim();
+      if (!businessDate || !['Deposit', 'Withdrawal'].includes(type) || !['Cash', 'Cheque'].includes(method) || !Number.isFinite(amount) || amount <= 0 || !details) throw new Error('Enter a valid date, type, payment method, amount, and details.');
+      if (method === 'Cheque' && (!bankName || !chequeNumber)) throw new Error('Enter the bank name and cheque number.');
+      const { error } = await requireSupabase_().rpc('create_bank_transaction', { target_branch_id: activeBranchId, target_business_date: businessDate, transaction_type_input: type, payment_method_input: method, amount_input: amount, bank_name_input: bankName, cheque_number_input: chequeNumber, reference_input: reference, details_input: details });
+      throwIfError_(error);
+      showToast(`Bank ${type.toLowerCase()} recorded.`, 'success');
       backgroundRefresh();
     } else if (activeForm === 'admin') {
       await api('createAdminAccount', Object.fromEntries(form));
@@ -11261,6 +12598,66 @@ if (creditsDateTo) {
     }
     syncCustomDatePicker(dateTo);
     viewCurrentPages['credits'] = 1;
+    renderInventory();
+  });
+}
+
+const lossDamagesDateFrom = $('#lossDamagesDateFrom');
+if (lossDamagesDateFrom) {
+  lossDamagesDateFrom.addEventListener('change', () => {
+    const dateFrom = $('#lossDamagesDateFrom');
+    const dateTo = $('#lossDamagesDateTo');
+    if (dateFrom.value && dateTo.value && dateFrom.value > dateTo.value) {
+      dateTo.value = dateFrom.value;
+      syncCustomDatePicker(dateTo);
+    }
+    syncCustomDatePicker(dateFrom);
+    viewCurrentPages['lossDamages'] = 1;
+    renderInventory();
+  });
+}
+
+const lossDamagesDateTo = $('#lossDamagesDateTo');
+if (lossDamagesDateTo) {
+  lossDamagesDateTo.addEventListener('change', () => {
+    const dateFrom = $('#lossDamagesDateFrom');
+    const dateTo = $('#lossDamagesDateTo');
+    if (dateFrom.value && dateTo.value && dateTo.value < dateFrom.value) {
+      dateFrom.value = dateTo.value;
+      syncCustomDatePicker(dateFrom);
+    }
+    syncCustomDatePicker(dateTo);
+    viewCurrentPages['lossDamages'] = 1;
+    renderInventory();
+  });
+}
+
+const bankTransactionsDateFrom = $('#bankTransactionsDateFrom');
+if (bankTransactionsDateFrom) {
+  bankTransactionsDateFrom.addEventListener('change', () => {
+    const dateFrom = $('#bankTransactionsDateFrom');
+    const dateTo = $('#bankTransactionsDateTo');
+    if (dateFrom.value && dateTo.value && dateFrom.value > dateTo.value) {
+      dateTo.value = dateFrom.value;
+      syncCustomDatePicker(dateTo);
+    }
+    syncCustomDatePicker(dateFrom);
+    viewCurrentPages['bankTransactions'] = 1;
+    renderInventory();
+  });
+}
+
+const bankTransactionsDateTo = $('#bankTransactionsDateTo');
+if (bankTransactionsDateTo) {
+  bankTransactionsDateTo.addEventListener('change', () => {
+    const dateFrom = $('#bankTransactionsDateFrom');
+    const dateTo = $('#bankTransactionsDateTo');
+    if (dateFrom.value && dateTo.value && dateTo.value < dateFrom.value) {
+      dateFrom.value = dateTo.value;
+      syncCustomDatePicker(dateFrom);
+    }
+    syncCustomDatePicker(dateTo);
+    viewCurrentPages['bankTransactions'] = 1;
     renderInventory();
   });
 }
@@ -11940,8 +13337,9 @@ async function applySession(session, useRoleDefaultView = false) {
     const v = item.dataset.view;
     const isLegacyPosSub = ['tableService', 'waiterQueue'].includes(v) && permittedViews.includes('pos');
     const isLegacyProdSub = v === 'bundleMonitoring' && permittedViews.includes('products');
-    const isLegacyInvSub = ['quarantine', 'quarantineReport'].includes(v) && permittedViews.includes('inventory');
-    const allowed = (v === 'dashboard' && account.role === 'admin') || permittedViews.includes('*') || permittedViews.includes(v) || isLegacyPosSub || isLegacyProdSub || isLegacyInvSub;
+    const isLegacyInvSub = ['quarantine', 'lossDamages', 'quarantineReport'].includes(v) && permittedViews.includes('inventory');
+    const isLegacyFinanceSub = v === 'bankTransactions' && permittedViews.includes('dailyExpenses');
+    const allowed = (v === 'dashboard' && account.role === 'admin') || permittedViews.includes('*') || permittedViews.includes(v) || isLegacyPosSub || isLegacyProdSub || isLegacyInvSub || isLegacyFinanceSub;
     item.hidden = !allowed;
   });
   document.querySelectorAll('.side-nav .nav-label').forEach((label) => {
