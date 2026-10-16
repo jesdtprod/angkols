@@ -18,9 +18,9 @@
     "semantic_hash": "85060dd50c382cc8aa0c77b96f7f5760"
   },
   "app.js": {
-    "mtime": 1792098663.6631444,
-    "seen": 1792098731.765513,
-    "ast_hash": "7f6e6cc189d378a34812b8ba6e0d5458",
+    "mtime": 1792165129.131764,
+    "seen": 1792165204.7474594,
+    "ast_hash": "939609e1be89da71a8107f7a271203cd",
     "semantic_hash": ""
   },
   "deno.json": {
@@ -126,9 +126,9 @@
     "semantic_hash": ""
   },
   "index.html": {
-    "mtime": 1792098701.656633,
-    "seen": 1792098731.7725284,
-    "ast_hash": "4fc6dc5e1c1ebc3a1474553bddbc97cf",
+    "mtime": 1792164922.4435744,
+    "seen": 1792165204.7544582,
+    "ast_hash": "f2e6e681bc0b9cd7030fad4453865828",
     "semantic_hash": ""
   },
   "report.html": {
@@ -204,9 +204,9 @@
     "semantic_hash": ""
   },
   ".agents/workflows/analyze-edit.md": {
-    "mtime": 1792045284.5695016,
-    "seen": 1792045410.3929827,
-    "ast_hash": "3c398d644b38871366750555103b35fe",
+    "mtime": 1792146716.7115936,
+    "seen": 1792149470.2645752,
+    "ast_hash": "2470ca4592beab909e41ae570ed45b1c",
     "semantic_hash": ""
   },
   "DESIGN.md": {
@@ -246,15 +246,33 @@
     "semantic_hash": ""
   },
   "owner-reports.js": {
-    "mtime": 1792095896.3054678,
-    "seen": 1792095905.0636098,
-    "ast_hash": "6e7f21b94be6060c6f5772a07ba40da2",
+    "mtime": 1792164932.3623357,
+    "seen": 1792165204.7474594,
+    "ast_hash": "a5f4e1dab4c6b8a6132bc29a2f617cb7",
     "semantic_hash": ""
   },
   "scripts/check-owner-bank-table-reports.mjs": {
     "mtime": 1792095834.9014056,
     "seen": 1792095905.0646126,
     "ast_hash": "90831f8d68da669dabf92c9f44e83761",
+    "semantic_hash": ""
+  },
+  "scripts/check-daily-cash-columns.mjs": {
+    "mtime": 1792145405.8979406,
+    "seen": 1792145423.419212,
+    "ast_hash": "1cb208e8d375289b8f757ef420c17669",
+    "semantic_hash": ""
+  },
+  "UI DESIGN.md": {
+    "mtime": 1792146598.1049025,
+    "seen": 1792146620.2911766,
+    "ast_hash": "250b8e3be9cc16d9d05469b652769a8c",
+    "semantic_hash": ""
+  },
+  "scripts/check-quarantine-reports.mjs": {
+    "mtime": 1792157918.0404463,
+    "seen": 1792157961.739574,
+    "ast_hash": "64c875fc56317aecad3820c027e9c7cc",
     "semantic_hash": ""
   }
 }

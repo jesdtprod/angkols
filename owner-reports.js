@@ -15,18 +15,80 @@ function ownerDefaultRange_(prefix) {
 }
 
 function ownerKpisHtml_(cards) {
-  return `<div class="std-kpi-grid">${cards.map(([label, value, sub = '']) => `<div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">${escapeHtml(label)}</span><strong class="std-kpi-value text-sky">${escapeHtml(String(value))}</strong><span class="std-kpi-sub">${escapeHtml(sub)}</span></div></div>`).join('')}</div>`;
+  return `<div class="std-kpi-grid">${cards.map(([label, value, sub = '']) => {
+    const l = String(label).toUpperCase();
+    let iconClass = 'icon-sky';
+    let valColor = 'text-sky';
+    let iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>';
+
+    if (l.includes('SALES') || l.includes('REVENUE') || l.includes('PROFIT') || l.includes('COLLECTED') || l.includes('VALUE') || l.includes('COUNTED')) {
+      iconClass = 'icon-emerald';
+      valColor = 'text-emerald';
+      iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
+    } else if (l.includes('COGS') || l.includes('EXPENSE') || l.includes('VARIANCE') || l.includes('OVER / (SHORT)') || l.includes('OUTSTANDING') || l.includes('DIFFERENCE')) {
+      iconClass = 'icon-amber';
+      valColor = 'text-amber';
+      iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>';
+    } else if (l.includes('UNITS') || l.includes('TICKETS') || l.includes('TABS') || l.includes('TABLE') || l.includes('REQUEST') || l.includes('EXPECTED')) {
+      iconClass = 'icon-sky';
+      valColor = 'text-sky';
+      iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/></svg>';
+    }
+
+    return `
+      <div class="std-kpi-card">
+        <div class="std-kpi-icon ${iconClass}">
+          ${iconSvg}
+        </div>
+        <div class="std-kpi-content">
+          <span class="std-kpi-label">${escapeHtml(label)}</span>
+          <strong class="std-kpi-value ${valColor}">${escapeHtml(String(value))}</strong>
+          <span class="std-kpi-sub">${escapeHtml(sub)}</span>
+        </div>
+      </div>
+    `;
+  }).join('')}</div>`;
 }
 
 function ownerTablesHtml_(sections) {
-  return sections.map(({ title, headings, rows }) => `<h3>${escapeHtml(title)}</h3><div class="std-table-shell"><div class="std-table-header" style="grid-template-columns:repeat(${headings.length},minmax(0,1fr));">${headings.map((heading) => `<span>${escapeHtml(heading)}</span>`).join('')}</div>${rows.map((row) => `<div class="std-table-row" style="grid-template-columns:repeat(${headings.length},minmax(0,1fr));">${row.map((cell, index) => `<div data-label="${escapeHtml(headings[index])}">${escapeHtml(String(cell))}</div>`).join('')}</div>`).join('') || '<div class="std-empty-state"><h4 class="std-empty-title">No Records</h4><p class="std-empty-desc">No matching activity in this period.</p></div>'}</div>`).join('');
+  return sections.map(({ title, headings, rows }) => `
+    <h3>${escapeHtml(title)}</h3>
+    <div class="std-table-shell">
+      <div class="std-table-header" style="grid-template-columns:repeat(${headings.length},minmax(0,1fr));">
+        ${headings.map((heading) => `<span>${escapeHtml(heading)}</span>`).join('')}
+      </div>
+      ${rows.map((row) => `
+        <div class="std-table-row" style="grid-template-columns:repeat(${headings.length},minmax(0,1fr));">
+          ${row.map((cell, index) => {
+            const heading = headings[index];
+            const isQty = /tabs|requests|confirmed|rejected|pending|units|qty|lines/i.test(heading);
+            const isNumber = typeof cell === 'number' || (typeof cell === 'string' && /^\d+$/.test(cell.trim()));
+            const content = isQty && isNumber && !String(cell).includes('%') && !String(cell).includes('PHP')
+              ? `<span class="stock-pill stock-quantity">${escapeHtml(String(cell))}</span>`
+              : escapeHtml(String(cell));
+            return `<div data-label="${escapeHtml(heading)}">${content}</div>`;
+          }).join('')}
+        </div>
+      `).join('') || `
+        <div class="std-empty-state">
+          <div class="std-empty-icon" style="color:#38bdf8;background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.25);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>
+            </svg>
+          </div>
+          <h4 class="std-empty-title">No Records</h4>
+          <p class="std-empty-desc">No matching activity in this period.</p>
+        </div>
+      `}
+    </div>
+  `).join('');
 }
 
 function ownerReportPdf_(title, periodText, cards, sections, note = '') {
   const branch = branches.find((item) => item.id === activeBranchId)?.name || 'Main Branch';
   const generated = new Date().toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
   const pages = sections.flatMap((section) => Array.from({ length: Math.max(1, Math.ceil(section.rows.length / 14)) }, (_, index) => ({ ...section, rows: section.rows.slice(index * 14, index * 14 + 14) })));
-return pages.map((section, index) => `<div class="report-page"><div class="report-page-content">${renderReportRunningHeader(branch, periodText, title)}<section class="report-summary-grid">${cards.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join('')}</section>${note ? `<p class="report-note">${escapeHtml(note)}</p>` : ''}<h2 class="report-section-title">${escapeHtml(section.title)}</h2><table class="report-table"><thead><tr>${section.headings.map((heading) => `<th>${escapeHtml(heading)}</th>`).join('')}</tr></thead><tbody>${section.rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(String(cell))}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${section.headings.length}">No matching records.</td></tr>`}</tbody></table></div>${renderReportPageFooter(index + 1, pages.length, generated, title)}</div>`).join('');
+return pages.map((section, index) => `<div class="report-page"><div class="report-page-content">${renderReportRunningHeader(branch, periodText, title, index === 0, 'Executive management and financial operations audit', generated)}<section class="report-summary-grid">${cards.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join('')}</section>${note ? `<p class="report-note">${escapeHtml(note)}</p>` : ''}<div class="report-section-title-wrap"><h2 class="report-section-title">${escapeHtml(section.title)}</h2><span class="report-count-badge">${section.rows.length} records</span></div><table class="report-table"><thead><tr>${section.headings.map((heading) => `<th>${escapeHtml(heading)}</th>`).join('')}</tr></thead><tbody>${section.rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(String(cell))}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${section.headings.length}">No matching records.</td></tr>`}</tbody></table>${index === pages.length - 1 ? '<div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By (Cashier / Staff)</span><span class="sign-sub">Signature over printed name</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Audited & Verified By</span><span class="sign-sub">Branch Manager / Operations</span></div></div><div class="report-disclaimer"><p>ANGKOL\'S GRILL &amp; RESTOBAR SYSTEM-GENERATED AUDIT REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p></div>' : ''}</div>${renderReportPageFooter(index + 1, pages.length, generated, title)}</div>`).join('');
 }
 
 function getOwnerDashboardReport_(from, to) {
@@ -81,9 +143,7 @@ function currentOwnerDashboardReport_() {
 function renderOwnerDashboard_() {
   const root = $('#dashboard'); if (!root) return;
   const report = currentOwnerDashboardReport_();
-  root.innerHTML = `<div class="std-view theme-emerald owner-dashboard-report"><div class="std-hero-card"><div class="std-hero-leading"><div class="std-hero-text"><span class="std-hero-kicker">OWNER REPORTING</span><strong class="std-hero-title">Owner Dashboard</strong><p class="std-hero-desc">Sales, recorded costs, profitability, collections, receivables, and current stock risks.</p></div></div></div><div class="sales-date-range" id="ownerDashboardDateRange"><div class="sales-date-control"><input id="ownerDashboardDateFrom" type="date" value="${report.from}" aria-label="Owner dashboard date from"></div><div class="sales-date-control"><input id="ownerDashboardDateTo" type="date" value="${report.to}" aria-label="Owner dashboard date to"></div><button class="button button-secondary sales-pdf-button" id="printOwnerDashboardButton" type="button">Print PDF</button><button class="button button-primary sales-pdf-button" id="exportOwnerDashboardButton" type="button">Export PDF</button></div>${ownerKpisHtml_(report.cards)}<div class="std-toolbar-strip"><span class="product-meta">${escapeHtml(report.note)}</span></div>${ownerTablesHtml_(report.sections)}</div>`;
-  $('#printOwnerDashboardButton').innerHTML = $('#generateProfitLossPdfButton')?.innerHTML || 'Print PDF';
-  $('#exportOwnerDashboardButton').innerHTML = $('#exportProfitLossPdfButton')?.innerHTML || 'Export PDF';
+  root.innerHTML = `<div class="std-view theme-sky owner-dashboard-report"><div class="std-hero-card"><div class="std-hero-leading"><div class="std-hero-text"><span class="std-hero-kicker">OWNER REPORTING</span><strong class="std-hero-title">Owner Dashboard</strong><p class="std-hero-desc">Sales, recorded costs, profitability, collections, receivables, and current stock risks.</p></div></div><div class="std-hero-actions"><button class="button button-secondary std-record-btn" id="printOwnerDashboardButton" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span></button><button class="button button-primary std-record-btn" id="exportOwnerDashboardButton" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg><span>Export PDF</span></button></div></div><div class="sales-date-range" id="ownerDashboardDateRange"><div class="sales-date-control"><input id="ownerDashboardDateFrom" type="date" value="${report.from}" aria-label="Owner dashboard date from"></div><div class="sales-date-control"><input id="ownerDashboardDateTo" type="date" value="${report.to}" aria-label="Owner dashboard date to"></div></div>${ownerKpisHtml_(report.cards)}<div class="std-toolbar-strip"><span class="product-meta">${escapeHtml(report.note)}</span></div>${ownerTablesHtml_(report.sections)}</div>`;
   initCustomDatePickers(root);
   ['ownerDashboardDateFrom', 'ownerDashboardDateTo'].forEach((id) => $(`#${id}`).addEventListener('change', () => {
     const from = $('#ownerDashboardDateFrom').value, to = $('#ownerDashboardDateTo').value;
@@ -291,7 +351,7 @@ function tableQrReportSections_(report) {
 }
 
 function tableQrReportNote_() {
-  return 'Tab sales are recorded once on settlement date, after tab discounts, including credit sales; this is not cash collected. QR outcomes use requests submitted during the range and their latest statuses. Source values are before discounts/refunds. Unlinked historical items are not assumed to be QR orders. Tab time = open to settled; confirmation time = request to confirmed. Missing samples are excluded. QR scans/page views were not recorded, so scan-to-order conversion is unavailable.';
+  return 'Settled tab sales and QR request outcomes for the selected date range.';
 }
 
 function tableQrReportCards_(report) {
@@ -321,7 +381,45 @@ async function renderTableQrPerformance(force = false) {
     await loadOwnerReportData_('tableQr',key,'get_table_qr_performance_report',{ target_branch_id: activeBranchId,date_from_input: range.from,date_to_input: range.to },force);
     if (sequence !== tableQrReportRenderId || activeView !== 'tableQrPerformance' || key !== tableQrReportKey_()) return;
     const report = loadedTableQrReport_();
-    root.innerHTML = `<div class="std-view theme-emerald"><div class="std-hero-card"><div class="std-hero-leading"><div class="std-hero-text"><span class="std-hero-kicker">OWNER REPORTING &bull; TABLE SERVICE</span><strong class="std-hero-title">Table / QR Ordering Performance</strong><p class="std-hero-desc">Table activity, settled sales, QR outcomes, and recorded service durations.</p></div></div></div>${ownerKpisHtml_(tableQrReportCards_(report))}<p class="product-meta">${escapeHtml(tableQrReportNote_())}</p>${ownerTablesHtml_(tableQrReportSections_(report))}</div>`;
+    const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(range.from, range.to) : '';
+    root.innerHTML = `<div class="std-view theme-sky">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 10h16M6 10v10m12-10v10M8 5h8v5H8z"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">OWNER REPORTING &bull; TABLE SERVICE</span>
+            <strong class="std-hero-title">Table / QR Ordering Performance</strong>
+            <p class="std-hero-desc">Table activity, settled sales, QR outcomes, and recorded service durations.</p>
+          </div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="button button-secondary std-record-btn" type="button" id="tableQrPrintPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
+            <span>Print PDF</span>
+          </button>
+          <button class="button button-primary std-record-btn" type="button" id="tableQrExportPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
+            <span>Export PDF</span>
+          </button>
+        </div>
+      </div>
+      ${ownerKpisHtml_(tableQrReportCards_(report))}
+      <div class="std-toolbar-strip">
+        <span class="product-meta">${escapeHtml(tableQrReportNote_())}</span>
+        ${typeof renderDatePresets === 'function' ? renderDatePresets(activePreset, 'data-table-qr-preset') : ''}
+      </div>
+      ${ownerTablesHtml_(tableQrReportSections_(report))}
+    </div>`;
+    root.querySelector('#tableQrPrintPdfHeroBtn')?.addEventListener('click', generateTableQrPerformancePdf);
+    root.querySelector('#tableQrExportPdfHeroBtn')?.addEventListener('click', exportTableQrPerformancePdf);
+    if (typeof bindDatePresets === 'function') {
+      bindDatePresets(root, 'data-table-qr-preset', 'tableQrPerformanceDateFrom', 'tableQrPerformanceDateTo', () => renderTableQrPerformance(true));
+    }
     actions.forEach((button) => { if (button) button.disabled = false; });
   } catch (error) {
     if (sequence === tableQrReportRenderId && activeView === 'tableQrPerformance') root.innerHTML = `<div class="std-empty-state"><h4 class="std-empty-title">Unable to Load Table / QR Performance</h4><p>${escapeHtml(error.message)}</p></div>`;

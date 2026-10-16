@@ -6900,19 +6900,142 @@ body::after {
   gap: 10px;
 }
 
-.workspace[data-view="products"] .catalog {
+/* Layout & Ordering for Product Registration and Unified Operations / Report Views */
+:is(
+  .workspace[data-view="products"],
+  .workspace[data-view="bundleMonitoring"],
+  .workspace[data-view="inventory"],
+  .workspace[data-view="quarantine"],
+  .workspace[data-view="lossDamages"],
+  .workspace[data-view="transfers"],
+  .workspace[data-view="dailySpotCash"],
+  .workspace[data-view="dailyExpenses"],
+  .workspace[data-view="bankTransactions"],
+  .workspace[data-view="customers"],
+  .workspace[data-view="credits"],
+  .workspace[data-view="staffAccounts"],
+  .workspace[data-view="adminAccount"],
+  .workspace[data-view="sales"],
+  .workspace[data-view="inventoryReports"],
+  .workspace[data-view="quarantineReport"],
+  .workspace[data-view="profitLoss"],
+  .workspace[data-view="foodCostMargin"],
+  .workspace[data-view="productSalesPerformance"],
+  .workspace[data-view="creditAging"],
+  .workspace[data-view="lossesWastage"],
+  .workspace[data-view="servicePerformance"],
+  .workspace[data-view="tableQrPerformance"],
+  .workspace[data-view="inventoryValuation"],
+  .workspace[data-view="cashBankReconciliation"],
+  .workspace[data-view="ownerDashboard"],
+  .workspace[data-view="branches"],
+  .workspace[data-view="tableService"],
+  .workspace[data-view="waiterQueue"],
+  .workspace[data-view="kitchenDisplay"]
+) .catalog {
   display: flex;
   flex-direction: column;
 }
 
-.workspace[data-view="products"] .catalog > .section-head,
-.workspace[data-view="products"] .section-head {
+:is(
+  .workspace[data-view="products"],
+  .workspace[data-view="bundleMonitoring"],
+  .workspace[data-view="inventory"],
+  .workspace[data-view="quarantine"],
+  .workspace[data-view="lossDamages"],
+  .workspace[data-view="transfers"],
+  .workspace[data-view="dailySpotCash"],
+  .workspace[data-view="dailyExpenses"],
+  .workspace[data-view="bankTransactions"],
+  .workspace[data-view="customers"],
+  .workspace[data-view="credits"],
+  .workspace[data-view="staffAccounts"],
+  .workspace[data-view="adminAccount"],
+  .workspace[data-view="sales"],
+  .workspace[data-view="inventoryReports"],
+  .workspace[data-view="quarantineReport"],
+  .workspace[data-view="profitLoss"],
+  .workspace[data-view="foodCostMargin"],
+  .workspace[data-view="productSalesPerformance"],
+  .workspace[data-view="creditAging"],
+  .workspace[data-view="lossesWastage"],
+  .workspace[data-view="servicePerformance"],
+  .workspace[data-view="tableQrPerformance"],
+  .workspace[data-view="inventoryValuation"],
+  .workspace[data-view="cashBankReconciliation"],
+  .workspace[data-view="ownerDashboard"],
+  .workspace[data-view="branches"],
+  .workspace[data-view="tableService"],
+  .workspace[data-view="waiterQueue"],
+  .workspace[data-view="kitchenDisplay"]
+) .catalog > .section-head,
+:is(
+  .workspace[data-view="products"],
+  .workspace[data-view="bundleMonitoring"],
+  .workspace[data-view="inventory"],
+  .workspace[data-view="quarantine"],
+  .workspace[data-view="lossDamages"],
+  .workspace[data-view="transfers"],
+  .workspace[data-view="dailySpotCash"],
+  .workspace[data-view="dailyExpenses"],
+  .workspace[data-view="bankTransactions"],
+  .workspace[data-view="customers"],
+  .workspace[data-view="credits"],
+  .workspace[data-view="staffAccounts"],
+  .workspace[data-view="adminAccount"],
+  .workspace[data-view="sales"],
+  .workspace[data-view="inventoryReports"],
+  .workspace[data-view="quarantineReport"],
+  .workspace[data-view="profitLoss"],
+  .workspace[data-view="foodCostMargin"],
+  .workspace[data-view="productSalesPerformance"],
+  .workspace[data-view="creditAging"],
+  .workspace[data-view="lossesWastage"],
+  .workspace[data-view="servicePerformance"],
+  .workspace[data-view="tableQrPerformance"],
+  .workspace[data-view="inventoryValuation"],
+  .workspace[data-view="cashBankReconciliation"],
+  .workspace[data-view="ownerDashboard"],
+  .workspace[data-view="branches"],
+  .workspace[data-view="tableService"],
+  .workspace[data-view="waiterQueue"],
+  .workspace[data-view="kitchenDisplay"]
+) .section-head {
   display: none !important;
 }
 
-.workspace[data-view="products"] .table-container,
-.workspace[data-view="products"] .grid-table,
-.workspace[data-view="products"] .std-view {
+:is(
+  .workspace[data-view="products"],
+  .workspace[data-view="bundleMonitoring"],
+  .workspace[data-view="inventory"],
+  .workspace[data-view="quarantine"],
+  .workspace[data-view="lossDamages"],
+  .workspace[data-view="transfers"],
+  .workspace[data-view="dailySpotCash"],
+  .workspace[data-view="dailyExpenses"],
+  .workspace[data-view="bankTransactions"],
+  .workspace[data-view="customers"],
+  .workspace[data-view="credits"],
+  .workspace[data-view="staffAccounts"],
+  .workspace[data-view="adminAccount"],
+  .workspace[data-view="sales"],
+  .workspace[data-view="inventoryReports"],
+  .workspace[data-view="quarantineReport"],
+  .workspace[data-view="profitLoss"],
+  .workspace[data-view="foodCostMargin"],
+  .workspace[data-view="productSalesPerformance"],
+  .workspace[data-view="creditAging"],
+  .workspace[data-view="lossesWastage"],
+  .workspace[data-view="servicePerformance"],
+  .workspace[data-view="tableQrPerformance"],
+  .workspace[data-view="inventoryValuation"],
+  .workspace[data-view="cashBankReconciliation"],
+  .workspace[data-view="ownerDashboard"],
+  .workspace[data-view="branches"],
+  .workspace[data-view="tableService"],
+  .workspace[data-view="waiterQueue"],
+  .workspace[data-view="kitchenDisplay"]
+) :is(.table-container, .grid-table, .std-view, .expenses-ledger-view, .loss-damages-view, .bank-ledger-view) {
   display: contents !important;
   background: transparent !important;
   border: none !important;
@@ -6920,39 +7043,263 @@ body::after {
   padding: 0 !important;
 }
 
-.workspace[data-view="products"] .std-hero-card {
+:is(
+  .workspace[data-view="products"],
+  .workspace[data-view="bundleMonitoring"],
+  .workspace[data-view="inventory"],
+  .workspace[data-view="quarantine"],
+  .workspace[data-view="lossDamages"],
+  .workspace[data-view="transfers"],
+  .workspace[data-view="dailySpotCash"],
+  .workspace[data-view="dailyExpenses"],
+  .workspace[data-view="bankTransactions"],
+  .workspace[data-view="customers"],
+  .workspace[data-view="credits"],
+  .workspace[data-view="staffAccounts"],
+  .workspace[data-view="adminAccount"],
+  .workspace[data-view="sales"],
+  .workspace[data-view="inventoryReports"],
+  .workspace[data-view="quarantineReport"],
+  .workspace[data-view="profitLoss"],
+  .workspace[data-view="foodCostMargin"],
+  .workspace[data-view="productSalesPerformance"],
+  .workspace[data-view="creditAging"],
+  .workspace[data-view="lossesWastage"],
+  .workspace[data-view="servicePerformance"],
+  .workspace[data-view="tableQrPerformance"],
+  .workspace[data-view="inventoryValuation"],
+  .workspace[data-view="cashBankReconciliation"],
+  .workspace[data-view="ownerDashboard"],
+  .workspace[data-view="branches"],
+  .workspace[data-view="tableService"],
+  .workspace[data-view="waiterQueue"],
+  .workspace[data-view="kitchenDisplay"]
+) :is(.std-hero-card, .expenses-hero-card, .loss-hero-card, .bank-hero-card, .table-hero-card, .kitchen-hero-card, .waiter-hero-card) {
   order: 1;
   width: 100%;
   margin: 0;
 }
 
-.workspace[data-view="products"] .std-kpi-grid {
+:is(
+  .workspace[data-view="products"],
+  .workspace[data-view="bundleMonitoring"],
+  .workspace[data-view="inventory"],
+  .workspace[data-view="quarantine"],
+  .workspace[data-view="lossDamages"],
+  .workspace[data-view="transfers"],
+  .workspace[data-view="dailySpotCash"],
+  .workspace[data-view="dailyExpenses"],
+  .workspace[data-view="bankTransactions"],
+  .workspace[data-view="customers"],
+  .workspace[data-view="credits"],
+  .workspace[data-view="staffAccounts"],
+  .workspace[data-view="adminAccount"],
+  .workspace[data-view="sales"],
+  .workspace[data-view="inventoryReports"],
+  .workspace[data-view="quarantineReport"],
+  .workspace[data-view="profitLoss"],
+  .workspace[data-view="foodCostMargin"],
+  .workspace[data-view="productSalesPerformance"],
+  .workspace[data-view="creditAging"],
+  .workspace[data-view="lossesWastage"],
+  .workspace[data-view="servicePerformance"],
+  .workspace[data-view="tableQrPerformance"],
+  .workspace[data-view="inventoryValuation"],
+  .workspace[data-view="cashBankReconciliation"],
+  .workspace[data-view="ownerDashboard"],
+  .workspace[data-view="branches"]
+) :is(.std-kpi-grid, .expenses-kpi-grid, .loss-kpi-grid, .bank-kpi-grid, .credit-kpi-grid, .report-summary-grid) {
   order: 2;
   margin-top: 14px;
   width: 100%;
 }
 
-.workspace[data-view="products"] .toolbar {
+:is(
+  .workspace[data-view="products"],
+  .workspace[data-view="bundleMonitoring"],
+  .workspace[data-view="inventory"],
+  .workspace[data-view="quarantine"],
+  .workspace[data-view="lossDamages"],
+  .workspace[data-view="transfers"],
+  .workspace[data-view="dailySpotCash"],
+  .workspace[data-view="dailyExpenses"],
+  .workspace[data-view="bankTransactions"],
+  .workspace[data-view="customers"],
+  .workspace[data-view="credits"],
+  .workspace[data-view="staffAccounts"],
+  .workspace[data-view="adminAccount"],
+  .workspace[data-view="sales"],
+  .workspace[data-view="inventoryReports"],
+  .workspace[data-view="quarantineReport"],
+  .workspace[data-view="profitLoss"],
+  .workspace[data-view="foodCostMargin"],
+  .workspace[data-view="productSalesPerformance"],
+  .workspace[data-view="creditAging"],
+  .workspace[data-view="lossesWastage"],
+  .workspace[data-view="servicePerformance"],
+  .workspace[data-view="tableQrPerformance"],
+  .workspace[data-view="inventoryValuation"],
+  .workspace[data-view="cashBankReconciliation"],
+  .workspace[data-view="ownerDashboard"],
+  .workspace[data-view="branches"],
+  .workspace[data-view="tableService"],
+  .workspace[data-view="waiterQueue"],
+  .workspace[data-view="kitchenDisplay"]
+) .toolbar {
   order: 3;
   margin: 16px 0 0 0 !important;
   width: 100%;
+}
+
+:is(
+  .workspace[data-view="products"],
+  .workspace[data-view="bundleMonitoring"],
+  .workspace[data-view="inventory"],
+  .workspace[data-view="quarantine"],
+  .workspace[data-view="customers"],
+  .workspace[data-view="staffAccounts"],
+  .workspace[data-view="adminAccount"],
+  .workspace[data-view="inventoryReports"],
+  .workspace[data-view="branches"],
+  .workspace[data-view="tableService"],
+  .workspace[data-view="waiterQueue"],
+  .workspace[data-view="kitchenDisplay"]
+) .toolbar {
   display: block;
 }
 
-.workspace[data-view="products"] .std-toolbar-strip {
+:is(
+  .workspace[data-view="products"],
+  .workspace[data-view="bundleMonitoring"],
+  .workspace[data-view="inventory"],
+  .workspace[data-view="quarantine"],
+  .workspace[data-view="lossDamages"],
+  .workspace[data-view="transfers"],
+  .workspace[data-view="dailySpotCash"],
+  .workspace[data-view="dailyExpenses"],
+  .workspace[data-view="bankTransactions"],
+  .workspace[data-view="customers"],
+  .workspace[data-view="credits"],
+  .workspace[data-view="staffAccounts"],
+  .workspace[data-view="adminAccount"],
+  .workspace[data-view="sales"],
+  .workspace[data-view="inventoryReports"],
+  .workspace[data-view="quarantineReport"],
+  .workspace[data-view="profitLoss"],
+  .workspace[data-view="foodCostMargin"],
+  .workspace[data-view="productSalesPerformance"],
+  .workspace[data-view="creditAging"],
+  .workspace[data-view="lossesWastage"],
+  .workspace[data-view="servicePerformance"],
+  .workspace[data-view="tableQrPerformance"],
+  .workspace[data-view="inventoryValuation"],
+  .workspace[data-view="cashBankReconciliation"],
+  .workspace[data-view="ownerDashboard"],
+  .workspace[data-view="branches"]
+) :is(.std-toolbar-strip, .expenses-toolbar-strip, .loss-filter-bar, .loss-toolbar-strip, .bank-toolbar-strip, .credit-filter-bar, .transfers-filter-bar, .std-view > p.product-meta) {
   order: 4;
   margin-top: 14px;
   width: 100%;
 }
 
-.workspace[data-view="products"] .std-table-shell {
+:is(
+  .workspace[data-view="products"],
+  .workspace[data-view="bundleMonitoring"],
+  .workspace[data-view="inventory"],
+  .workspace[data-view="quarantine"],
+  .workspace[data-view="lossDamages"],
+  .workspace[data-view="transfers"],
+  .workspace[data-view="dailySpotCash"],
+  .workspace[data-view="dailyExpenses"],
+  .workspace[data-view="bankTransactions"],
+  .workspace[data-view="customers"],
+  .workspace[data-view="credits"],
+  .workspace[data-view="staffAccounts"],
+  .workspace[data-view="adminAccount"],
+  .workspace[data-view="sales"],
+  .workspace[data-view="inventoryReports"],
+  .workspace[data-view="quarantineReport"],
+  .workspace[data-view="profitLoss"],
+  .workspace[data-view="foodCostMargin"],
+  .workspace[data-view="productSalesPerformance"],
+  .workspace[data-view="creditAging"],
+  .workspace[data-view="lossesWastage"],
+  .workspace[data-view="servicePerformance"],
+  .workspace[data-view="tableQrPerformance"],
+  .workspace[data-view="inventoryValuation"],
+  .workspace[data-view="cashBankReconciliation"],
+  .workspace[data-view="ownerDashboard"],
+  .workspace[data-view="branches"],
+  .workspace[data-view="tableService"],
+  .workspace[data-view="waiterQueue"],
+  .workspace[data-view="kitchenDisplay"]
+) :is(.std-table-shell, .expenses-table-shell, .loss-table-shell, .bank-table-shell, .quarantine-cases-list, .quarantine-empty-state, .std-empty-state, h3, .table-service-shell, .kitchen-display-shell, .waiter-queue-shell) {
   order: 5;
   margin-top: 14px;
   width: 100%;
+}
+
+:is(
+  .workspace[data-view="products"],
+  .workspace[data-view="bundleMonitoring"],
+  .workspace[data-view="inventory"],
+  .workspace[data-view="quarantine"],
+  .workspace[data-view="lossDamages"],
+  .workspace[data-view="transfers"],
+  .workspace[data-view="dailySpotCash"],
+  .workspace[data-view="dailyExpenses"],
+  .workspace[data-view="bankTransactions"],
+  .workspace[data-view="customers"],
+  .workspace[data-view="credits"],
+  .workspace[data-view="staffAccounts"],
+  .workspace[data-view="adminAccount"],
+  .workspace[data-view="sales"],
+  .workspace[data-view="inventoryReports"],
+  .workspace[data-view="quarantineReport"],
+  .workspace[data-view="profitLoss"],
+  .workspace[data-view="foodCostMargin"],
+  .workspace[data-view="productSalesPerformance"],
+  .workspace[data-view="creditAging"],
+  .workspace[data-view="lossesWastage"],
+  .workspace[data-view="servicePerformance"],
+  .workspace[data-view="tableQrPerformance"],
+  .workspace[data-view="inventoryValuation"],
+  .workspace[data-view="cashBankReconciliation"],
+  .workspace[data-view="ownerDashboard"],
+  .workspace[data-view="branches"]
+) :is(.std-table-shell, .expenses-table-shell, .loss-table-shell, .bank-table-shell) {
   overflow-x: auto;
 }
 
-.workspace[data-view="products"] .table-pagination {
+:is(
+  .workspace[data-view="products"],
+  .workspace[data-view="bundleMonitoring"],
+  .workspace[data-view="inventory"],
+  .workspace[data-view="quarantine"],
+  .workspace[data-view="lossDamages"],
+  .workspace[data-view="transfers"],
+  .workspace[data-view="dailySpotCash"],
+  .workspace[data-view="dailyExpenses"],
+  .workspace[data-view="bankTransactions"],
+  .workspace[data-view="customers"],
+  .workspace[data-view="credits"],
+  .workspace[data-view="staffAccounts"],
+  .workspace[data-view="adminAccount"],
+  .workspace[data-view="sales"],
+  .workspace[data-view="inventoryReports"],
+  .workspace[data-view="quarantineReport"],
+  .workspace[data-view="profitLoss"],
+  .workspace[data-view="foodCostMargin"],
+  .workspace[data-view="productSalesPerformance"],
+  .workspace[data-view="creditAging"],
+  .workspace[data-view="lossesWastage"],
+  .workspace[data-view="servicePerformance"],
+  .workspace[data-view="tableQrPerformance"],
+  .workspace[data-view="inventoryValuation"],
+  .workspace[data-view="cashBankReconciliation"],
+  .workspace[data-view="ownerDashboard"],
+  .workspace[data-view="branches"]
+) :is(.table-pagination, .expenses-pagination, .loss-pagination, .bank-pagination) {
   order: 6;
   margin-top: 16px;
   width: 100%;
@@ -6988,7 +7335,6 @@ body::after {
   width: 100%;
   min-height: 44px;
   padding: 10px 14px 10px 42px;
-  padding: 10px 14px 10px 42px;
   color: var(--text-primary);
   background: var(--bg-input);
   border: 1px solid var(--border-card);
@@ -6996,6 +7342,10 @@ body::after {
   outline: none;
   font-size: 13.5px;
   transition: all var(--transition-fast);
+}
+
+.search-wrap input[type="search"]::-webkit-search-cancel-button {
+  cursor: pointer;
 }
 
 .search-wrap input:focus {
@@ -7771,6 +8121,7 @@ body::after {
 .grid-cols-spotcash.std-table-header > span:last-child,
 .expenses-table-header > span:last-child,
 .grid-cols-sales.std-table-header > span:last-child,
+.grid-cols-branches.std-table-header > span:last-child,
 .grid-cols-transfers.std-table-header > span:last-child,
 .credit-modal-payments-head > span:last-child,
 .th-item.col-center,
@@ -8085,48 +8436,96 @@ body::after {
 }
 
 .sales-date-range {
-  display: grid;
-  grid-template-columns: 164px 164px max-content max-content;
-  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
-  margin-top: 10px;
+  margin-top: 12px;
   width: 100%;
 }
 
-.workspace[data-view="sales"] .toolbar,
-.workspace[data-view="quarantineReport"] .toolbar,
-.workspace[data-view="transfers"] .toolbar,
-.workspace[data-view="dailySpotCash"] .toolbar,
-.workspace[data-view="dailyExpenses"] .toolbar,
-.workspace[data-view="credits"] .toolbar,
-.workspace[data-view="lossDamages"] .toolbar,
-.workspace[data-view="bankTransactions"] .toolbar {
+.sales-date-range .sales-date-control {
+  width: 164px;
+  flex: 0 0 164px;
+}
+
+.toolbar .sales-pdf-button,
+.sales-date-range .sales-pdf-button,
+#generateInventoryPdfButton,
+#exportInventoryPdfButton {
+  display: none !important;
+}
+
+:is(
+  .workspace[data-view="sales"],
+  .workspace[data-view="quarantineReport"],
+  .workspace[data-view="transfers"],
+  .workspace[data-view="dailySpotCash"],
+  .workspace[data-view="dailyExpenses"],
+  .workspace[data-view="credits"],
+  .workspace[data-view="lossDamages"],
+  .workspace[data-view="bankTransactions"],
+  .workspace[data-view="profitLoss"],
+  .workspace[data-view="foodCostMargin"],
+  .workspace[data-view="productSalesPerformance"],
+  .workspace[data-view="creditAging"],
+  .workspace[data-view="lossesWastage"],
+  .workspace[data-view="servicePerformance"],
+  .workspace[data-view="tableQrPerformance"],
+  .workspace[data-view="inventoryValuation"],
+  .workspace[data-view="cashBankReconciliation"]
+) .toolbar {
   display: flex;
-  align-items: end;
+  flex-direction: column;
+  align-items: stretch;
   gap: 10px;
+  width: 100%;
 }
 
-.workspace[data-view="sales"] .search-wrap,
-.workspace[data-view="quarantineReport"] .search-wrap,
-.workspace[data-view="transfers"] .search-wrap,
-.workspace[data-view="dailySpotCash"] .search-wrap,
-.workspace[data-view="dailyExpenses"] .search-wrap,
-.workspace[data-view="credits"] .search-wrap,
-.workspace[data-view="lossDamages"] .search-wrap,
-.workspace[data-view="bankTransactions"] .search-wrap {
-  flex: 1 1 auto;
-  min-width: 0;
+:is(
+  .workspace[data-view="sales"],
+  .workspace[data-view="quarantineReport"],
+  .workspace[data-view="transfers"],
+  .workspace[data-view="dailySpotCash"],
+  .workspace[data-view="dailyExpenses"],
+  .workspace[data-view="credits"],
+  .workspace[data-view="lossDamages"],
+  .workspace[data-view="bankTransactions"],
+  .workspace[data-view="profitLoss"],
+  .workspace[data-view="foodCostMargin"],
+  .workspace[data-view="productSalesPerformance"],
+  .workspace[data-view="creditAging"],
+  .workspace[data-view="lossesWastage"],
+  .workspace[data-view="servicePerformance"],
+  .workspace[data-view="tableQrPerformance"],
+  .workspace[data-view="inventoryValuation"],
+  .workspace[data-view="cashBankReconciliation"]
+) .search-wrap {
+  width: 100%;
+  max-width: 100%;
+  flex: 0 0 auto;
 }
 
-.workspace[data-view="sales"] .sales-date-range,
-.workspace[data-view="quarantineReport"] .sales-date-range,
-.workspace[data-view="transfers"] .sales-date-range,
-.workspace[data-view="dailySpotCash"] .sales-date-range,
-.workspace[data-view="dailyExpenses"] .sales-date-range,
-.workspace[data-view="credits"] .sales-date-range,
-.workspace[data-view="lossDamages"] .sales-date-range,
-.workspace[data-view="bankTransactions"] .sales-date-range {
-  width: auto;
+:is(
+  .workspace[data-view="sales"],
+  .workspace[data-view="quarantineReport"],
+  .workspace[data-view="transfers"],
+  .workspace[data-view="dailySpotCash"],
+  .workspace[data-view="dailyExpenses"],
+  .workspace[data-view="credits"],
+  .workspace[data-view="lossDamages"],
+  .workspace[data-view="bankTransactions"],
+  .workspace[data-view="profitLoss"],
+  .workspace[data-view="foodCostMargin"],
+  .workspace[data-view="productSalesPerformance"],
+  .workspace[data-view="creditAging"],
+  .workspace[data-view="lossesWastage"],
+  .workspace[data-view="servicePerformance"],
+  .workspace[data-view="tableQrPerformance"],
+  .workspace[data-view="inventoryValuation"],
+  .workspace[data-view="cashBankReconciliation"]
+) .sales-date-range {
+  width: 100%;
   margin-top: 0;
   flex: 0 0 auto;
 }
@@ -8212,8 +8611,8 @@ body::after {
   .workspace[data-view="credits"] .search-wrap,
   .workspace[data-view="lossDamages"] .search-wrap,
   .workspace[data-view="bankTransactions"] .search-wrap {
-    min-width: 200px;
-    flex: 1 1 auto;
+    width: 100%;
+    flex: 0 0 auto;
   }
 
   .workspace[data-view="sales"] .sales-date-range,
@@ -9189,30 +9588,84 @@ dialog.credit-history-dialog {
   height: 20px;
 }
 
-.product-details-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
+/* Table Cell Main Text & Subtext Pairing */
+.product-details-stack,
+.customer-details-cell,
+.product-name-block,
+.product-cell:not(:has(.product-thumb-frame)) {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  gap: 2px !important;
+  min-width: 0 !important;
   width: 100%;
 }
 
-.product-name {
+.product-name,
+.receipt-product-name {
   color: var(--text-pure);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13.5px;
+  line-height: 1.25 !important;
+  margin: 0 !important;
+  padding: 0 !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: block;
 }
 
-.product-meta {
+.product-meta,
+.receipt-unit-hint {
   color: var(--text-muted);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 500;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+  padding: 0 !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: block;
+}
+
+/* Any table cell with a title and subtext pair */
+.std-table-row > div:has(> strong):has(> .product-meta),
+.std-table-row > div:has(> .product-name):has(> .product-meta),
+.table-row > div:has(> strong):has(> .product-meta),
+.table-row > div:has(> .product-name):has(> .product-meta) {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  gap: 2px !important;
+  min-width: 0 !important;
+}
+
+.std-table-row strong,
+.table-row strong {
+  line-height: 1.25 !important;
+  margin: 0 !important;
+}
+
+.std-table-row strong + .product-meta,
+.table-row strong + .product-meta,
+.std-table-row .product-name + .product-meta,
+.table-row .product-name + .product-meta,
+.std-table-row strong + small,
+.table-row strong + small {
+  display: block !important;
+  margin-top: 2px !important;
+  margin-bottom: 0 !important;
+  line-height: 1.2 !important;
+}
+
+.std-table-row div:has(> .product-meta) > br,
+.table-row div:has(> .product-meta) > br,
+.std-table-row div:has(> small) > br,
+.table-row div:has(> small) > br {
+  display: none !important;
 }
 
 .category-badge {
@@ -11316,21 +11769,21 @@ dialog .bundle-component-row .icon-button svg,
    STOCK-IN REPLENISHMENT (Executive Inbound Receiving Flow)
    ========================================================================== */
 dialog#formDialog[data-form-type="stock"] {
-  width: min(980px, calc(100vw - 28px)) !important;
-  max-width: 980px !important;
+  width: min(880px, calc(100vw - 32px)) !important;
+  max-width: 880px !important;
   border-radius: 16px;
-  background: radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.06) 0%, rgba(10, 18, 36, 0.98) 60%);
-  border: 1px solid rgba(56, 189, 248, 0.22);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6), 0 0 30px rgba(14, 165, 233, 0.1);
+  background: radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.05) 0%, rgba(10, 18, 36, 0.98) 60%);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6), 0 0 30px rgba(14, 165, 233, 0.08);
 }
 
 dialog#formDialog[data-form-type="stock"] #formFields {
   overflow-y: auto !important;
-  max-height: min(78vh, 680px);
-  padding: 8px 12px 14px !important;
+  max-height: min(80vh, 700px);
+  padding: 16px 20px 20px !important;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 /* Inbound Stock-In Meta Bar */
@@ -11433,14 +11886,14 @@ dialog#formDialog[data-form-type="stock"] #formFields {
 }
 
 .stock-in-card {
-  background: rgba(10, 18, 36, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(12, 22, 44, 0.65);
+  border: 1px solid rgba(56, 189, 248, 0.16);
   border-radius: 12px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  gap: 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   position: relative;
 }
@@ -11448,7 +11901,7 @@ dialog#formDialog[data-form-type="stock"] #formFields {
 .stock-in-card:hover,
 .stock-in-card:focus-within {
   border-color: rgba(56, 189, 248, 0.35);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35), 0 0 10px rgba(14, 165, 233, 0.06);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35), 0 0 12px rgba(14, 165, 233, 0.08);
 }
 
 .stock-in-card-top {
@@ -11463,8 +11916,8 @@ dialog#formDialog[data-form-type="stock"] #formFields {
   align-items: center;
   justify-content: center;
   font-size: 11px;
-  font-weight: 800;
-  padding: 3px 8px;
+  font-weight: 700;
+  padding: 4px 8px;
   border-radius: 6px;
   background: rgba(14, 165, 233, 0.12);
   color: #38bdf8;
@@ -11510,8 +11963,8 @@ dialog#formDialog[data-form-type="stock"] #formFields {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 10.5px;
-  padding: 2px 7px;
+  font-size: 11px;
+  padding: 3px 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -11562,13 +12015,12 @@ dialog#formDialog[data-form-type="stock"] #formFields {
 /* Card Body Inputs Grid */
 .stock-in-card-body {
   display: grid;
-  grid-template-columns: 1fr 1.25fr 1.25fr 1.2fr;
-  gap: 10px;
+  grid-template-columns: minmax(110px, 1fr) minmax(140px, 1.2fr) minmax(140px, 1.2fr) minmax(130px, 1fr);
+  gap: 12px;
   align-items: flex-end;
-  background: rgba(6, 12, 24, 0.35);
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: transparent;
+  padding: 0;
+  border: none;
 }
 
 .stock-in-field-col {
@@ -11579,14 +12031,15 @@ dialog#formDialog[data-form-type="stock"] #formFields {
 }
 
 .stock-in-field-col .field-label {
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
   color: #94a3b8;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
+  white-space: nowrap;
 }
 
 .stock-in-field-col .input-with-suffix {
@@ -11597,7 +12050,7 @@ dialog#formDialog[data-form-type="stock"] #formFields {
 
 .stock-in-field-col .input-with-suffix input {
   padding-right: 48px !important;
-  font-weight: 700;
+  font-weight: 600;
   height: 38px !important;
   text-align: left;
 }
@@ -11606,7 +12059,7 @@ dialog#formDialog[data-form-type="stock"] #formFields {
   position: absolute;
   right: 10px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   color: #64748b;
   pointer-events: none;
   text-transform: lowercase;
@@ -11621,17 +12074,17 @@ dialog#formDialog[data-form-type="stock"] #formFields {
 
 .stock-in-field-col .input-with-prefix input {
   padding-left: 36px !important;
-  font-weight: 700;
+  font-weight: 600;
   height: 38px !important;
   color: #f1f5f9;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
 
 .stock-in-field-col .input-prefix {
   position: absolute;
   left: 11px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
   color: #38bdf8;
   pointer-events: none;
   display: inline-flex;
@@ -11644,24 +12097,26 @@ dialog#formDialog[data-form-type="stock"] #formFields {
 
 .stock-in-line-total {
   height: 38px;
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.22);
+  background: rgba(16, 185, 129, 0.07);
+  border: 1px solid rgba(16, 185, 129, 0.2);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 0 10px;
-  gap: 5px;
+  padding: 0 12px;
+  gap: 4px;
+  box-sizing: border-box;
 }
 
 .stock-in-line-total .total-currency {
   font-size: 12px;
   font-weight: 700;
   color: #34d399;
+  opacity: 0.9;
 }
 
 .stock-in-line-total .total-amount {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 800;
   color: #34d399;
   font-feature-settings: 'tnum';
@@ -11671,23 +12126,22 @@ dialog#formDialog[data-form-type="stock"] #formFields {
    STOCK IN REPLENISHMENT: INSPECTION & QUARANTINE REDESIGN
    ========================================================================== */
 .stock-in-quarantine-box {
-  margin-top: 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(10, 18, 34, 0.6);
+  margin-top: 2px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(6, 12, 24, 0.4);
   overflow: hidden;
   transition: all var(--transition-fast) var(--ease-inertia);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
 }
 
 .stock-in-quarantine-box:hover {
   border-color: rgba(245, 158, 11, 0.25);
+  background: rgba(245, 158, 11, 0.02);
 }
 
 .stock-in-quarantine-box.is-active-quarantine {
-  border-color: rgba(245, 158, 11, 0.45);
-  background: linear-gradient(180deg, rgba(245, 158, 11, 0.06) 0%, rgba(10, 18, 36, 0.88) 100%);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 18px rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.06);
 }
 
 .stock-in-quarantine-toggle {
@@ -11695,7 +12149,7 @@ dialog#formDialog[data-form-type="stock"] #formFields {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 8px 12px;
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -11703,11 +12157,11 @@ dialog#formDialog[data-form-type="stock"] #formFields {
   text-align: left;
   transition: all var(--transition-fast) var(--ease-inertia);
   user-select: none;
-  gap: 12px;
+  gap: 10px;
 }
 
 .stock-in-quarantine-toggle:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.02);
   color: var(--text-pure);
 }
 
@@ -11719,88 +12173,82 @@ dialog#formDialog[data-form-type="stock"] #formFields {
 .stock-in-quarantine-toggle .toggle-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   flex: 1;
 }
 
 .stock-in-quarantine-toggle .toggle-icon-wrap {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.28);
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.22);
   display: grid;
   place-items: center;
   flex-shrink: 0;
   color: #fbbf24;
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.15);
   transition: all var(--transition-fast) var(--ease-inertia);
 }
 
 .stock-in-quarantine-toggle:hover .toggle-icon-wrap {
-  background: rgba(245, 158, 11, 0.2);
-  border-color: rgba(245, 158, 11, 0.45);
-  box-shadow: 0 0 14px rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.35);
 }
 
 .stock-in-quarantine-toggle .shield-icon {
-  width: 15px;
-  height: 15px;
+  width: 12px;
+  height: 12px;
 }
 
 .stock-in-quarantine-toggle .toggle-text-group {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
 }
 
 .stock-in-quarantine-toggle .toggle-title {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.stock-in-quarantine-toggle:hover .toggle-title {
   color: var(--text-pure);
-  letter-spacing: -0.1px;
 }
 
 .stock-in-quarantine-toggle .toggle-sub {
   font-size: 10.5px;
   color: var(--text-muted);
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 400;
 }
 
 .quarantine-status-pill {
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 2.5px 9px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
   border-radius: 999px;
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(16, 185, 129, 0.08);
   color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  border: 1px solid rgba(16, 185, 129, 0.2);
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   white-space: nowrap;
-  margin-left: 6px;
-  transition: all var(--transition-fast) var(--ease-inertia);
 }
 
 .quarantine-status-pill .status-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 6px currentColor;
 }
 
 .quarantine-status-pill.has-quarantine {
-  background: rgba(245, 158, 11, 0.18);
+  background: rgba(245, 158, 11, 0.16);
   color: #fbbf24;
-  border-color: rgba(245, 158, 11, 0.45);
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.35);
 }
 
 .stock-in-quarantine-toggle .toggle-right {
@@ -11813,10 +12261,10 @@ dialog#formDialog[data-form-type="stock"] #formFields {
 
 .stock-in-quarantine-toggle .toggle-action-label {
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  color: #64748b;
   transition: color var(--transition-fast) var(--ease-inertia);
 }
 
@@ -11825,10 +12273,10 @@ dialog#formDialog[data-form-type="stock"] #formFields {
 }
 
 .stock-in-quarantine-toggle .chevron-icon {
-  width: 14px;
-  height: 14px;
-  transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
-  color: var(--text-secondary);
+  width: 13px;
+  height: 13px;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #64748b;
 }
 
 .stock-in-quarantine-toggle.is-open .chevron-icon {
@@ -12065,70 +12513,106 @@ dialog#formDialog[data-form-type="stock"] #formFields {
 
 /* Batch Summary Dock */
 .stock-in-summary-dock {
-  background: rgba(8, 16, 32, 0.85);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 10px;
-  padding: 10px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  background: rgba(11, 20, 38, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
-  flex-wrap: wrap;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  align-items: center;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
 }
 
 .summary-metric {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 3px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .summary-metric .metric-label {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  color: #94a3b8;
 }
 
 .summary-metric .metric-value {
-  font-size: 14px;
-  font-weight: 800;
-  color: #f1f5f9;
+  font-size: 15px;
+  font-weight: 700;
+  color: #f8fafc;
   font-feature-settings: 'tnum';
+  line-height: 1.2;
+}
+
+.summary-metric.highlight-cost {
+  background: rgba(16, 185, 129, 0.05);
+  border-color: rgba(16, 185, 129, 0.16);
+}
+
+.summary-metric.highlight-cost .metric-label {
+  color: #6ee7b7;
 }
 
 .summary-metric.highlight-cost .metric-value {
   color: #34d399;
+  font-weight: 800;
+}
+
+.summary-metric.highlight-retail {
+  background: rgba(14, 165, 233, 0.05);
+  border-color: rgba(56, 189, 248, 0.16);
+}
+
+.summary-metric.highlight-retail .metric-label {
+  color: #7dd3fc;
 }
 
 .summary-metric.highlight-retail .metric-value {
   color: #38bdf8;
+  font-weight: 800;
 }
 
 .summary-metric.quarantine-alert {
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  grid-column: 1 / -1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.summary-metric.quarantine-alert .metric-label {
+  font-size: 11.5px;
+  color: #fde68a;
+  font-weight: 600;
 }
 
 .summary-metric.quarantine-alert .metric-value {
+  font-size: 13px;
   color: #fbbf24;
+  font-weight: 700;
 }
 
 /* Responsiveness */
 @media (max-width: 768px) {
   .stock-in-card-body {
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: 10px;
   }
   .quarantine-fields-grid {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 10px;
   }
   .stock-in-summary-dock {
-    display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
   }
@@ -12139,7 +12623,14 @@ dialog#formDialog[data-form-type="stock"] #formFields {
     grid-template-columns: 1fr;
   }
   .stock-in-summary-dock {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .summary-metric {
+    padding: 6px 8px;
+  }
+  .summary-metric .metric-value {
+    font-size: 13.5px;
   }
 }
 
@@ -22554,6 +23045,117 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
     line-height: 1.1;
   }
 
+  /* Shared Report Summary Grid (matches .report-kpi-grid) */
+  .report-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .report-summary-grid > div {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 7px 11px;
+  }
+
+  .report-summary-grid > div > span {
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #64748b;
+    display: block;
+    margin-bottom: 2px;
+    line-height: 1.1;
+  }
+
+  .report-summary-grid > div > strong {
+    font-size: 14px;
+    font-weight: 800;
+    color: #0f172a;
+    display: block;
+    margin-bottom: 2px;
+    line-height: 1.15;
+  }
+
+  .report-note {
+    font-size: 9px;
+    color: #475569;
+    margin: 0 0 10px;
+    line-height: 1.35;
+    padding: 5px 10px;
+    background: #f8fafc;
+    border-left: 3px solid #0066f5;
+    border-radius: 4px;
+  }
+
+  .report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .report-table thead tr {
+    background: #f8fafc;
+  }
+
+  .report-table th {
+    padding: 7px 10px;
+    border-bottom: 1.5px solid #cbd5e1;
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #475569;
+    text-align: left;
+  }
+
+  .report-table td {
+    padding: 6px 10px;
+    border-bottom: 1px dashed #e2e8f0;
+    color: #334155;
+    font-size: 10px;
+    vertical-align: middle;
+  }
+
+  .report-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .report-table tbody tr:hover {
+    background: #f8fafc;
+  }
+
+  .report-table tfoot tr {
+    background: #f8fafc;
+    font-weight: 700;
+    border-top: 1.5px solid #0f172a;
+  }
+
+  .report-table tfoot td {
+    padding: 7px 10px;
+    color: #0f172a;
+    font-size: 10.5px;
+  }
+
+  .report-totals {
+    background: #f8fafc;
+    border: 1.5px solid #0f172a;
+    border-radius: 8px;
+    padding: 12px 18px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 14px;
+    margin-bottom: 16px;
+  }
+
   /* Section Title */
   .report-section-title-wrap {
     display: flex;
@@ -23499,28 +24101,29 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
 }
 
 /* Color Themes */
-/* Emerald / Green (Products, Inventory) */
+/* Emerald / Sky-Blue Harmonized (Products, Inventory, Sales, Reports) */
 .theme-emerald.std-hero-card,
 .theme-emerald .std-hero-card {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(10, 32, 28, 0.9) 45%, rgba(8, 16, 32, 0.98) 100%);
-  border-color: rgba(16, 185, 129, 0.28);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(14, 28, 54, 0.9) 45%, rgba(8, 16, 32, 0.98) 100%);
+  border-color: rgba(14, 165, 233, 0.28);
 }
 .theme-emerald .std-hero-glow {
-  background: radial-gradient(circle, rgba(16, 185, 129, 0.18) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.18) 0%, transparent 70%);
 }
 .theme-emerald .std-hero-icon {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.35) 100%);
-  border-color: rgba(16, 185, 129, 0.45);
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25);
-  color: #34d399;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.22) 0%, rgba(2, 132, 199, 0.35) 100%);
+  border-color: rgba(14, 165, 233, 0.45);
+  box-shadow: 0 4px 16px rgba(14, 165, 233, 0.25);
+  color: #38bdf8;
 }
-.theme-emerald .std-hero-kicker { color: #6ee7b7; }
+.theme-emerald .std-hero-kicker { color: #7dd3fc; }
 .theme-emerald .std-record-btn {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35) !important;
+  background: linear-gradient(135deg, #0066f5 0%, #0284c7 100%) !important;
+  box-shadow: 0 4px 16px rgba(0, 102, 245, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
 }
 .theme-emerald .std-record-btn:hover {
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45) !important;
+  box-shadow: 0 6px 20px rgba(0, 102, 245, 0.5) !important;
 }
 
 /* Amber / Gold (Daily Spot Cash) */
@@ -23848,95 +24451,104 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
   color: #ffffff;
 }
 
+/* Quick Date Presets (Unified Standard) */
+.std-quick-dates,
+.bank-quick-dates,
+.expenses-quick-dates,
+.loss-quick-dates,
 .std-date-presets {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  background: rgba(11, 20, 38, 0.85);
-  padding: 3px 4px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  gap: 6px;
   user-select: none;
+  background: transparent;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  margin-left: auto;
 }
 
-.std-date-presets-icon {
-  width: 13px;
-  height: 13px;
-  margin-left: 8px;
-  margin-right: 4px;
+.std-quick-dates-label,
+.bank-quick-dates-label,
+.expenses-quick-dates-label,
+.loss-quick-dates-label,
+.std-date-presets-label {
+  font-size: 11px;
+  font-weight: 700;
   color: #64748b;
-  flex-shrink: 0;
-  display: inline-block;
-  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .std-date-btn,
+.bank-date-btn,
+.expenses-date-btn,
+.loss-date-btn,
 .std-chip-secondary {
   appearance: none;
   -webkit-appearance: none;
   height: 28px;
-  padding: 0 13px;
-  border-radius: 999px;
-  background: transparent;
-  border: 1px solid transparent;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: #94a3b8;
   font-family: inherit;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
   white-space: nowrap;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.16s ease;
   user-select: none;
   outline: none;
 }
 
 .std-date-btn:hover,
+.bank-date-btn:hover,
+.expenses-date-btn:hover,
+.loss-date-btn:hover,
 .std-chip-secondary:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #f1f5f9;
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .std-date-btn:focus-visible,
+.bank-date-btn:focus-visible,
+.expenses-date-btn:focus-visible,
+.loss-date-btn:focus-visible,
 .std-chip-secondary:focus-visible {
   outline: 2px solid rgba(56, 189, 248, 0.6);
   outline-offset: 1px;
 }
 
 .std-date-btn.active,
-.std-chip-secondary.active {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.22) 0%, rgba(2, 132, 199, 0.28) 100%);
-  border-color: rgba(56, 189, 248, 0.5);
-  color: #38bdf8;
-  font-weight: 700;
-  box-shadow: 0 0 12px rgba(14, 165, 233, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.15);
-}
-
-/* Theme variations for active date preset */
+.bank-date-btn.active,
+.expenses-date-btn.active,
+.loss-date-btn.active,
+.std-chip-secondary.active,
 .theme-emerald .std-date-btn.active,
-.theme-emerald .std-chip-secondary.active {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.28) 100%);
-  border-color: rgba(52, 211, 153, 0.5);
-  color: #34d399;
+.theme-amber .std-date-btn.active,
+.theme-purple .std-date-btn.active {
+  background: rgba(14, 165, 233, 0.16);
+  border-color: rgba(14, 165, 233, 0.55);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(14, 165, 233, 0.25);
   font-weight: 700;
-  box-shadow: 0 0 12px rgba(16, 185, 129, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.15);
 }
 
-.theme-amber .std-date-btn.active,
+/* Secondary filter chip theme variations (excluding date presets) */
 .theme-amber .std-chip-secondary.active {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(217, 119, 6, 0.28) 100%);
-  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(251, 191, 36, 0.55);
   color: #fbbf24;
   font-weight: 700;
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
 }
 
 @media (max-width: 640px) {
@@ -23945,10 +24557,15 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
     align-items: stretch;
     gap: 10px;
   }
-  .std-date-presets {
+  .std-date-presets,
+  .std-quick-dates,
+  .bank-quick-dates,
+  .expenses-quick-dates,
+  .loss-quick-dates {
     align-self: flex-start;
     max-width: 100%;
     overflow-x: auto;
+    margin-left: 0;
   }
 }
 
@@ -24069,6 +24686,13 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
   .std-table-row > .std-cell-primary::before {
     display: none;
   }
+  .std-table-row > .product-cell {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 12px !important;
+  }
   .std-table-row > div[data-label="Action"],
   .table-row > div[data-label="Action"],
   .expenses-table-row > div[data-label="Action"],
@@ -24116,7 +24740,25 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
 }
 
 /* Standard Table Grid Column Definitions */
-.grid-cols-spotcash { grid-template-columns: 1.5fr 1.4fr 2fr 1.3fr 1fr; }
+.grid-cols-spotcash { grid-template-columns: minmax(160px, 1.45fr) repeat(4, minmax(110px, 1fr)) minmax(85px, .7fr) 64px; }
+.grid-cols-spotcash > div { min-width: 0; }
+.grid-cols-spotcash .cash-date-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+.grid-cols-spotcash .cash-entry-note { max-width: 100%; overflow-wrap: anywhere; }
+.grid-cols-spotcash .cash-amount-heading,
+.grid-cols-spotcash .cash-amount-cell { text-align: right; }
+.grid-cols-spotcash .cash-amount-cell strong { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.grid-cols-spotcash .cash-variance { display: flex; flex-direction: column; gap: 4px; }
+.grid-cols-spotcash .row-action-cell { display: flex; justify-content: center; align-items: center; }
+@media (min-width: 901px) {
+  .spotcash-table-shell { overflow-x: auto; }
+  .spotcash-table-shell .grid-cols-spotcash { min-width: 850px; }
+}
+@media (min-width: 901px) and (max-width: 1250px) {
+  .grid-cols-spotcash { grid-template-columns: minmax(135px, 1.3fr) repeat(4, minmax(96px, 1fr)) 75px 48px; gap: 8px; padding-inline: 12px; }
+  .grid-cols-spotcash .cash-amount-cell strong { font-size: 11.5px; }
+  .std-table-header.grid-cols-spotcash { font-size: 10px; }
+}
+.grid-cols-branches { grid-template-columns: 1.8fr 1.3fr 2.4fr 1.1fr 1fr; }
 .grid-cols-transfers { grid-template-columns: 1.4fr 2fr 2.2fr 1.1fr 1fr; }
 .grid-cols-customers { grid-template-columns: 1.8fr 1.8fr 1.8fr 1.2fr 1fr; }
 .grid-cols-credits { grid-template-columns: 1.8fr 1.6fr 1.3fr 1fr 1.4fr 1fr; }
@@ -24128,6 +24770,38 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
 .grid-cols-invreport { grid-template-columns: 2.2fr 1.1fr 1.1fr 1fr 1.1fr 1.1fr 1fr; }
 .grid-cols-sales { grid-template-columns: 2fr 1.3fr 1.6fr 1fr 1.2fr 1.1fr; }
 .grid-cols-quarantinereport { grid-template-columns: 2fr 1.3fr 1.8fr 1.8fr 1fr 1.2fr; }
+.grid-cols-loss { grid-template-columns: 2.2fr 1fr 1.1fr 1.2fr 1.8fr 1.1fr; }
+.grid-cols-loss.std-table-header > span:last-child {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  text-align: right !important;
+  width: 100% !important;
+}
+.grid-cols-loss.std-table-row > div:last-child {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  text-align: right !important;
+  width: 100% !important;
+}
+@media (max-width: 900px) {
+  .grid-cols-loss.std-table-row > div:last-child {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+  }
+}
+
+.grid-cols-profitloss { grid-template-columns: 1.3fr repeat(5, 1fr); }
+.grid-cols-foodcost { grid-template-columns: 2.2fr repeat(6, 0.9fr); }
+.grid-cols-productperformance { grid-template-columns: 0.5fr 2.2fr repeat(5, 1fr); }
+.grid-cols-creditaging { grid-template-columns: 1.8fr repeat(5, 1fr); }
+.grid-cols-losseswastage { grid-template-columns: 2.2fr 1.3fr 0.9fr 1.1fr 1.2fr; }
+.grid-cols-invvaluation { grid-template-columns: 2.2fr repeat(6, 0.9fr); }
+.grid-cols-reconciliation { grid-template-columns: 1.3fr repeat(3, 1fr) 0.9fr; }
+.grid-cols-bankactivity { grid-template-columns: 1.1fr 1fr 0.9fr 1fr 1.5fr; }
 
 /* Purple theme specifics for Standard Table */
 .theme-purple .std-table-shell {

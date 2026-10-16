@@ -163,6 +163,25 @@ function productImageUrl_(path) {
   return requireSupabase_().storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl || '';
 }
 
+function findProductItem_(idOrName) {
+  if (!idOrName) return null;
+  const list = typeof products !== 'undefined' && Array.isArray(products) ? products : [];
+  const allList = typeof allProducts !== 'undefined' && Array.isArray(allProducts) ? allProducts : [];
+  return list.find((p) => p.id === idOrName || p.name === idOrName)
+    || allList.find((p) => p.id === idOrName || p.name === idOrName)
+    || null;
+}
+
+function renderProductThumbHtml_(imageUrl, productName = 'Product', iconColor = '#38bdf8') {
+  return `
+    <div class="product-thumb-frame" style="width:36px;height:36px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#0d1b2a;border:1px solid rgba(56,189,248,0.25);display:grid;place-items:center;">
+      ${imageUrl
+        ? `<img class="product-photo-thumb" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(productName)}" style="width:100%;height:100%;object-fit:cover;" loading="lazy" />`
+        : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:16px;height:16px;color:${iconColor};"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/></svg>`}
+    </div>
+  `;
+}
+
 async function uploadProductImage_(file, productId) {
   if (!(file instanceof File) || file.size === 0) return '';
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Use a JPG, PNG, or WebP product photo.');
@@ -301,6 +320,69 @@ function formatDateInput(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function getDatePresetState(dateFrom, dateTo) {
+  const now = new Date();
+  const thisMonthStart = formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
+  const today = formatDateInput(now);
+  const d30 = new Date();
+  d30.setDate(d30.getDate() - 29);
+  const last30Start = formatDateInput(d30);
+  if (!dateFrom && !dateTo) return 'all';
+  if (dateFrom === thisMonthStart && dateTo === today) return 'thisMonth';
+  if (dateFrom === last30Start && dateTo === today) return 'last30';
+  return '';
+}
+
+function renderDatePresets(activePreset, attrName = 'data-date-preset') {
+  return `
+    <div class="std-quick-dates">
+      <span class="std-quick-dates-label">Presets:</span>
+      <button type="button" class="std-date-btn ${activePreset === 'thisMonth' ? 'active' : ''}" ${attrName}="thisMonth">This Month</button>
+      <button type="button" class="std-date-btn ${activePreset === 'last30' ? 'active' : ''}" ${attrName}="last30">Last 30 Days</button>
+      <button type="button" class="std-date-btn ${activePreset === 'all' ? 'active' : ''}" ${attrName}="all">All Time</button>
+    </div>
+  `;
+}
+
+function handleDatePresetClick(preset, fromInputId, toInputId, onApply) {
+  const dateFromEl = typeof fromInputId === 'string' ? $(`#${fromInputId}`) : fromInputId;
+  const dateToEl = typeof toInputId === 'string' ? $(`#${toInputId}`) : toInputId;
+  const today = new Date();
+  if (preset === 'thisMonth') {
+    if (dateFromEl) dateFromEl.value = formatDateInput(new Date(today.getFullYear(), today.getMonth(), 1));
+    if (dateToEl) dateToEl.value = formatDateInput(today);
+  } else if (preset === 'last30') {
+    const past30 = new Date();
+    past30.setDate(past30.getDate() - 29);
+    if (dateFromEl) dateFromEl.value = formatDateInput(past30);
+    if (dateToEl) dateToEl.value = formatDateInput(today);
+  } else if (preset === 'all') {
+    if (dateFromEl) dateFromEl.value = '';
+    if (dateToEl) dateToEl.value = '';
+  }
+  if (dateFromEl) syncCustomDatePicker(dateFromEl);
+  if (dateToEl) syncCustomDatePicker(dateToEl);
+  if (typeof onApply === 'function') onApply();
+}
+
+function bindDatePresets(container, attrName, fromInputId, toInputId, onApply) {
+  const root = typeof container === 'string' ? $(container) : container;
+  if (!root || typeof root.querySelectorAll !== 'function') return;
+  root.querySelectorAll(`[${attrName}]`).forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const preset = btn.getAttribute(attrName);
+      handleDatePresetClick(preset, fromInputId, toInputId, onApply);
+    });
+  });
+}
+
+if (typeof window !== 'undefined') {
+  window.getDatePresetState = getDatePresetState;
+  window.renderDatePresets = renderDatePresets;
+  window.handleDatePresetClick = handleDatePresetClick;
+  window.bindDatePresets = bindDatePresets;
 }
 
 function ensureSalesDateDefaults() {
@@ -820,6 +902,112 @@ function getReportDocumentHtml_(htmlContent, title = 'Report', isExport = false)
     .report-kpi-card .kpi-val.text-discount { color: #dc2626; }
     .report-kpi-card .kpi-val.text-cyan { color: #0284c7; }
     .report-kpi-card .kpi-sub { font-size: 8.5px; color: #94a3b8; line-height: 1.1; }
+    .report-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .report-summary-grid > div {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 7px 11px;
+    }
+    .report-summary-grid > div > span {
+      font-size: 8.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #64748b;
+      display: block;
+      margin-bottom: 2px;
+      line-height: 1.1;
+    }
+    .report-summary-grid > div > strong {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f172a;
+      display: block;
+      margin-bottom: 2px;
+      line-height: 1.15;
+    }
+    .report-note {
+      font-size: 9px;
+      color: #475569;
+      margin: 0 0 10px;
+      line-height: 1.35;
+      padding: 5px 10px;
+      background: #f8fafc;
+      border-left: 3px solid #0066f5;
+      border-radius: 4px;
+    }
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .report-table thead tr {
+      background: #f8fafc;
+    }
+    .report-table th {
+      padding: 7px 10px;
+      border-bottom: 1.5px solid #cbd5e1;
+      font-size: 8.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #475569;
+      text-align: left;
+    }
+    .report-table td {
+      padding: 6px 10px;
+      border-bottom: 1px dashed #e2e8f0;
+      color: #334155;
+      font-size: 10px;
+      vertical-align: middle;
+    }
+    .report-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .report-table tbody tr:hover {
+      background: #f8fafc;
+    }
+    .report-table tfoot tr {
+      background: #f8fafc;
+      font-weight: 700;
+      border-top: 1.5px solid #0f172a;
+    }
+    .report-table tfoot td {
+      padding: 7px 10px;
+      color: #0f172a;
+      font-size: 10.5px;
+    }
+    .report-table .stock-pill {
+      display: inline-block;
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(14, 165, 233, 0.12);
+      color: #0284c7;
+      border: 1px solid rgba(14, 165, 233, 0.28);
+    }
+    .report-totals {
+      background: #f8fafc;
+      border: 1.5px solid #0f172a;
+      border-radius: 8px;
+      padding: 12px 18px;
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 14px;
+      margin-bottom: 16px;
+    }
     .report-section-title-wrap {
       display: flex;
       align-items: center;
@@ -1119,14 +1307,37 @@ function renderReportPageFooter(pageNumber, totalPages, generatedTime, reportTyp
   `;
 }
 
-function renderReportRunningHeader(branchName, periodText, reportTitle = 'Branch Sales, Returns & Inventory Ledger') {
+function renderReportRunningHeader(branchName, periodText, reportTitle = 'Branch Sales, Returns & Inventory Ledger', isFirstPage = false, reportSubtitle = '', generatedTime = '') {
+  if (isFirstPage) {
+    const subtitle = reportSubtitle || 'Official operations and audit ledger';
+    const gen = generatedTime || new Date().toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
+    return `
+      <header class="report-header">
+        <div class="report-brand-wrap">
+          <div class="report-logo">
+            <img src="assets/angkols-logo.png" class="report-badge-img" width="42" height="42" style="width:42px;height:42px;max-width:42px;max-height:42px;object-fit:contain;flex-shrink:0;" alt="Angkol's Grill &amp; Restobar" />
+          </div>
+          <div>
+            <span class="report-eyebrow">ANGKOL'S GRILL &amp; RESTOBAR OPERATIONS</span>
+            <h1 class="report-title">${escapeHtml(reportTitle)}</h1>
+            <p class="report-subtitle">${escapeHtml(subtitle)}</p>
+          </div>
+        </div>
+        <div class="report-meta-box">
+          <div class="report-meta-row"><span class="meta-label">Branch:</span><strong class="meta-val">${escapeHtml(branchName || 'Main Branch')}</strong></div>
+          <div class="report-meta-row"><span class="meta-label">Period:</span><strong class="meta-val">${escapeHtml(periodText)}</strong></div>
+          <div class="report-meta-row"><span class="meta-label">Generated:</span><span class="meta-val">${escapeHtml(gen)}</span></div>
+        </div>
+      </header>
+    `;
+  }
   return `
     <header class="report-running-header">
       <div class="running-header-brand">
         <img src="assets/angkols-logo.png" class="report-badge-img" width="26" height="26" style="width:26px;height:26px;max-width:26px;max-height:26px;object-fit:contain;flex-shrink:0;" alt="Angkol's Grill &amp; Restobar" />
         <div>
           <span class="running-brand-title">ANGKOL'S GRILL &amp; RESTOBAR &bull; ${escapeHtml(reportTitle)}</span>
-          <span class="running-brand-sub">${escapeHtml(branchName)} &bull; ${escapeHtml(periodText)}</span>
+          <span class="running-brand-sub">${escapeHtml(branchName || 'Main Branch')} &bull; ${escapeHtml(periodText)}</span>
         </div>
       </div>
       <div class="running-meta-tag">
@@ -1802,7 +2013,7 @@ function getFoodCostMarginReport_(prefix = 'foodCostMargin', includeUnsold = fal
       const product = products.find((entry) => entry.id === item.productId);
       const row = rowsByProduct.get(item.productId) || {
         id: item.productId, name: item.name || product?.name || 'Unknown product', sku: product?.sku || '', unit: item.unit || product?.unit || 'unit',
-        productType: product?.productType || item.productType || 'individual', qty: 0, sales: 0, cogs: 0, pendingLines: 0,
+        productType: product?.productType || item.productType || 'individual', imageUrl: product?.imageUrl || '', qty: 0, sales: 0, cogs: 0, pendingLines: 0,
       };
       row.qty += Number(item.qty || 0);
       row.sales += Number(item.price || 0) * Number(item.qty || 0);
@@ -1813,7 +2024,7 @@ function getFoodCostMarginReport_(prefix = 'foodCostMargin', includeUnsold = fal
   });
   const periodSales = [...rowsByProduct.values()].reduce((sum, row) => sum + row.sales, 0);
   if (includeUnsold) products.filter((product) => product.status !== 'Inactive' && !product.archivedAt).forEach((product) => {
-    if (!rowsByProduct.has(product.id)) rowsByProduct.set(product.id, { id: product.id, name: product.name, sku: product.sku || '', unit: product.unit || 'unit', productType: product.productType || 'individual', qty: 0, sales: 0, cogs: 0, pendingLines: 0 });
+    if (!rowsByProduct.has(product.id)) rowsByProduct.set(product.id, { id: product.id, name: product.name, sku: product.sku || '', unit: product.unit || 'unit', productType: product.productType || 'individual', imageUrl: product.imageUrl || '', qty: 0, sales: 0, cogs: 0, pendingLines: 0 });
   });
   const term = ($('#searchInput')?.value || '').trim().toLowerCase();
   const rows = [...rowsByProduct.values()]
@@ -1900,7 +2111,7 @@ function calculateServicePerformance_(data, term = '') {
 }
 
 function servicePerformanceNote_() {
-  return 'Requests/items received in the selected dates, with latest recorded progress. Prep = Start to Ready; claim = Request to Claim; pickup = Ready to Served. Averages show minutes (timed samples), per line/request. Missing or invalid times are excluded. Non-kitchen items do not count as cooking output. Older items may use the ticket date and have no recorded staff/timing.';
+  return 'Staff service metrics and cooking prep / pickup timings for the selected date range.';
 }
 
 function servicePerformanceTables_(report) {
@@ -1922,12 +2133,13 @@ function buildServicePerformancePdfReport_() {
   const generated = new Date().toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
   const pages = servicePerformanceTables_(report).flatMap((section) => Array.from({ length: Math.max(1, Math.ceil(section.rows.length / 16)) }, (_, index) => ({ ...section, rows: section.rows.slice(index * 16, index * 16 + 16) })));
   const renderedPagesHtml = pages.map((section, index) => `<div class="report-page"><div class="report-page-content">
-    ${renderReportRunningHeader(branch.name, periodText, 'Kitchen / Waiter Performance')}
+    ${renderReportRunningHeader(branch.name, periodText, 'Kitchen / Waiter Performance', index === 0, 'Kitchen preparation and waiter dispatch operations audit', generated)}
     <section class="report-summary-grid"><div><span>Kitchen Ready Qty</span><strong>${report.totals.readyQty}</strong></div><div><span>Served Qty</span><strong>${report.totals.servedQty}</strong></div><div><span>Avg. Prep</span><strong>${performanceAverage_(report.totals.prep)}</strong></div><div><span>Avg. Pickup</span><strong>${performanceAverage_(report.totals.pickup)}</strong></div></section>
-    <p class="report-note">${escapeHtml(servicePerformanceNote_())}</p><h2 class="report-section-title">${section.title}</h2>
+    <p class="report-note">${escapeHtml(servicePerformanceNote_())}</p>
+    <div class="report-section-title-wrap"><h2 class="report-section-title">${section.title}</h2><span class="report-count-badge">${section.rows.length} staff records</span></div>
     <table class="report-table"><thead><tr>${section.headings.map((heading) => `<th>${heading}</th>`).join('')}</tr></thead><tbody>
     ${section.rows.map((row) => `<tr>${row.map((value) => `<td>${escapeHtml(String(value))}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${section.headings.length}">No recorded activity for this staff search and date range.</td></tr>`}
-    </tbody></table></div>${renderReportPageFooter(index + 1, pages.length, generated, 'Service Performance')}</div>`).join('');
+    </tbody></table>${index === pages.length - 1 ? '<div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By (Cashier / Staff)</span><span class="sign-sub">Signature over printed name</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Audited & Verified By</span><span class="sign-sub">Branch Manager / Operations</span></div></div><div class="report-disclaimer"><p>ANGKOL\'S GRILL &amp; RESTOBAR SYSTEM-GENERATED AUDIT REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p></div>' : ''}</div>${renderReportPageFooter(index + 1, pages.length, generated, 'Service Performance')}</div>`).join('');
   return { ...report, periodText, renderedPagesHtml };
 }
 
@@ -1964,15 +2176,131 @@ async function renderServicePerformance(force = false) {
     }
     if (sequence !== servicePerformanceRenderId || activeView !== 'servicePerformance') return;
     const report = loadedServicePerformanceReport_();
-    const kpis = [['KITCHEN READY QTY', report.totals.readyQty], ['SERVED QTY', report.totals.servedQty], ['AVG. PREP', performanceAverage_(report.totals.prep)], ['AVG. PICKUP', performanceAverage_(report.totals.pickup)]];
-    table.innerHTML = `<div class="std-view theme-emerald">
-      <div class="std-hero-card"><div class="std-hero-glow"></div><div class="std-hero-leading"><div class="std-hero-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15v-4m5 4V7m5 8V5"/></svg></div><div class="std-hero-text"><span class="std-hero-kicker">OWNER REPORTING &bull; SERVICE OPERATIONS</span><strong class="std-hero-title">Kitchen / Waiter Performance</strong><p class="std-hero-desc">${escapeHtml(servicePerformanceNote_())}</p></div></div></div>
-      <div class="std-kpi-grid">${kpis.map(([label, value]) => `<div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">${label}</span><strong class="std-kpi-value text-sky">${escapeHtml(String(value))}</strong></div></div>`).join('')}</div>
-      <div class="std-toolbar-strip"><span class="product-meta">Received cohort: ${report.totals.tickets} tickets &bull; ${report.totals.requests} QR requests &bull; ${report.totals.legacy} legacy item lines. Staff search filters the output and average figures.</span></div>
-      ${servicePerformanceTables_(report).map((section) => `<h3>${section.title}</h3><div class="std-table-shell"><div class="std-table-header" style="grid-template-columns:1.6fr repeat(${section.headings.length - 1},1fr);">${section.headings.map((heading) => `<span>${heading}</span>`).join('')}</div>${section.rows.map((row) => `<div class="std-table-row" style="grid-template-columns:1.6fr repeat(${section.headings.length - 1},1fr);">${row.map((value, index) => `<div data-label="${section.headings[index]}">${escapeHtml(String(value))}</div>`).join('')}</div>`).join('') || '<div class="std-empty-state"><h4 class="std-empty-title">No Recorded Activity</h4><p class="std-empty-desc">No activity matches this staff search and date range.</p></div>'}</div>`).join('')}
+    const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState($('#servicePerformanceDateFrom')?.value || '', $('#servicePerformanceDateTo')?.value || '') : '';
+    const kpis = [
+      {
+        label: 'KITCHEN READY QTY',
+        value: report.totals.readyQty,
+        color: 'text-emerald',
+        iconClass: 'icon-emerald',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+        sub: 'Lines prepared & ready',
+      },
+      {
+        label: 'SERVED QTY',
+        value: report.totals.servedQty,
+        color: 'text-sky',
+        iconClass: 'icon-sky',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>',
+        sub: 'Dispatched to tables',
+      },
+      {
+        label: 'AVG. PREP',
+        value: performanceAverage_(report.totals.prep),
+        color: 'text-amber',
+        iconClass: 'icon-amber',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+        sub: 'Start to ready time',
+      },
+      {
+        label: 'AVG. PICKUP',
+        value: performanceAverage_(report.totals.pickup),
+        color: 'text-purple',
+        iconClass: 'icon-purple',
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+        sub: 'Ready to served time',
+      },
+    ];
+    table.innerHTML = `<div class="std-view theme-sky">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3v18h18M7 15v-4m5 4V7m5 8V5"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">OWNER REPORTING &bull; SERVICE OPERATIONS</span>
+            <strong class="std-hero-title">Kitchen / Waiter Performance</strong>
+            <p class="std-hero-desc">${escapeHtml(servicePerformanceNote_())}</p>
+          </div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="button button-secondary std-record-btn" type="button" id="servicePerfPrintPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
+            <span>Print PDF</span>
+          </button>
+          <button class="button button-primary std-record-btn" type="button" id="servicePerfExportPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
+            <span>Export PDF</span>
+          </button>
+        </div>
+      </div>
+      <div class="std-kpi-grid">
+        ${kpis.map((k) => `
+          <div class="std-kpi-card">
+            <div class="std-kpi-icon ${k.iconClass}">
+              ${k.icon}
+            </div>
+            <div class="std-kpi-content">
+              <span class="std-kpi-label">${k.label}</span>
+              <strong class="std-kpi-value ${k.color}">${escapeHtml(String(k.value))}</strong>
+              <span class="std-kpi-sub">${escapeHtml(k.sub)}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="std-toolbar-strip">
+        <span class="product-meta">Received cohort: ${report.totals.tickets} tickets &bull; ${report.totals.requests} QR requests &bull; ${report.totals.legacy} legacy items.</span>
+        ${typeof renderDatePresets === 'function' ? renderDatePresets(activePreset, 'data-service-perf-preset') : ''}
+      </div>
+      ${servicePerformanceTables_(report).map((section) => `
+        <h3>${section.title}</h3>
+        <div class="std-table-shell">
+          <div class="std-table-header" style="grid-template-columns:1.6fr repeat(${section.headings.length - 1},1fr);">
+            ${section.headings.map((heading) => `<span>${heading}</span>`).join('')}
+          </div>
+          ${section.rows.map((row) => `
+            <div class="std-table-row" style="grid-template-columns:1.6fr repeat(${section.headings.length - 1},1fr);">
+              ${row.map((value, index) => {
+                const heading = section.headings[index];
+                const isQty = /qty|lines|claims|confirmed/i.test(heading);
+                const formattedVal = isQty && value !== null && value !== undefined && value !== ''
+                  ? `<span class="stock-pill stock-quantity">${escapeHtml(String(value))}</span>`
+                  : escapeHtml(String(value));
+                return `<div data-label="${heading}">${formattedVal}</div>`;
+              }).join('')}
+            </div>
+          `).join('') || `
+            <div class="std-empty-state">
+              <div class="std-empty-icon" style="color:#38bdf8;background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.25);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15v-4m5 4V7m5 8V5"/></svg>
+              </div>
+              <h4 class="std-empty-title">No Recorded Activity</h4>
+              <p class="std-empty-desc">No activity matches this staff search and date range.</p>
+            </div>
+          `}
+        </div>
+      `).join('')}
     </div>`;
+    table.querySelector?.('#servicePerfPrintPdfHeroBtn')?.addEventListener('click', generateServicePerformancePdf);
+    table.querySelector?.('#servicePerfExportPdfHeroBtn')?.addEventListener('click', exportServicePerformancePdf);
+    if (typeof bindDatePresets === 'function') {
+      bindDatePresets(table, 'data-service-perf-preset', 'servicePerformanceDateFrom', 'servicePerformanceDateTo', () => renderServicePerformance(true));
+    }
   } catch (error) {
-    if (sequence === servicePerformanceRenderId && activeView === 'servicePerformance') table.innerHTML = `<div class="std-empty-state"><h4 class="std-empty-title">Unable to Load Performance</h4><p class="std-empty-desc">${escapeHtml(error.message || 'Please try Refresh.')}</p></div>`;
+    if (sequence === servicePerformanceRenderId && activeView === 'servicePerformance') {
+      table.innerHTML = `
+        <div class="std-empty-state">
+          <div class="std-empty-icon" style="color:#f87171;background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.25);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <h4 class="std-empty-title">Unable to Load Performance</h4>
+          <p class="std-empty-desc">${escapeHtml(error.message || 'Please try Refresh.')}</p>
+        </div>
+      `;
+    }
   } finally {
     if (sequence === servicePerformanceRenderId && activeView === 'servicePerformance') actions.forEach((button) => { if (button) button.disabled = servicePerformanceCache.key !== key || !servicePerformanceCache.data; });
   }
@@ -2037,7 +2365,7 @@ function getLossesWastageReport_() {
     const date = saleDateKey(item.occurredAt);
     return date && (!from || date >= from) && (!to || date <= to) && (source === 'all' || item.source === source)
       && `${item.productName} ${item.id} ${item.reason} ${item.notes || ''} ${item.reference || ''} ${item.sourceLabel}`.toLowerCase().includes(term);
-  }).map((item) => ({ ...item, ...resolveLossReportCost_(item) }))
+  }).map((item) => ({ ...item, ...resolveLossReportCost_(item), imageUrl: item.imageUrl || productMap.get(item.productId)?.imageUrl || '' }))
     .sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt) || a.key.localeCompare(b.key));
   const totals = { qty: 0, recorded: 0, estimated: 0, pendingQty: 0, pendingRecords: 0 };
   const reasons = new Map();
@@ -2054,7 +2382,7 @@ function getLossesWastageReport_() {
 }
 
 function lossesWastageNote_() {
-  return 'Includes posted stock write-offs and disposed quarantine/customer-return items. Excludes items still held, restocked, or returned to suppliers. Estimates use the last recorded purchase cost before the loss; missing costs are excluded from cost totals.';
+  return 'Stock write-offs and disposed items using recorded or estimated purchase costs.';
 }
 
 function lossesWastageCells_(row) {
@@ -2071,12 +2399,13 @@ function buildLossesWastagePdfReport_() {
   const generated = new Date().toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
   const pages = Array.from({ length: Math.max(1, Math.ceil(report.rows.length / 14)) }, (_, index) => report.rows.slice(index * 14, index * 14 + 14));
   const renderedPagesHtml = pages.map((rows, index) => `<div class="report-page"><div class="report-page-content">
-    ${renderReportRunningHeader(branch.name, periodText, 'Losses & Wastage')}
+    ${renderReportRunningHeader(branch.name, periodText, 'Losses & Wastage Report', index === 0, 'Inventory write-offs, damages, and scrap disposition audit', generated)}
     <section class="report-summary-grid"><div><span>Units Lost</span><strong>${report.totals.qty.toLocaleString('en-PH')}</strong></div><div><span>Recorded Loss Cost</span><strong>${money(report.totals.recorded)}</strong></div><div><span>Estimated Cost</span><strong>${money(report.totals.estimated)}</strong></div><div><span>Cost Pending</span><strong>${report.totals.pendingQty.toLocaleString('en-PH')} units</strong></div></section>
     <p class="report-note">${escapeHtml(lossesWastageNote_())}</p>
+    <div class="report-section-title-wrap"><h2 class="report-section-title">${index === 0 ? 'Itemized Loss & Wastage Records' : 'Itemized Loss & Wastage Records (Continued)'}</h2><span class="report-count-badge">${report.rows.length} incident${report.rows.length === 1 ? '' : 's'}</span></div>
     <table class="report-table"><thead><tr><th>Product / Reference</th><th>Date / Source</th><th>Quantity</th><th>Reason</th><th>Loss Cost</th></tr></thead><tbody>
     ${rows.map((row) => `<tr>${lossesWastageCells_(row).map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="5">No losses or disposals in this period.</td></tr>'}
-    </tbody></table></div>${renderReportPageFooter(index + 1, pages.length, generated, 'Losses & Wastage')}</div>`).join('');
+    </tbody></table>${index === pages.length - 1 ? '<div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By (Cashier / Staff)</span><span class="sign-sub">Signature over printed name</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Audited & Verified By</span><span class="sign-sub">Branch Manager / Operations</span></div></div><div class="report-disclaimer"><p>ANGKOL\'S GRILL &amp; RESTOBAR SYSTEM-GENERATED AUDIT REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p></div>' : ''}</div>${renderReportPageFooter(index + 1, pages.length, generated, 'Losses & Wastage')}</div>`).join('');
   return { ...report, renderedPagesHtml, periodText };
 }
 
@@ -2095,18 +2424,148 @@ function renderLossesWastage() {
   if (!table) return;
   const report = getLossesWastageReport_();
   const { rows, totals } = report;
+  const pagination = typeof paginateItems_ === 'function' ? paginateItems_(rows) : { pagedItems: rows, total: rows.length, page: 1, totalPages: 1 };
+  const pagedRows = pagination.pagedItems;
+  const paginationHtml = typeof renderPaginationControls_ === 'function' ? renderPaginationControls_(pagination, 'loss records') : '';
+  const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(report.from, report.to) : '';
   const headings = ['Product / Reference', 'Date / Source', 'Quantity', 'Reason', 'Loss Cost'];
-  const kpis = [['UNITS LOST', totals.qty.toLocaleString('en-PH'), `${rows.length} loss / disposal records`, 'text-crimson'],
-    ['RECORDED LOSS COST', money(totals.recorded), 'Recorded FIFO or source costs', 'text-amber'],
-    ['ESTIMATED COST', money(totals.estimated), 'Historical purchase-cost estimates', 'text-sky'],
-    ['COST PENDING', `${totals.pendingQty.toLocaleString('en-PH')} units`, `${totals.pendingRecords} records without cost`, 'text-amber']];
-  table.innerHTML = `<div class="std-view theme-emerald">
-    <div class="std-hero-card"><div class="std-hero-glow"></div><div class="std-hero-leading"><div class="std-hero-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M5 6l1 15h12l1-15M9 6V3h6v3m-6 5 6 6m0-6-6 6"/></svg></div><div class="std-hero-text"><span class="std-hero-kicker">OWNER REPORTING &bull; STOCK LOSSES</span><strong class="std-hero-title">Losses &amp; Wastage</strong><p class="std-hero-desc">${escapeHtml(lossesWastageNote_())}</p></div></div></div>
-    <div class="std-kpi-grid">${kpis.map(([label, value, sub, color]) => `<div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">${label}</span><strong class="std-kpi-value ${color}">${value}</strong><span class="std-kpi-sub">${escapeHtml(sub)}</span></div></div>`).join('')}</div>
-    <div class="std-toolbar-strip"><span class="product-meta">${report.reasons.map((item) => `${escapeHtml(item.reason)}: ${item.qty.toLocaleString('en-PH')} units`).join(' &bull; ') || 'No loss reasons in this period.'}</span></div>
-    <div class="std-table-shell"><div class="std-table-header" style="grid-template-columns:1.5fr 1.4fr .7fr 1fr 1fr;">${headings.map((heading) => `<span>${heading}</span>`).join('')}</div>
-    ${rows.map((row) => `<div class="std-table-row" style="grid-template-columns:1.5fr 1.4fr .7fr 1fr 1fr;">${lossesWastageCells_(row).map((cell, index) => `<div data-label="${headings[index]}">${cell}</div>`).join('')}</div>`).join('') || '<div class="std-empty-state"><h4 class="std-empty-title">No Losses &amp; Wastage</h4><p class="std-empty-desc">No posted losses or disposals match your date range and filters.</p></div>'}
-    </div></div>`;
+  const kpis = [
+    {
+      label: 'UNITS LOST',
+      value: totals.qty.toLocaleString('en-PH'),
+      sub: `${rows.length} loss / disposal records`,
+      color: 'text-crimson',
+      iconClass: 'icon-rose',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    },
+    {
+      label: 'RECORDED LOSS COST',
+      value: money(totals.recorded),
+      sub: 'Recorded FIFO or source costs',
+      color: 'text-amber',
+      iconClass: 'icon-amber',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>',
+    },
+    {
+      label: 'ESTIMATED COST',
+      value: money(totals.estimated),
+      sub: 'Historical purchase-cost estimates',
+      color: 'text-sky',
+      iconClass: 'icon-sky',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>',
+    },
+    {
+      label: 'COST PENDING',
+      value: `${totals.pendingQty.toLocaleString('en-PH')} units`,
+      sub: `${totals.pendingRecords} records without cost`,
+      color: 'text-amber',
+      iconClass: 'icon-amber',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+    },
+  ];
+
+  table.innerHTML = `
+    <div class="std-view theme-sky">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18M5 6l1 15h12l1-15M9 6V3h6v3m-6 5 6 6m0-6-6 6"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">OWNER REPORTING &bull; STOCK LOSSES</span>
+            <strong class="std-hero-title">Losses &amp; Wastage</strong>
+            <p class="std-hero-desc">${escapeHtml(lossesWastageNote_())}</p>
+          </div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="button button-secondary std-record-btn" type="button" id="lossesWastagePrintPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
+            <span>Print PDF</span>
+          </button>
+          <button class="button button-primary std-record-btn" type="button" id="lossesWastageExportPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
+            <span>Export PDF</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-kpi-grid">
+        ${kpis.map((k) => `
+          <div class="std-kpi-card">
+            <div class="std-kpi-icon ${k.iconClass}">
+              ${k.icon}
+            </div>
+            <div class="std-kpi-content">
+              <span class="std-kpi-label">${k.label}</span>
+              <strong class="std-kpi-value ${k.color}">${k.value}</strong>
+              <span class="std-kpi-sub">${escapeHtml(k.sub)}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="std-toolbar-strip">
+        <span class="product-meta">${report.reasons.map((item) => `${escapeHtml(item.reason)}: ${item.qty.toLocaleString('en-PH')} units`).join(' &bull; ') || 'No loss reasons in this period.'}</span>
+        ${typeof renderDatePresets === 'function' ? renderDatePresets(activePreset, 'data-losses-wastage-preset') : ''}
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-losseswastage">
+          ${headings.map((heading) => `<span>${heading}</span>`).join('')}
+        </div>
+        ${pagedRows.map((row) => {
+          const thumbHtml = typeof renderProductThumbHtml_ === 'function' ? renderProductThumbHtml_(row.imageUrl || '', row.productName, '#f87171') : '';
+          return `
+            <div class="std-table-row grid-cols-losseswastage">
+              <div class="product-cell" data-label="${headings[0]}">
+                ${thumbHtml}
+                <div class="product-details-stack" style="min-width:0;">
+                  <strong class="product-name" style="font-size:13px;color:#fff;" title="${escapeHtml(row.productName)}">${escapeHtml(row.productName)}</strong>
+                  <span class="product-meta" style="font-size:10.5px;">${escapeHtml(row.reference || row.id)}</span>
+                </div>
+              </div>
+              <div data-label="${headings[1]}"><strong>${escapeHtml(saleDateKey(row.occurredAt))}</strong><br><small class="product-meta">${escapeHtml(row.sourceLabel)}</small></div>
+              <div data-label="${headings[2]}"><span class="stock-pill stock-quantity">${Number(row.qty).toLocaleString('en-PH')} ${escapeHtml(row.unit || 'unit')}</span></div>
+              <div data-label="${headings[3]}">${escapeHtml(row.reason)}</div>
+              <div data-label="${headings[4]}">${row.cost === null ? 'Not recorded' : money(row.cost)}<br><small class="product-meta">${row.basis}</small></div>
+            </div>
+          `;
+        }).join('') || `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#f87171;background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18M5 6l1 15h12l1-15M9 6V3h6v3m-6 5 6 6m0-6-6 6"/>
+              </svg>
+            </div>
+            <h4 class="std-empty-title">No Losses &amp; Wastage</h4>
+            <p class="std-empty-desc">No posted losses or disposals match your date range and filters.</p>
+            <button type="button" class="button button-secondary" id="lossesWastageResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+              Reset Filters &amp; Date Range
+            </button>
+          </div>
+        `}
+      </div>
+      ${paginationHtml}
+    </div>
+  `;
+
+  if (typeof bindPaginationEvents_ === 'function') bindPaginationEvents_(table, renderLossesWastage);
+  table.querySelector?.('#lossesWastagePrintPdfHeroBtn')?.addEventListener('click', generateLossesWastagePdf);
+  table.querySelector?.('#lossesWastageExportPdfHeroBtn')?.addEventListener('click', exportLossesWastagePdf);
+  table.querySelector?.('#lossesWastageResetFiltersBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    const srcSelect = $('#lossesWastageSource');
+    if (srcSelect) srcSelect.value = 'all';
+    ensureLossesWastageDateDefaults();
+    renderLossesWastage();
+  });
+  if (typeof bindDatePresets === 'function') {
+    bindDatePresets(table, 'data-losses-wastage-preset', 'lossesWastageDateFrom', 'lossesWastageDateTo', renderLossesWastage);
+  }
 }
 
 function ensureCreditAgingDateDefaults() {
@@ -2169,13 +2628,14 @@ function buildCreditAgingPdfReport_() {
   const generated = new Date().toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
   const chunks = Array.from({ length: Math.max(1, Math.ceil(report.rows.length / 16)) }, (_, index) => report.rows.slice(index * 16, index * 16 + 16));
   const renderedPagesHtml = chunks.map((rows, index) => `<div class="report-page"><div class="report-page-content">
-    ${renderReportRunningHeader(branch.name, periodText, 'Credit Aging')}
+    ${renderReportRunningHeader(branch.name, periodText, 'Customer Credit Aging Report', index === 0, 'Receivables aging and credit exposure audit', generated)}
     <section class="report-summary-grid"><div><span>Outstanding</span><strong>${money(report.totals.balance)}</strong></div><div><span>Opening Balance</span><strong>${money(report.openingBalance)}</strong></div><div><span>Credit Added</span><strong>${money(report.added)}</strong></div><div><span>Collected</span><strong>${money(report.collected)}</strong></div></section>
     <p class="report-note">${escapeHtml(creditAgingNote_(report))}</p>
+    <div class="report-section-title-wrap"><h2 class="report-section-title">${index === 0 ? 'Customer Receivables & Aging Buckets' : 'Customer Receivables & Aging Buckets (Continued)'}</h2><span class="report-count-badge">${report.rows.length} account${report.rows.length === 1 ? '' : 's'}</span></div>
     <table class="report-table"><thead><tr><th>Customer</th><th>0–30 Days</th><th>31–60 Days</th><th>61–90 Days</th><th>91+ Days</th><th>Outstanding</th></tr></thead><tbody>
     ${rows.map((row) => `<tr>${creditAgingCells_(row).map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="6">No outstanding credit at the selected cutoff.</td></tr>'}
     ${index === chunks.length - 1 ? `<tr><td><strong>Total</strong></td>${report.totals.buckets.map((value) => `<td>${money(value)}</td>`).join('')}<td><strong>${money(report.totals.balance)}</strong></td></tr>` : ''}
-    </tbody></table></div>${renderReportPageFooter(index + 1, chunks.length, generated, 'Credit Aging')}</div>`).join('');
+    </tbody></table>${index === chunks.length - 1 ? '<div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By (Cashier / Staff)</span><span class="sign-sub">Signature over printed name</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Audited & Verified By</span><span class="sign-sub">Branch Manager / Operations</span></div></div><div class="report-disclaimer"><p>ANGKOL\'S GRILL &amp; RESTOBAR SYSTEM-GENERATED AUDIT REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p></div>' : ''}</div>${renderReportPageFooter(index + 1, chunks.length, generated, 'Credit Aging')}</div>`).join('');
   return { ...report, renderedPagesHtml, periodText };
 }
 
@@ -2194,20 +2654,133 @@ function renderCreditAging() {
   if (!table) return;
   const report = getCreditAgingReport_();
   const { rows, totals } = report;
+  const pagination = typeof paginateItems_ === 'function' ? paginateItems_(rows) : { pagedItems: rows, total: rows.length, page: 1, totalPages: 1 };
+  const pagedRows = pagination.pagedItems;
+  const paginationHtml = typeof renderPaginationControls_ === 'function' ? renderPaginationControls_(pagination, 'customers') : '';
+  const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(report.from, report.to) : '';
   const headings = ['Customer', '0–30 Days', '31–60 Days', '61–90 Days', '91+ Days', 'Outstanding'];
   const kpis = [
-    ['OUTSTANDING CREDIT', totals.balance, `${rows.length} customers / ${totals.accounts} unpaid accounts`, 'text-sky'],
-    ['0–30 DAYS', totals.buckets[0], 'Most recent credit', 'text-emerald'],
-    ['31–90 DAYS', totals.buckets[1] + totals.buckets[2], 'Review for collection', 'text-amber'],
-    ['91+ DAYS', totals.buckets[3], 'Oldest unpaid credit', 'text-crimson'],
+    {
+      label: 'OUTSTANDING CREDIT',
+      value: money(totals.balance),
+      sub: `${rows.length} customers / ${totals.accounts} unpaid accounts`,
+      color: 'text-sky',
+      iconClass: 'icon-sky',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>',
+    },
+    {
+      label: '0–30 DAYS',
+      value: money(totals.buckets[0]),
+      sub: 'Most recent credit',
+      color: 'text-emerald',
+      iconClass: 'icon-emerald',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    },
+    {
+      label: '31–90 DAYS',
+      value: money(totals.buckets[1] + totals.buckets[2]),
+      sub: 'Review for collection',
+      color: 'text-amber',
+      iconClass: 'icon-amber',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>',
+    },
+    {
+      label: '91+ DAYS',
+      value: money(totals.buckets[3]),
+      sub: 'Oldest unpaid credit',
+      color: 'text-crimson',
+      iconClass: 'icon-rose',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+    },
   ];
-  table.innerHTML = `<div class="std-view theme-emerald">
-    <div class="std-hero-card"><div class="std-hero-glow"></div><div class="std-hero-leading"><div class="std-hero-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg></div><div class="std-hero-text"><span class="std-hero-kicker">OWNER REPORTING &bull; RECEIVABLES</span><strong class="std-hero-title">Credit Aging</strong><p class="std-hero-desc">${escapeHtml(creditAgingNote_(report))}</p></div></div></div>
-    <div class="std-kpi-grid">${kpis.map(([label, value, sub, color]) => `<div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">${label}</span><strong class="std-kpi-value ${color}">${money(value)}</strong><span class="std-kpi-sub">${escapeHtml(sub)}</span></div></div>`).join('')}</div>
-    <div class="std-toolbar-strip"><span class="product-meta">Opening before ${escapeHtml(report.from)}: ${money(report.openingBalance)} &bull; Credit added: ${money(report.added)} &bull; Collected: ${money(report.collected)}</span></div>
-    <div class="std-table-shell"><div class="std-table-header" style="grid-template-columns:1.6fr repeat(5,1fr);">${headings.map((heading) => `<span>${heading}</span>`).join('')}</div>
-    ${rows.map((row) => `<div class="std-table-row" style="grid-template-columns:1.6fr repeat(5,1fr);">${creditAgingCells_(row).map((cell, index) => `<div data-label="${headings[index]}">${cell}</div>`).join('')}</div>`).join('') || '<div class="std-empty-state"><h4 class="std-empty-title">No Outstanding Credit</h4><p class="std-empty-desc">No unpaid accounts match this customer search and cutoff date.</p></div>'}
-    </div></div>`;
+
+  table.innerHTML = `
+    <div class="std-view theme-sky">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">OWNER REPORTING &bull; RECEIVABLES</span>
+            <strong class="std-hero-title">Credit Aging</strong>
+            <p class="std-hero-desc">${escapeHtml(creditAgingNote_(report))}</p>
+          </div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="button button-secondary std-record-btn" type="button" id="creditAgingPrintPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
+            <span>Print PDF</span>
+          </button>
+          <button class="button button-primary std-record-btn" type="button" id="creditAgingExportPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
+            <span>Export PDF</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-kpi-grid">
+        ${kpis.map((k) => `
+          <div class="std-kpi-card">
+            <div class="std-kpi-icon ${k.iconClass}">
+              ${k.icon}
+            </div>
+            <div class="std-kpi-content">
+              <span class="std-kpi-label">${k.label}</span>
+              <strong class="std-kpi-value ${k.color}">${k.value}</strong>
+              <span class="std-kpi-sub">${escapeHtml(k.sub)}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="std-toolbar-strip">
+        <span class="product-meta">Opening before ${escapeHtml(report.from)}: ${money(report.openingBalance)} &bull; Credit added: ${money(report.added)} &bull; Collected: ${money(report.collected)}</span>
+        ${typeof renderDatePresets === 'function' ? renderDatePresets(activePreset, 'data-credit-aging-preset') : ''}
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-creditaging">
+          ${headings.map((heading) => `<span>${heading}</span>`).join('')}
+        </div>
+        ${pagedRows.map((row) => `
+          <div class="std-table-row grid-cols-creditaging">
+            ${creditAgingCells_(row).map((cell, index) => `<div data-label="${headings[index]}">${cell}</div>`).join('')}
+          </div>
+        `).join('') || `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#38bdf8;background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>
+              </svg>
+            </div>
+            <h4 class="std-empty-title">No Outstanding Credit</h4>
+            <p class="std-empty-desc">No unpaid accounts match this customer search and cutoff date.</p>
+            <button type="button" class="button button-secondary" id="creditAgingResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+              Reset Filters &amp; Date Range
+            </button>
+          </div>
+        `}
+      </div>
+      ${paginationHtml}
+    </div>
+  `;
+
+  if (typeof bindPaginationEvents_ === 'function') bindPaginationEvents_(table, renderCreditAging);
+  table.querySelector?.('#creditAgingPrintPdfHeroBtn')?.addEventListener('click', generateCreditAgingPdf);
+  table.querySelector?.('#creditAgingExportPdfHeroBtn')?.addEventListener('click', exportCreditAgingPdf);
+  table.querySelector?.('#creditAgingResetFiltersBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    ensureCreditAgingDateDefaults();
+    renderCreditAging();
+  });
+  if (typeof bindDatePresets === 'function') {
+    bindDatePresets(table, 'data-credit-aging-preset', 'creditAgingDateFrom', 'creditAgingDateTo', renderCreditAging);
+  }
 }
 
 function ensureProductSalesPerformanceDateDefaults() {
@@ -2239,8 +2812,8 @@ function getProductSalesPerformanceReport_() {
 }
 
 function productPerformanceNotes_(report) {
-  return ['Sales are before discounts and refunds. Sales share uses all completed product sales in the selected branch and period.',
-    report.totals.pendingLines ? `${report.totals.pendingLines} sold lines have missing costs; gross profit is estimated.` : '', report.costNotice].filter(Boolean).join(' ');
+  return ['Sales share uses completed sales in the selected period.',
+    report.totals.pendingLines ? `${report.totals.pendingLines} lines have missing costs; profit is estimated.` : '', report.costNotice].filter(Boolean).join(' ');
 }
 
 function buildProductSalesPerformancePdfReport_() {
@@ -2251,13 +2824,14 @@ function buildProductSalesPerformancePdfReport_() {
   const pages = Array.from({ length: Math.max(1, Math.ceil(report.rows.length / 16)) }, (_, index) => report.rows.slice(index * 16, index * 16 + 16));
   const labels = { best: 'Best Selling', slow: 'Slow / No Sales', sales: 'Highest Sales', profit: 'Highest Gross Profit', all: 'All Products', individual: 'Individual Products', bundle: 'Bundles' };
   const renderedPagesHtml = pages.map((rows, index) => `<div class="report-page"><div class="report-page-content">
-    ${renderReportRunningHeader(branch.name, periodText, 'Product Sales Performance')}
+    ${renderReportRunningHeader(branch.name, periodText, 'Product Sales Performance Report', index === 0, 'Best sellers, sales contribution, and margin audit', generated)}
     <p class="report-note">${escapeHtml(labels[report.type] || report.type)} &bull; ${escapeHtml(labels[report.sort] || report.sort)}</p>
     <section class="report-summary-grid"><div><span>Product Sales</span><strong>${money(report.totals.sales)}</strong></div><div><span>Units Sold</span><strong>${report.totals.qty.toLocaleString('en-PH')}</strong></div><div><span>COGS</span><strong>${money(report.totals.cogs)}</strong></div><div><span>Gross Profit</span><strong>${money(report.totals.grossProfit)}</strong></div></section>
     <p class="report-note">${escapeHtml(productPerformanceNotes_(report))}</p>
+    <div class="report-section-title-wrap"><h2 class="report-section-title">${index === 0 ? 'Product Sales & Contribution Ranking' : 'Product Sales & Contribution Ranking (Continued)'}</h2><span class="report-count-badge">${report.rows.length} product${report.rows.length === 1 ? '' : 's'}</span></div>
     <table class="report-table"><thead><tr><th>Rank</th><th>Product / Type</th><th>Qty</th><th>Sales</th><th>Share</th><th>COGS</th><th>Gross Profit</th></tr></thead><tbody>
     ${rows.map((row) => `<tr><td>${row.rank}</td><td><strong>${escapeHtml(row.name)}</strong><br><small>${escapeHtml(row.sku)} &bull; ${row.productType === 'bundle' ? 'Bundle' : 'Individual'}${row.pendingLines ? ` &bull; ${row.pendingLines} cost pending` : ''}</small></td><td>${row.qty.toLocaleString('en-PH')}</td><td>${money(row.sales)}</td><td>${row.share.toFixed(1)}%</td><td>${money(row.cogs)}</td><td>${money(row.grossProfit)}</td></tr>`).join('') || '<tr><td colspan="7">No matching products.</td></tr>'}
-    </tbody></table></div>${renderReportPageFooter(index + 1, pages.length, generated, 'Product Sales Performance')}</div>`).join('');
+    </tbody></table>${index === pages.length - 1 ? '<div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By (Cashier / Staff)</span><span class="sign-sub">Signature over printed name</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Audited & Verified By</span><span class="sign-sub">Branch Manager / Operations</span></div></div><div class="report-disclaimer"><p>ANGKOL\'S GRILL &amp; RESTOBAR SYSTEM-GENERATED AUDIT REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p></div>' : ''}</div>${renderReportPageFooter(index + 1, pages.length, generated, 'Product Sales Performance')}</div>`).join('');
   return { ...report, renderedPagesHtml, periodText };
 }
 
@@ -2276,18 +2850,151 @@ function renderProductSalesPerformance() {
   if (!table) return;
   const report = getProductSalesPerformanceReport_();
   const { rows, totals } = report;
-  table.innerHTML = `<div class="std-view theme-emerald">
-    <div class="std-hero-card"><div class="std-hero-glow"></div><div class="std-hero-leading"><div class="std-hero-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 16v-3m5 3V9m5 7V5"/></svg></div><div class="std-hero-text"><span class="std-hero-kicker">OWNER REPORTING &bull; PRODUCT PERFORMANCE</span><strong class="std-hero-title">Product Sales Performance</strong><p class="std-hero-desc">Rank individual products and bundles by sales, quantity, or gross profit.</p></div></div></div>
-    <div class="std-kpi-grid">
-      <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">PRODUCT SALES</span><strong class="std-kpi-value text-sky">${money(totals.sales)}</strong><span class="std-kpi-sub">${rows.length} matching products</span></div></div>
-      <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">UNITS SOLD</span><strong class="std-kpi-value text-emerald">${totals.qty.toLocaleString('en-PH')}</strong><span class="std-kpi-sub">${totals.unsold} products with no sales</span></div></div>
-      <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">COST OF GOODS</span><strong class="std-kpi-value text-amber">${money(totals.cogs)}</strong><span class="std-kpi-sub">Includes bundle component costs</span></div></div>
-      <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">GROSS PROFIT</span><strong class="std-kpi-value ${totals.grossProfit < 0 ? 'text-crimson' : 'text-emerald'}">${money(totals.grossProfit)}</strong><span class="std-kpi-sub">Before operating expenses</span></div></div>
+  const pagination = typeof paginateItems_ === 'function' ? paginateItems_(rows) : { pagedItems: rows, total: rows.length, page: 1, totalPages: 1 };
+  const pagedRows = pagination.pagedItems;
+  const paginationHtml = typeof renderPaginationControls_ === 'function' ? renderPaginationControls_(pagination, 'products') : '';
+  const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(report.from, report.to) : '';
+  const kpis = [
+    {
+      label: 'PRODUCT SALES',
+      value: money(totals.sales),
+      sub: `${rows.length} matching products`,
+      color: 'text-sky',
+      iconClass: 'icon-sky',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>',
+    },
+    {
+      label: 'UNITS SOLD',
+      value: totals.qty.toLocaleString('en-PH'),
+      sub: `${totals.unsold} products with no sales`,
+      color: 'text-emerald',
+      iconClass: 'icon-emerald',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/></svg>',
+    },
+    {
+      label: 'COST OF GOODS',
+      value: money(totals.cogs),
+      sub: 'Includes bundle component costs',
+      color: 'text-amber',
+      iconClass: 'icon-amber',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>',
+    },
+    {
+      label: 'GROSS PROFIT',
+      value: money(totals.grossProfit),
+      sub: 'Before operating expenses',
+      color: totals.grossProfit < 0 ? 'text-crimson' : 'text-emerald',
+      iconClass: totals.grossProfit < 0 ? 'icon-rose' : 'icon-emerald',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+    },
+  ];
+
+  table.innerHTML = `
+    <div class="std-view theme-sky">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3v18h18M7 16v-3m5 3V9m5 7V5"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">OWNER REPORTING &bull; PRODUCT PERFORMANCE</span>
+            <strong class="std-hero-title">Product Sales Performance</strong>
+            <p class="std-hero-desc">Rank individual products and bundles by sales, quantity, or gross profit.</p>
+          </div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="button button-secondary std-record-btn" type="button" id="productSalesPerformancePrintPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
+            <span>Print PDF</span>
+          </button>
+          <button class="button button-primary std-record-btn" type="button" id="productSalesPerformanceExportPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
+            <span>Export PDF</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-kpi-grid">
+        ${kpis.map((k) => `
+          <div class="std-kpi-card">
+            <div class="std-kpi-icon ${k.iconClass}">
+              ${k.icon}
+            </div>
+            <div class="std-kpi-content">
+              <span class="std-kpi-label">${k.label}</span>
+              <strong class="std-kpi-value ${k.color}">${k.value}</strong>
+              <span class="std-kpi-sub">${escapeHtml(k.sub)}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="std-toolbar-strip">
+        <span class="product-meta">${escapeHtml(productPerformanceNotes_(report))}</span>
+        ${typeof renderDatePresets === 'function' ? renderDatePresets(activePreset, 'data-product-perf-preset') : ''}
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-productperformance">
+          <span>Rank</span><span>Product / Type</span><span>Qty Sold</span><span>Sales</span><span>Sales Share</span><span>COGS</span><span>Gross Profit</span>
+        </div>
+        ${pagedRows.map((row) => {
+          const thumbHtml = typeof renderProductThumbHtml_ === 'function' ? renderProductThumbHtml_(row.imageUrl || '', row.name) : '';
+          return `
+          <div class="std-table-row grid-cols-productperformance">
+            <div data-label="Rank">${row.rank}</div>
+            <div class="product-cell" data-label="Product / Type">
+              ${thumbHtml}
+              <div class="product-details-stack" style="min-width:0;">
+                <strong class="product-name" style="font-size:13px;color:#fff;" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</strong>
+                <span class="product-meta" style="font-size:10.5px;">${escapeHtml(row.sku)} &bull; ${row.productType === 'bundle' ? 'Bundle' : 'Individual'}${row.pendingLines ? ` &bull; ${row.pendingLines} cost pending` : ''}</span>
+              </div>
+            </div>
+            <div data-label="Qty Sold"><span class="stock-pill stock-quantity">${row.qty.toLocaleString('en-PH')}</span></div>
+            <div data-label="Sales">${money(row.sales)}</div>
+            <div data-label="Sales Share">${row.share.toFixed(1)}%</div>
+            <div data-label="COGS">${money(row.cogs)}</div>
+            <div data-label="Gross Profit" class="${row.grossProfit < 0 ? 'text-crimson' : 'text-emerald'}">${money(row.grossProfit)}</div>
+          </div>
+          `;
+        }).join('') || `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#38bdf8;background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3v18h18M7 16v-3m5 3V9m5 7V5"/>
+              </svg>
+            </div>
+            <h4 class="std-empty-title">No Matching Products</h4>
+            <p class="std-empty-desc">Adjust your product search or filters.</p>
+            <button type="button" class="button button-secondary" id="productSalesPerformanceResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+              Reset Filters &amp; Date Range
+            </button>
+          </div>
+        `}
+      </div>
+      ${paginationHtml}
     </div>
-    <div class="std-toolbar-strip"><span class="product-meta">${escapeHtml(productPerformanceNotes_(report))}</span></div>
-    <div class="std-table-shell"><div class="std-table-header" style="grid-template-columns:.35fr 1.6fr repeat(5,.8fr);"><span>Rank</span><span>Product / Type</span><span>Qty Sold</span><span>Sales</span><span>Sales Share</span><span>COGS</span><span>Gross Profit</span></div>
-      ${rows.map((row) => `<div class="std-table-row" style="grid-template-columns:.35fr 1.6fr repeat(5,.8fr);"><div data-label="Rank">${row.rank}</div><div data-label="Product / Type"><strong>${escapeHtml(row.name)}</strong><span class="product-meta">${escapeHtml(row.sku)} &bull; ${row.productType === 'bundle' ? 'Bundle' : 'Individual'}${row.pendingLines ? ` &bull; ${row.pendingLines} cost pending` : ''}</span></div><div data-label="Qty Sold">${row.qty.toLocaleString('en-PH')}</div><div data-label="Sales">${money(row.sales)}</div><div data-label="Sales Share">${row.share.toFixed(1)}%</div><div data-label="COGS">${money(row.cogs)}</div><div data-label="Gross Profit" class="${row.grossProfit < 0 ? 'text-crimson' : 'text-emerald'}">${money(row.grossProfit)}</div></div>`).join('') || '<div class="std-empty-state"><h4 class="std-empty-title">No Matching Products</h4><p class="std-empty-desc">Adjust your product search or filters.</p></div>'}
-    </div></div>`;
+  `;
+
+  if (typeof bindPaginationEvents_ === 'function') bindPaginationEvents_(table, renderProductSalesPerformance);
+  table.querySelector?.('#productSalesPerformancePrintPdfHeroBtn')?.addEventListener('click', generateProductSalesPerformancePdf);
+  table.querySelector?.('#productSalesPerformanceExportPdfHeroBtn')?.addEventListener('click', exportProductSalesPerformancePdf);
+  table.querySelector?.('#productSalesPerformanceResetFiltersBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    const typeSelect = $('#productSalesPerformanceType');
+    if (typeSelect) typeSelect.value = 'all';
+    const sortSelect = $('#productSalesPerformanceSort');
+    if (sortSelect) sortSelect.value = 'best';
+    ensureProductSalesPerformanceDateDefaults();
+    renderProductSalesPerformance();
+  });
+  if (typeof bindDatePresets === 'function') {
+    bindDatePresets(table, 'data-product-perf-preset', 'productSalesPerformanceDateFrom', 'productSalesPerformanceDateTo', renderProductSalesPerformance);
+  }
 }
 
 function buildFoodCostMarginPdfReport_() {
@@ -2297,7 +3004,7 @@ function buildFoodCostMarginPdfReport_() {
   const generatedTime = new Date().toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
   const rows = report.rows;
   const chunks = rows.length ? Array.from({ length: Math.ceil(rows.length / 18) }, (_, index) => rows.slice(index * 18, (index + 1) * 18)) : [[]];
-  const renderedPagesHtml = chunks.map((chunk, index) => `<div class="report-page"><div class="report-page-content">${renderReportRunningHeader(branch.name, periodText, 'Food Cost & Margin Report')}<section class="report-summary-grid"><div><span>Menu Sales</span><strong>${money(report.totals.sales)}</strong></div><div><span>Recorded COGS</span><strong>${money(report.totals.cogs)}</strong></div><div><span>Gross Profit</span><strong>${money(report.totals.grossProfit)}</strong></div><div><span>Gross Margin</span><strong>${report.totals.marginPercent.toFixed(1)}%</strong></div></section>${report.totals.pendingLines ? `<p class="report-note">${report.totals.pendingLines} sold line${report.totals.pendingLines === 1 ? '' : 's'} needs cost review and is excluded from recorded COGS.</p>` : ''}<table class="report-table"><thead><tr><th>Product</th><th>Qty Sold</th><th>Sales</th><th>COGS</th><th>Gross Profit</th><th>Food Cost</th><th>Margin</th></tr></thead><tbody>${chunk.map((row) => `<tr><td><strong>${escapeHtml(row.name)}</strong><br><small>${escapeHtml(row.sku || row.unit)}${row.pendingLines ? ` &bull; ${row.pendingLines} cost pending` : ''}</small></td><td>${row.qty.toLocaleString('en-PH')}</td><td>${money(row.sales)}</td><td>${money(row.cogs)}</td><td>${money(row.grossProfit)}</td><td>${row.foodCostPercent.toFixed(1)}%</td><td>${row.marginPercent.toFixed(1)}%</td></tr>`).join('') || '<tr><td colspan="7">No completed sales for the selected period.</td></tr>'}</tbody></table>${index === chunks.length - 1 ? `<div class="report-totals"><div class="final-row"><span>Food cost percentage</span><strong>${report.totals.foodCostPercent.toFixed(1)}%</strong></div><div class="final-row final-grand-total"><span>Gross margin</span><strong>${report.totals.marginPercent.toFixed(1)}%</strong></div></div><div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By</span><span class="sign-sub">Signature over printed name</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Reviewed By</span><span class="sign-sub">Business owner / manager</span></div></div>` : ''}</div>${renderReportPageFooter(index + 1, chunks.length, generatedTime, 'Food Cost & Margin')}</div>`).join('');
+  const renderedPagesHtml = chunks.map((chunk, index) => `<div class="report-page"><div class="report-page-content">${renderReportRunningHeader(branch.name, periodText, 'Food Cost & Margin Report', index === 0, 'Menu profitability, recorded FIFO cost, and gross margin audit', generatedTime)}<section class="report-summary-grid"><div><span>Menu Sales</span><strong>${money(report.totals.sales)}</strong></div><div><span>Recorded COGS</span><strong>${money(report.totals.cogs)}</strong></div><div><span>Gross Profit</span><strong>${money(report.totals.grossProfit)}</strong></div><div><span>Gross Margin</span><strong>${report.totals.marginPercent.toFixed(1)}%</strong></div></section>${report.totals.pendingLines ? `<p class="report-note">${report.totals.pendingLines} sold line${report.totals.pendingLines === 1 ? '' : 's'} needs cost review and is excluded from recorded COGS.</p>` : ''}<div class="report-section-title-wrap"><h2 class="report-section-title">${index === 0 ? 'Menu Item Profitability & Cost Breakdown' : 'Menu Item Profitability & Cost Breakdown (Continued)'}</h2><span class="report-count-badge">${rows.length} item${rows.length === 1 ? '' : 's'}</span></div><table class="report-table"><thead><tr><th>Product</th><th>Qty Sold</th><th>Sales</th><th>COGS</th><th>Gross Profit</th><th>Food Cost</th><th>Margin</th></tr></thead><tbody>${chunk.map((row) => `<tr><td><strong>${escapeHtml(row.name)}</strong><br><small>${escapeHtml(row.sku || row.unit)}${row.pendingLines ? ` &bull; ${row.pendingLines} cost pending` : ''}</small></td><td>${row.qty.toLocaleString('en-PH')}</td><td>${money(row.sales)}</td><td>${money(row.cogs)}</td><td>${money(row.grossProfit)}</td><td>${row.foodCostPercent.toFixed(1)}%</td><td>${row.marginPercent.toFixed(1)}%</td></tr>`).join('') || '<tr><td colspan="7">No completed sales for the selected period.</td></tr>'}</tbody></table>${index === chunks.length - 1 ? `<div class="report-totals"><div class="final-row"><span>Food cost percentage:</span><strong>${report.totals.foodCostPercent.toFixed(1)}%</strong></div><div class="final-row final-grand-total"><span>Gross margin:</span><strong>${report.totals.marginPercent.toFixed(1)}%</strong></div></div><div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By (Cashier / Staff)</span><span class="sign-sub">Signature over printed name</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Audited & Verified By</span><span class="sign-sub">Branch Manager / Operations</span></div></div><div class="report-disclaimer"><p>ANGKOL\'S GRILL &amp; RESTOBAR SYSTEM-GENERATED AUDIT REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p></div>` : ''}</div>${renderReportPageFooter(index + 1, chunks.length, generatedTime, 'Food Cost & Margin')}</div>`).join('');
   const costNote = report.costNotice ? `<p class="report-note">${escapeHtml(report.costNotice)}</p>` : '';
   return { renderedPagesHtml: renderedPagesHtml.replaceAll('</section>', `</section>${costNote}`), periodText, from: report.from, to: report.to };
 }
@@ -2342,7 +3049,7 @@ function buildProfitLossPdfReport_() {
   const branch = branches.find((item) => item.id === activeBranchId) || { name: 'Main Branch' };
   const periodText = `${dateFrom || 'All dates'} to ${dateTo || 'Today'}`;
   const generatedTime = new Date().toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
-  const renderedPagesHtml = `<div class="report-page"><div class="report-page-content">${renderReportRunningHeader(branch.name, periodText, 'Profit & Loss Report')}<section class="report-summary-grid"><div><span>Net Sales</span><strong>${money(netSales)}</strong></div><div><span>Cost of Goods</span><strong>${money(cogs)}</strong></div><div><span>Operating Expenses</span><strong>${money(expenseTotal)}</strong></div><div><span>Estimated Net Profit</span><strong>${money(netProfit)}</strong></div></section>${unknownCosts ? `<p class="report-note">Cost pending: ${pendingCostLines.map((item) => `${escapeHtml(item.name)} (${escapeHtml(item.reason)})`).join('; ')}.</p>` : ''}<table class="report-table"><thead><tr><th>Date</th><th>Net Sales</th><th>COGS</th><th>Expenses</th><th>Gross Profit</th><th>Est. Net Profit</th></tr></thead><tbody>${rows.map((row) => { const dailySales = row.sales - row.refunds; const dailyGross = dailySales - row.cogs; return `<tr><td>${escapeHtml(row.date)}</td><td>${money(dailySales)}</td><td>${money(row.cogs)}</td><td>${money(row.expenses)}</td><td>${money(dailyGross)}</td><td>${money(dailyGross - row.expenses)}</td></tr>`; }).join('') || '<tr><td colspan="6">No activity for the selected period.</td></tr>'}</tbody></table><div class="report-totals"><div class="final-row"><span>Gross sales</span><strong>${money(grossSales)}</strong></div><div class="final-row"><span>Less refunds</span><strong>${money(refundTotal)}</strong></div><div class="final-row"><span>Gross profit</span><strong>${money(grossProfit)}</strong></div><div class="final-row final-grand-total"><span>Estimated net profit</span><strong>${money(netProfit)}</strong></div></div><div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By</span><span class="sign-sub">Signature over printed name</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Reviewed By</span><span class="sign-sub">Business owner / manager</span></div></div></div>${renderReportPageFooter(1, 1, generatedTime, 'Profit & Loss')}</div>`;
+  const renderedPagesHtml = `<div class="report-page"><div class="report-page-content">${renderReportRunningHeader(branch.name, periodText, 'Profit & Loss Statement', true, 'Official revenue, COGS, operating expenses, and estimated net profit audit', generatedTime)}<section class="report-summary-grid"><div><span>Net Sales</span><strong>${money(netSales)}</strong></div><div><span>Cost of Goods</span><strong>${money(cogs)}</strong></div><div><span>Operating Expenses</span><strong>${money(expenseTotal)}</strong></div><div><span>Estimated Net Profit</span><strong>${money(netProfit)}</strong></div></section>${unknownCosts ? `<p class="report-note">Cost pending: ${pendingCostLines.map((item) => `${escapeHtml(item.name)} (${escapeHtml(item.reason)})`).join('; ')}.</p>` : ''}<div class="report-section-title-wrap"><h2 class="report-section-title">Daily Operating Performance Ledger</h2><span class="report-count-badge">${rows.length} day${rows.length === 1 ? '' : 's'}</span></div><table class="report-table"><thead><tr><th>Date</th><th>Net Sales</th><th>COGS</th><th>Expenses</th><th>Gross Profit</th><th>Est. Net Profit</th></tr></thead><tbody>${rows.map((row) => { const dailySales = row.sales - row.refunds; const dailyGross = dailySales - row.cogs; return `<tr><td>${escapeHtml(row.date)}</td><td>${money(dailySales)}</td><td>${money(row.cogs)}</td><td>${money(row.expenses)}</td><td>${money(dailyGross)}</td><td>${money(dailyGross - row.expenses)}</td></tr>`; }).join('') || '<tr><td colspan="6">No activity for the selected period.</td></tr>'}</tbody></table><div class="report-totals"><div class="final-row"><span>Gross sales:</span><strong>${money(grossSales)}</strong></div><div class="final-row"><span>Less refunds:</span><strong>${money(refundTotal)}</strong></div><div class="final-row"><span>Gross profit:</span><strong>${money(grossProfit)}</strong></div><div class="final-row final-grand-total"><span>Estimated net profit:</span><strong>${money(netProfit)}</strong></div></div><div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By (Cashier / Staff)</span><span class="sign-sub">Signature over printed name</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Audited & Verified By</span><span class="sign-sub">Branch Manager / Operations</span></div></div><div class="report-disclaimer"><p>ANGKOL\'S GRILL &amp; RESTOBAR SYSTEM-GENERATED AUDIT REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p></div></div>${renderReportPageFooter(1, 1, generatedTime, 'Profit & Loss')}</div>`;
   const costNote = reportCostNotice_(sales);
   return { renderedPagesHtml: costNote ? renderedPagesHtml.replace('</section>', `</section><p class="report-note">${escapeHtml(costNote)}</p>`) : renderedPagesHtml, periodText, dateFrom, dateTo };
 }
@@ -2557,7 +3264,7 @@ function buildInventoryValuationPdfReport_() {
   const chunks = [];
   for (let index = 0; index < report.rows.length; index += 16) chunks.push(report.rows.slice(index, index + 16));
   if (!chunks.length) chunks.push([]);
-  const renderedPagesHtml = chunks.map((rows, index) => `<div class="report-page"><div class="report-page-content">${renderReportRunningHeader(branch.name, periodText, 'Inventory Valuation & Movement')}<section class="report-summary-grid"><div><span>On-hand FIFO value</span><strong>${money(report.totals.costValue)}</strong></div><div><span>On-hand units</span><strong>${report.totals.onHand.toLocaleString('en-PH')}</strong></div><div><span>Period stock-in</span><strong>${report.totals.stockIn.toLocaleString('en-PH')}</strong></div><div><span>Cost pending</span><strong>${report.totals.unknownQty.toLocaleString('en-PH')} units</strong></div></section>${report.totals.unknownQty ? `<p class="report-note">${report.totals.unknownQty.toLocaleString('en-PH')} on-hand unit${report.totals.unknownQty === 1 ? '' : 's'} has no FIFO cost and is excluded from the valuation total.</p>` : ''}<table class="report-table"><thead><tr><th>Product</th><th>On Hand</th><th>Stock In</th><th>Sold</th><th>Loss</th><th>Transfers</th><th>FIFO Value</th></tr></thead><tbody>${rows.map((row) => { const transfer = Number(row.movement.transferIn || 0) - Number(row.movement.transferOut || 0); return `<tr><td><strong>${escapeHtml(row.name)}</strong><br><small>${escapeHtml(row.sku || row.id)} &bull; ${escapeHtml(row.unit || 'unit')}${row.unknownQty ? ` &bull; ${row.unknownQty.toLocaleString('en-PH')} cost pending` : ''}</small></td><td>${row.onHand.toLocaleString('en-PH')}</td><td>+${Number(row.movement.stockIn || 0).toLocaleString('en-PH')}</td><td>-${Number(row.movement.sold || 0).toLocaleString('en-PH')}</td><td>-${Number(row.movement.losses || 0).toLocaleString('en-PH')}</td><td>${transfer > 0 ? '+' : ''}${transfer.toLocaleString('en-PH')}</td><td>${money(row.costValue)}</td></tr>`; }).join('') || '<tr><td colspan="7">No inventory records found.</td></tr>'}</tbody></table>${index === chunks.length - 1 ? '<div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By</span><span class="sign-sub">Signature over printed name</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Reviewed By</span><span class="sign-sub">Business owner / manager</span></div></div>' : ''}</div>${renderReportPageFooter(index + 1, chunks.length, generatedTime, 'Inventory Valuation')}</div>`).join('');
+  const renderedPagesHtml = chunks.map((rows, index) => `<div class="report-page"><div class="report-page-content">${renderReportRunningHeader(branch.name, periodText, 'Inventory Valuation & Movement Report', index === 0, 'On-hand FIFO valuation and stock movement audit', generatedTime)}<section class="report-summary-grid"><div><span>On-hand FIFO value</span><strong>${money(report.totals.costValue)}</strong></div><div><span>On-hand units</span><strong>${report.totals.onHand.toLocaleString('en-PH')}</strong></div><div><span>Period stock-in</span><strong>${report.totals.stockIn.toLocaleString('en-PH')}</strong></div><div><span>Cost pending</span><strong>${report.totals.unknownQty.toLocaleString('en-PH')} units</strong></div></section>${report.totals.unknownQty ? `<p class="report-note">${report.totals.unknownQty.toLocaleString('en-PH')} on-hand unit${report.totals.unknownQty === 1 ? '' : 's'} has no FIFO cost and is excluded from the valuation total.</p>` : ''}<div class="report-section-title-wrap"><h2 class="report-section-title">${index === 0 ? 'Stock Valuation & FIFO Balance' : 'Stock Valuation & FIFO Balance (Continued)'}</h2><span class="report-count-badge">${report.rows.length} product${report.rows.length === 1 ? '' : 's'}</span></div><table class="report-table"><thead><tr><th>Product</th><th>On Hand</th><th>Stock In</th><th>Sold</th><th>Loss</th><th>Transfers</th><th>FIFO Value</th></tr></thead><tbody>${rows.map((row) => { const transfer = Number(row.movement.transferIn || 0) - Number(row.movement.transferOut || 0); return `<tr><td><strong>${escapeHtml(row.name)}</strong><br><small>${escapeHtml(row.sku || row.id)} &bull; ${escapeHtml(row.unit || 'unit')}${row.unknownQty ? ` &bull; ${row.unknownQty.toLocaleString('en-PH')} cost pending` : ''}</small></td><td>${row.onHand.toLocaleString('en-PH')}</td><td>+${Number(row.movement.stockIn || 0).toLocaleString('en-PH')}</td><td>-${Number(row.movement.sold || 0).toLocaleString('en-PH')}</td><td>-${Number(row.movement.losses || 0).toLocaleString('en-PH')}</td><td>${transfer > 0 ? '+' : ''}${transfer.toLocaleString('en-PH')}</td><td>${money(row.costValue)}</td></tr>`; }).join('') || '<tr><td colspan="7">No inventory records found.</td></tr>'}</tbody></table>${index === chunks.length - 1 ? '<div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By (Cashier / Staff)</span><span class="sign-sub">Signature over printed name</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Audited & Verified By</span><span class="sign-sub">Branch Manager / Operations</span></div></div><div class="report-disclaimer"><p>ANGKOL\'S GRILL &amp; RESTOBAR SYSTEM-GENERATED AUDIT REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p></div>' : ''}</div>${renderReportPageFooter(index + 1, chunks.length, generatedTime, 'Inventory Valuation')}</div>`).join('');
   const movementNotice = bundleMovementNotice_();
   return { renderedPagesHtml: movementNotice ? renderedPagesHtml.replaceAll('</section>', `</section><p class="report-note">${escapeHtml(movementNotice)}</p>`) : renderedPagesHtml, periodText, from: report.from, to: report.to };
 }
@@ -2634,7 +3341,7 @@ function buildCashBankReconciliationPdfReport_() {
   const chunks = [];
   for (let index = 0; index < report.rows.length; index += 18) chunks.push(report.rows.slice(index, index + 18));
   if (!chunks.length) chunks.push([]);
-  const renderedPagesHtml = chunks.map((rows, index) => `<div class="report-page"><div class="report-page-content">${renderReportRunningHeader(branch.name, periodText, 'Cash & Bank Reconciliation')}<section class="report-summary-grid"><div><span>Expected Cash</span><strong>${money(report.totals.expectedCash)}</strong></div><div><span>Counted Cash</span><strong>${money(report.totals.countedCash)}</strong></div><div><span>Cash Over / (Short)</span><strong>${money(report.totals.variance)}</strong></div><div><span>Bank Net Flow</span><strong>${money(report.totals.deposits - report.totals.withdrawals)}</strong></div></section><p class="report-note">Expected cash = opening float + cash sales + credit collections + cash withdrawals − cash refunds − expenses − cash deposits.</p><table class="report-table"><thead><tr><th>Business Date</th><th>Expected Cash</th><th>Counted Cash</th><th>Over / (Short)</th><th>Deposits</th><th>Withdrawals</th><th>Status</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${escapeHtml(row.date)}</td><td>${money(row.expectedCash)}</td><td>${row.countedCash === null ? '—' : money(row.countedCash)}</td><td>${row.variance === null ? '—' : money(row.variance)}</td><td>${money(row.deposits)}</td><td>${money(row.withdrawals)}</td><td>${row.countedCash === null ? 'Open' : (row.closed ? 'Reconciled' : 'Counted')}</td></tr>`).join('') || '<tr><td colspan="7">No cash, bank, sales, or expense activity for the selected period.</td></tr>'}</tbody></table>${index === chunks.length - 1 ? `<div class="report-totals"><div class="final-row"><span>Bank deposits</span><strong>${money(report.totals.deposits)}</strong></div><div class="final-row"><span>Bank withdrawals</span><strong>${money(report.totals.withdrawals)}</strong></div><div class="final-row final-grand-total"><span>Cash over / (short)</span><strong>${money(report.totals.variance)}</strong></div></div><div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By</span><span class="sign-sub">Cashier / staff signature</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Reviewed By</span><span class="sign-sub">Business owner / manager</span></div></div>` : ''}</div>${renderReportPageFooter(index + 1, chunks.length, generatedTime, 'Cash & Bank Reconciliation')}</div>`).join('');
+  const renderedPagesHtml = chunks.map((rows, index) => `<div class="report-page"><div class="report-page-content">${renderReportRunningHeader(branch.name, periodText, 'Cash & Bank Reconciliation Report', index === 0, 'Cash drawer counts, float variance, and bank ledger audit', generatedTime)}<section class="report-summary-grid"><div><span>Expected Cash</span><strong>${money(report.totals.expectedCash)}</strong></div><div><span>Counted Cash</span><strong>${money(report.totals.countedCash)}</strong></div><div><span>Cash Over / (Short)</span><strong>${money(report.totals.variance)}</strong></div><div><span>Bank Net Flow</span><strong>${money(report.totals.deposits - report.totals.withdrawals)}</strong></div></section><p class="report-note">Expected cash = opening float + cash sales + credit collections + cash withdrawals − cash refunds − expenses − cash deposits.</p><div class="report-section-title-wrap"><h2 class="report-section-title">${index === 0 ? 'Daily Cash Reconciliations & Drawer Counts' : 'Daily Cash Reconciliations & Drawer Counts (Continued)'}</h2><span class="report-count-badge">${report.rows.length} day${report.rows.length === 1 ? '' : 's'}</span></div><table class="report-table"><thead><tr><th>Business Date</th><th>Expected Cash</th><th>Counted Cash</th><th>Over / (Short)</th><th>Deposits</th><th>Withdrawals</th><th>Status</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${escapeHtml(row.date)}</td><td>${money(row.expectedCash)}</td><td>${row.countedCash === null ? '—' : money(row.countedCash)}</td><td>${row.variance === null ? '—' : money(row.variance)}</td><td>${money(row.deposits)}</td><td>${money(row.withdrawals)}</td><td>${row.countedCash === null ? 'Open' : (row.closed ? 'Reconciled' : 'Counted')}</td></tr>`).join('') || '<tr><td colspan="7">No cash, bank, sales, or expense activity for the selected period.</td></tr>'}</tbody></table>${index === chunks.length - 1 ? `<div class="report-totals"><div class="final-row"><span>Bank deposits</span><strong>${money(report.totals.deposits)}</strong></div><div class="final-row"><span>Bank withdrawals</span><strong>${money(report.totals.withdrawals)}</strong></div><div class="final-row final-grand-total"><span>Cash over / (short)</span><strong>${money(report.totals.variance)}</strong></div></div><div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By (Cashier / Staff)</span><span class="sign-sub">Signature over printed name</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Audited & Verified By</span><span class="sign-sub">Branch Manager / Operations</span></div></div><div class="report-disclaimer"><p>ANGKOL\'S GRILL &amp; RESTOBAR SYSTEM-GENERATED AUDIT REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p></div>` : ''}</div>${renderReportPageFooter(index + 1, chunks.length, generatedTime, 'Cash & Bank Reconciliation')}</div>`).join('');
   return { ...report, renderedPagesHtml, periodText };
 }
 
@@ -3517,32 +4224,37 @@ function renderSkeletonTable() {
           <div class="skeleton-shimmer" style="width: 180px; height: 32px; border-radius: 8px;"></div>
         </div>
 
-        <div class="loss-table-shell" style="pointer-events: none;">
-          <div class="loss-table-header">
-            <span class="col-product"><div class="skeleton-shimmer" style="width: 120px; height: 12px;"></div></span>
-            <span class="col-qty"><div class="skeleton-shimmer" style="width: 60px; height: 12px;"></div></span>
-            <span class="col-reason"><div class="skeleton-shimmer" style="width: 60px; height: 12px;"></div></span>
-            <span class="col-date"><div class="skeleton-shimmer" style="width: 80px; height: 12px;"></div></span>
-            <span class="col-notes"><div class="skeleton-shimmer" style="width: 90px; height: 12px;"></div></span>
-            <span class="col-impact"><div class="skeleton-shimmer" style="width: 70px; height: 12px;"></div></span>
+        <div class="std-table-shell" style="pointer-events: none;">
+          <div class="std-table-header grid-cols-loss">
+            <span><div class="skeleton-shimmer" style="width: 120px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 60px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 60px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 80px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 90px; height: 12px;"></div></span>
+            <span style="text-align: right;"><div class="skeleton-shimmer" style="width: 70px; height: 12px; margin-left: auto;"></div></span>
           </div>
           ${Array.from({ length: 3 }).map(() => `
-            <div class="loss-table-row">
-              <div class="col-product loss-product-cell">
-                <div class="skeleton-shimmer" style="width: 40px; height: 40px; border-radius: 9px; flex-shrink: 0;"></div>
-                <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
-                  <div class="skeleton-shimmer" style="width: 130px; height: 14px;"></div>
-                  <div class="skeleton-shimmer" style="width: 75px; height: 12px;"></div>
+            <div class="std-table-row grid-cols-loss">
+              <div class="product-cell">
+                <div class="skeleton-shimmer" style="width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;"></div>
+                <div style="display: flex; flex-direction: column; gap: 4px; flex: 1;">
+                  <div class="skeleton-shimmer" style="width: 120px; height: 14px;"></div>
+                  <div class="skeleton-shimmer" style="width: 80px; height: 10px;"></div>
                 </div>
               </div>
-              <div class="col-qty"><div class="skeleton-shimmer" style="width: 65px; height: 24px; border-radius: 999px;"></div></div>
-              <div class="col-reason"><div class="skeleton-shimmer" style="width: 75px; height: 24px; border-radius: 999px;"></div></div>
-              <div class="col-date">
+              <div><div class="skeleton-shimmer" style="width: 65px; height: 22px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 75px; height: 22px; border-radius: 999px;"></div></div>
+              <div>
                 <div class="skeleton-shimmer" style="width: 80px; height: 13px; margin-bottom: 4px;"></div>
                 <div class="skeleton-shimmer" style="width: 50px; height: 10px;"></div>
               </div>
-              <div class="col-notes"><div class="skeleton-shimmer" style="width: 110px; height: 12px;"></div></div>
-              <div class="col-impact"><div class="skeleton-shimmer" style="width: 65px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 100px; height: 12px;"></div></div>
+              <div style="display: flex; justify-content: flex-end; width: 100%;">
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 3px;">
+                  <div class="skeleton-shimmer" style="width: 65px; height: 14px;"></div>
+                  <div class="skeleton-shimmer" style="width: 50px; height: 10px;"></div>
+                </div>
+              </div>
             </div>
           `).join('')}
         </div>
@@ -3684,22 +4396,199 @@ function renderSkeletonTable() {
 
   const stdViewThemes = {
     products: 'theme-sky',
+    branches: 'theme-sky',
     bundleMonitoring: 'theme-purple',
-    inventory: 'theme-emerald',
+    inventory: 'theme-sky',
     inventoryReports: 'theme-sky',
-    sales: 'theme-emerald',
-    quarantine: 'theme-orange',
-    quarantineReport: 'theme-amber',
+    sales: 'theme-sky',
+    quarantine: 'theme-sky',
+    quarantineReport: 'theme-sky',
     transfers: 'theme-purple',
     dailySpotCash: 'theme-amber',
     customers: 'theme-sky',
     credits: 'theme-crimson',
     staffAccounts: 'theme-blue',
     adminAccount: 'theme-blue',
+    profitLoss: 'theme-sky',
+    foodCostMargin: 'theme-sky',
+    productSalesPerformance: 'theme-sky',
+    creditAging: 'theme-sky',
+    lossesWastage: 'theme-sky',
+    servicePerformance: 'theme-sky',
+    tableQrPerformance: 'theme-sky',
+    inventoryValuation: 'theme-sky',
+    cashBankReconciliation: 'theme-sky',
   };
 
   if (stdViewThemes[activeView]) {
     const theme = stdViewThemes[activeView];
+    const viewGridConfigs = {
+      products: {
+        gridClass: 'grid-cols-products',
+        headerCols: ['130px', '85px', '90px', '70px', '80px', '60px', '50px'],
+        rowCols: `
+          <div class="product-cell"><div class="skeleton-shimmer" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;"></div><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:130px;height:14px;"></div><div class="skeleton-shimmer" style="width:80px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:75px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:80px;height:16px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:65px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:55px;height:20px;border-radius:6px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:60px;height:22px;border-radius:999px;"></div></div>
+          <div style="display:flex;gap:6px;justify-content:center;align-items:center;"><div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:6px;"></div><div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:6px;"></div></div>
+        `,
+      },
+      branches: {
+        gridClass: 'grid-cols-branches',
+        headerCols: ['120px', '75px', '160px', '65px', '50px'],
+        rowCols: `
+          <div class="product-cell"><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:140px;height:14px;"></div><div class="skeleton-shimmer" style="width:90px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:70px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:150px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:60px;height:22px;border-radius:999px;"></div></div>
+          <div style="display:flex;justify-content:center;align-items:center;"><div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:6px;"></div></div>
+        `,
+      },
+      inventory: {
+        gridClass: 'grid-cols-inventory',
+        headerCols: ['130px', '85px', '80px', '80px', '65px'],
+        rowCols: `
+          <div class="product-cell"><div class="skeleton-shimmer" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;"></div><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:130px;height:14px;"></div><div class="skeleton-shimmer" style="width:80px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:75px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:70px;height:16px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:75px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:60px;height:22px;border-radius:999px;"></div></div>
+        `,
+      },
+      bundleMonitoring: {
+        gridClass: 'grid-cols-bundles',
+        headerCols: ['130px', '160px', '80px', '80px', '80px', '65px'],
+        rowCols: `
+          <div class="product-cell"><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:130px;height:14px;"></div><div class="skeleton-shimmer" style="width:80px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:140px;height:20px;border-radius:6px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:70px;height:16px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:60px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:50px;height:20px;border-radius:6px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:60px;height:22px;border-radius:999px;"></div></div>
+        `,
+      },
+      transfers: {
+        gridClass: 'grid-cols-transfers',
+        headerCols: ['120px', '150px', '160px', '75px', '50px'],
+        rowCols: `
+          <div class="product-cell"><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:110px;height:14px;"></div><div class="skeleton-shimmer" style="width:75px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:130px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:140px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:70px;height:22px;border-radius:999px;"></div></div>
+          <div style="display:flex;justify-content:center;align-items:center;"><div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:6px;"></div></div>
+        `,
+      },
+      customers: {
+        gridClass: 'grid-cols-customers',
+        headerCols: ['130px', '120px', '90px', '90px', '50px'],
+        rowCols: `
+          <div class="product-cell"><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:120px;height:14px;"></div><div class="skeleton-shimmer" style="width:70px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:110px;height:13px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:80px;height:16px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:85px;height:16px;"></div></div>
+          <div style="display:flex;justify-content:center;align-items:center;"><div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:6px;"></div></div>
+        `,
+      },
+      credits: {
+        gridClass: 'grid-cols-credits',
+        headerCols: ['120px', '120px', '90px', '70px', '90px', '50px'],
+        rowCols: `
+          <div class="product-cell"><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:120px;height:14px;"></div><div class="skeleton-shimmer" style="width:80px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:100px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:75px;height:13px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:50px;height:13px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:80px;height:16px;"></div></div>
+          <div style="display:flex;justify-content:center;align-items:center;"><div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:6px;"></div></div>
+        `,
+      },
+      sales: {
+        gridClass: 'grid-cols-sales',
+        headerCols: ['130px', '100px', '110px', '75px', '90px', '50px'],
+        rowCols: `
+          <div class="product-cell"><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:120px;height:14px;"></div><div class="skeleton-shimmer" style="width:80px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:85px;height:13px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:100px;height:13px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:65px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:80px;height:16px;"></div></div>
+          <div style="display:flex;justify-content:center;align-items:center;"><div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:6px;"></div></div>
+        `,
+      },
+      dailySpotCash: {
+        gridClass: 'grid-cols-spotcash',
+        headerCols: ['120px', '90px', '90px', '90px', '90px', '70px', '50px'],
+        rowCols: `
+          <div class="product-cell"><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:110px;height:14px;"></div><div class="skeleton-shimmer" style="width:70px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:80px;height:16px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:80px;height:16px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:80px;height:16px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:80px;height:16px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:60px;height:22px;border-radius:999px;"></div></div>
+          <div style="display:flex;justify-content:center;align-items:center;"><div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:6px;"></div></div>
+        `,
+      },
+      inventoryReports: {
+        gridClass: 'grid-cols-invreport',
+        headerCols: ['130px', '70px', '70px', '70px', '70px', '70px', '65px'],
+        rowCols: `
+          <div class="product-cell"><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:130px;height:14px;"></div><div class="skeleton-shimmer" style="width:80px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:50px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:50px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:50px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:50px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:55px;height:16px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:60px;height:22px;border-radius:999px;"></div></div>
+        `,
+      },
+      quarantineReport: {
+        gridClass: 'grid-cols-quarantinereport',
+        headerCols: ['130px', '100px', '140px', '140px', '65px', '80px'],
+        rowCols: `
+          <div class="product-cell"><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:120px;height:14px;"></div><div class="skeleton-shimmer" style="width:75px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:90px;height:13px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:120px;height:13px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:120px;height:13px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:50px;height:16px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:70px;height:22px;border-radius:999px;"></div></div>
+        `,
+      },
+      staffAccounts: {
+        gridClass: 'grid-cols-staff',
+        headerCols: ['130px', '100px', '180px', '65px', '50px'],
+        rowCols: `
+          <div class="product-cell"><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:130px;height:14px;"></div><div class="skeleton-shimmer" style="width:85px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:90px;height:13px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:160px;height:20px;border-radius:6px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:60px;height:22px;border-radius:999px;"></div></div>
+          <div style="display:flex;justify-content:center;align-items:center;"><div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:6px;"></div></div>
+        `,
+      },
+      adminAccount: {
+        gridClass: 'grid-cols-admin',
+        headerCols: ['130px', '110px', '140px', '65px', '50px'],
+        rowCols: `
+          <div class="product-cell"><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:130px;height:14px;"></div><div class="skeleton-shimmer" style="width:85px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:100px;height:13px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:120px;height:13px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:60px;height:22px;border-radius:999px;"></div></div>
+          <div style="display:flex;justify-content:center;align-items:center;"><div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:6px;"></div></div>
+        `,
+      },
+    };
+
+    const config = viewGridConfigs[activeView] || {
+      gridClass: '',
+      headerCols: ['120px', '100px', '100px', '80px'],
+      rowCols: `
+        <div style="display:flex;flex-direction:column;gap:5px;"><div class="skeleton-shimmer" style="width:140px;height:14px;"></div><div class="skeleton-shimmer" style="width:75px;height:11px;"></div></div>
+        <div><div class="skeleton-shimmer" style="width:85px;height:22px;border-radius:999px;"></div></div>
+        <div><div class="skeleton-shimmer" style="width:95px;height:16px;"></div></div>
+        <div style="display:flex;gap:6px;justify-content:flex-end;"><div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:6px;"></div></div>
+      `,
+    };
+
     table.innerHTML = `
       <div class="std-view ${theme}">
         <div class="std-hero-card" style="pointer-events: none;">
@@ -3733,24 +4622,16 @@ function renderSkeletonTable() {
         </div>
 
         <div class="std-table-shell" style="pointer-events: none;">
-          <div class="std-table-header" style="display: grid; grid-template-columns: 2fr 1.5fr 1.5fr 1fr; gap: 12px; padding: 12px 18px;">
-            <span><div class="skeleton-shimmer" style="width: 100px; height: 12px;"></div></span>
-            <span><div class="skeleton-shimmer" style="width: 90px; height: 12px;"></div></span>
-            <span><div class="skeleton-shimmer" style="width: 80px; height: 12px;"></div></span>
-            <span style="text-align: right;"><div class="skeleton-shimmer" style="width: 60px; height: 12px; margin-left: auto;"></div></span>
+          <div class="std-table-header ${config.gridClass}">
+            ${config.headerCols.map((w, idx) => `
+              <span${idx === config.headerCols.length - 1 ? ' style="text-align: center;"' : ''}>
+                <div class="skeleton-shimmer" style="width: ${w}; height: 12px;${idx === config.headerCols.length - 1 ? ' margin-inline: auto;' : ''}"></div>
+              </span>
+            `).join('')}
           </div>
           ${Array.from({ length: 4 }).map(() => `
-            <div class="std-table-row" style="display: grid; grid-template-columns: 2fr 1.5fr 1.5fr 1fr; gap: 12px; padding: 14px 18px;">
-              <div style="display: flex; flex-direction: column; gap: 5px;">
-                <div class="skeleton-shimmer" style="width: 140px; height: 14px;"></div>
-                <div class="skeleton-shimmer" style="width: 75px; height: 11px;"></div>
-              </div>
-              <div><div class="skeleton-shimmer" style="width: 85px; height: 22px; border-radius: 999px;"></div></div>
-              <div><div class="skeleton-shimmer" style="width: 95px; height: 16px;"></div></div>
-              <div style="display: flex; gap: 6px; justify-content: flex-end;">
-                <div class="skeleton-shimmer" style="width: 28px; height: 28px; border-radius: 6px;"></div>
-                <div class="skeleton-shimmer" style="width: 28px; height: 28px; border-radius: 6px;"></div>
-              </div>
+            <div class="std-table-row ${config.gridClass}">
+              ${config.rowCols}
             </div>
           `).join('')}
         </div>
@@ -5071,9 +5952,13 @@ function renderInventoryReports() {
           </div>
         </div>
         <div class="std-hero-actions">
-          <button class="button button-primary std-record-btn" type="button" id="generateInventoryPdfHeroBtn">
+          <button class="button button-secondary std-record-btn" type="button" id="inventoryReportsPrintPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
-            <span>Generate PDF</span>
+            <span>Print PDF</span>
+          </button>
+          <button class="button button-primary std-record-btn" type="button" id="inventoryReportsExportPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
+            <span>Export PDF</span>
           </button>
         </div>
       </div>
@@ -5234,7 +6119,12 @@ function renderInventoryReports() {
               </svg>
             </div>
             <h4 class="std-empty-title">No Products Found</h4>
-            <p class="std-empty-desc">No catalog products match your search or selected stock status filter.</p>
+            <p class="std-empty-desc">${term || activeInventoryReportFilter !== 'all' ? 'No catalog products match your search or selected stock status filter.' : 'Catalog items will appear in this audit report.'}</p>
+            ${term || activeInventoryReportFilter !== 'all' ? `
+              <button type="button" class="button button-secondary" id="invrepResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters
+              </button>
+            ` : ''}
           </div>
         `}
       </div>
@@ -5247,7 +6137,15 @@ function renderInventoryReports() {
   const movementNotice = bundleMovementNotice_();
   if (movementNotice) table.querySelector('.std-view')?.insertAdjacentHTML('afterbegin', `<div class="std-toolbar-strip"><span class="text-amber">${escapeHtml(movementNotice)}</span></div>`);
 
-  table.querySelector('#generateInventoryPdfHeroBtn')?.addEventListener('click', generateInventoryReportPdf);
+  table.querySelector('#inventoryReportsPrintPdfHeroBtn')?.addEventListener('click', () => generateInventoryReportPdf(true));
+  table.querySelector('#inventoryReportsExportPdfHeroBtn')?.addEventListener('click', exportInventoryReportPdf);
+  table.querySelector('#generateInventoryPdfHeroBtn')?.addEventListener('click', () => generateInventoryReportPdf(true));
+  table.querySelector('#invrepResetFiltersBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    activeInventoryReportFilter = 'all';
+    renderInventoryReports();
+  });
 
   table.querySelectorAll('[data-invrep-filter]').forEach((chip) => {
     chip.addEventListener('click', () => {
@@ -5263,6 +6161,7 @@ function renderProfitLoss() {
   ensureProfitLossDateDefaults();
   const from = $('#profitLossDateFrom')?.value || '';
   const to = $('#profitLossDateTo')?.value || '';
+  const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(from, to) : '';
   const inRange = (value) => {
     const date = saleDateKey(value);
     return date && (!from || date >= from) && (!to || date <= to);
@@ -5290,23 +6189,151 @@ function renderProfitLoss() {
   expenses.forEach((item) => { const row = day(item.businessDate); row.expenses += Number(item.amount || 0); days.set(row.date, row); });
   pendingCostLines.forEach((item) => { const row = day(item.saleDate); row.pendingCostLines.push(item); days.set(row.date, row); });
   const rows = [...days.values()].sort((a, b) => b.date.localeCompare(a.date));
+  const term = ($('#searchInput')?.value || '').trim().toLowerCase();
+  const filteredRows = term ? rows.filter((r) => r.date.toLowerCase().includes(term)) : rows;
+  const pagination = typeof paginateItems_ === 'function' ? paginateItems_(filteredRows) : { pagedItems: filteredRows, total: filteredRows.length, page: 1, totalPages: 1 };
+  const pagedRows = pagination.pagedItems;
+  const paginationHtml = typeof renderPaginationControls_ === 'function' ? renderPaginationControls_(pagination, 'records') : '';
   const table = $('#inventoryTable');
   if (!table) return;
   const costNotice = reportCostNotice_(completedSales);
+  const isNetProfitPositive = netProfit >= 0;
+
   table.innerHTML = `
-    <div class="std-view theme-emerald">
+    <div class="std-view theme-sky">
       ${costNotice ? `<div class="std-toolbar-strip"><span class="text-amber">${escapeHtml(costNotice)}</span></div>` : ''}
-      <div class="std-hero-card"><div class="std-hero-glow"></div><div class="std-hero-leading"><div class="std-hero-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 15 3-3 3 2 4-5"/></svg></div><div class="std-hero-text"><span class="std-hero-kicker">OWNER REPORTING &bull; ESTIMATED PROFITABILITY</span><strong class="std-hero-title">Daily Profit &amp; Loss</strong><p class="std-hero-desc">Revenue, refunds, recorded FIFO product cost, operating expenses, and estimated net profit for the selected period.</p></div></div></div>
-      <div class="std-kpi-grid">
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">NET SALES</span><strong class="std-kpi-value text-emerald">${money(netSales)}</strong><span class="std-kpi-sub">Gross ${money(grossSales)} less refunds ${money(refundTotal)}</span></div></div>
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">COST OF GOODS</span><strong class="std-kpi-value text-amber">${money(knownCogs)}</strong><span class="std-kpi-sub">${unknownCostLines ? `${unknownCostLines} line${unknownCostLines === 1 ? '' : 's'} without recorded cost` : 'All sold lines have recorded cost'}</span></div></div>
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">GROSS PROFIT</span><strong class="std-kpi-value text-sky">${money(grossProfit)}</strong><span class="std-kpi-sub">${netSales ? `${((grossProfit / netSales) * 100).toFixed(1)}% gross margin` : 'No sales in period'}</span></div></div>
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">ESTIMATED NET PROFIT</span><strong class="std-kpi-value ${netProfit >= 0 ? 'text-emerald' : 'text-crimson'}">${money(netProfit)}</strong><span class="std-kpi-sub">Less operating expenses ${money(expenseTotal)}</span></div></div>
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3v18h18"/><path d="m7 15 3-3 3 2 4-5"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">OWNER REPORTING &bull; ESTIMATED PROFITABILITY</span>
+            <strong class="std-hero-title">Daily Profit &amp; Loss</strong>
+            <p class="std-hero-desc">Revenue, refunds, recorded FIFO product cost, operating expenses, and estimated net profit for the selected period.</p>
+          </div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="button button-secondary std-record-btn" type="button" id="profitLossPrintPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
+            <span>Print PDF</span>
+          </button>
+          <button class="button button-primary std-record-btn" type="button" id="profitLossExportPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
+            <span>Export PDF</span>
+          </button>
+        </div>
       </div>
-      ${unknownCostLines ? `<div class="std-toolbar-strip"><span style="font-size:12px;color:#fbbf24;">Cost warning: ${unknownCostLines} sold line${unknownCostLines === 1 ? '' : 's'} need cost review. See the affected business date below.</span></div>` : ''}
-      <div class="std-table-shell"><div class="std-table-header" style="grid-template-columns:1.1fr repeat(5,1fr);"><span>Business Date</span><span>Net Sales</span><span>COGS</span><span>Expenses</span><span>Gross Profit</span><span>Est. Net Profit</span></div>
-      ${rows.map((row) => { const sales = row.grossSales - row.refunds; const gross = sales - row.cogs; const net = gross - row.expenses; return `<div class="std-table-row" style="grid-template-columns:1.1fr repeat(5,1fr);"><div data-label="Business Date"><strong>${escapeHtml(row.date)}</strong>${row.unknownCosts ? `<span class="product-meta">${row.unknownCosts} cost pending</span>` : ''}</div><div data-label="Net Sales">${money(sales)}</div><div data-label="COGS">${money(row.cogs)}</div><div data-label="Expenses">${money(row.expenses)}</div><div data-label="Gross Profit">${money(gross)}</div><div data-label="Est. Net Profit" style="font-weight:800;color:${net >= 0 ? '#34d399' : '#fb7185'};">${money(net)}</div></div>`; }).join('') || '<div class="std-empty-state"><h4 class="std-empty-title">No Profit &amp; Loss Activity</h4><p class="std-empty-desc">There are no completed sales, refunds, or expenses in this date range.</p></div>'}</div>
-    </div>`;
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">NET SALES</span>
+            <strong class="std-kpi-value text-emerald">${money(netSales)}</strong>
+            <span class="std-kpi-sub">Gross ${money(grossSales)} less refunds ${money(refundTotal)}</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">COST OF GOODS</span>
+            <strong class="std-kpi-value text-amber">${money(knownCogs)}</strong>
+            <span class="std-kpi-sub">${unknownCostLines ? `${unknownCostLines} line${unknownCostLines === 1 ? '' : 's'} without recorded cost` : 'All sold lines have recorded cost'}</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">GROSS PROFIT</span>
+            <strong class="std-kpi-value text-sky">${money(grossProfit)}</strong>
+            <span class="std-kpi-sub">${netSales ? `${((grossProfit / netSales) * 100).toFixed(1)}% gross margin` : 'No sales in period'}</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon ${isNetProfitPositive ? 'icon-emerald' : 'icon-rose'}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">ESTIMATED NET PROFIT</span>
+            <strong class="std-kpi-value ${isNetProfitPositive ? 'text-emerald' : 'text-crimson'}">${money(netProfit)}</strong>
+            <span class="std-kpi-sub">Less operating expenses ${money(expenseTotal)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        ${unknownCostLines ? `<span style="font-size:12px;color:#fbbf24;">Cost warning: ${unknownCostLines} sold line${unknownCostLines === 1 ? '' : 's'} need cost review. See the affected business date below.</span>` : '<span class="product-meta">Daily revenue, refunds, product costs, operating expenses, and estimated net profit.</span>'}
+        ${typeof renderDatePresets === 'function' ? renderDatePresets(activePreset, 'data-profit-loss-preset') : ''}
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-profitloss">
+          <span>Business Date</span><span>Net Sales</span><span>COGS</span><span>Expenses</span><span>Gross Profit</span><span>Est. Net Profit</span>
+        </div>
+        ${pagedRows.map((row) => {
+          const sales = row.grossSales - row.refunds;
+          const gross = sales - row.cogs;
+          const net = gross - row.expenses;
+          return `
+            <div class="std-table-row grid-cols-profitloss">
+              <div data-label="Business Date"><strong>${escapeHtml(row.date)}</strong>${row.unknownCosts ? `<span class="product-meta">${row.unknownCosts} cost pending</span>` : ''}</div>
+              <div data-label="Net Sales">${money(sales)}</div>
+              <div data-label="COGS">${money(row.cogs)}</div>
+              <div data-label="Expenses">${money(row.expenses)}</div>
+              <div data-label="Gross Profit">${money(gross)}</div>
+              <div data-label="Est. Net Profit" style="font-weight:800;color:${net >= 0 ? '#34d399' : '#fb7185'};">${money(net)}</div>
+            </div>
+          `;
+        }).join('') || `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#38bdf8;background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3v18h18"/><path d="m7 15 3-3 3 2 4-5"/>
+              </svg>
+            </div>
+            <h4 class="std-empty-title">No Profit &amp; Loss Activity</h4>
+            <p class="std-empty-desc">There are no completed sales, refunds, or expenses in this date range.</p>
+            <button type="button" class="button button-secondary" id="profitLossResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+              Reset Filters &amp; Date Range
+            </button>
+          </div>
+        `}
+      </div>
+      ${paginationHtml}
+    </div>
+  `;
+
+  if (typeof bindPaginationEvents_ === 'function') bindPaginationEvents_(table, renderProfitLoss);
+  table.querySelector?.('#profitLossPrintPdfHeroBtn')?.addEventListener('click', generateProfitLossPdf);
+  table.querySelector?.('#profitLossExportPdfHeroBtn')?.addEventListener('click', exportProfitLossPdf);
+  table.querySelector?.('#profitLossResetFiltersBtn')?.addEventListener('click', () => {
+    ensureProfitLossDateDefaults();
+    renderProfitLoss();
+  });
+  if (typeof bindDatePresets === 'function') {
+    bindDatePresets(table, 'data-profit-loss-preset', 'profitLossDateFrom', 'profitLossDateTo', renderProfitLoss);
+  }
 }
 
 function renderFoodCostMargin() {
@@ -5314,21 +6341,151 @@ function renderFoodCostMargin() {
   if (!table) return;
   const report = getFoodCostMarginReport_();
   const { rows, totals, from, to } = report;
+  const pagination = typeof paginateItems_ === 'function' ? paginateItems_(rows) : { pagedItems: rows, total: rows.length, page: 1, totalPages: 1 };
+  const pagedRows = pagination.pagedItems;
+  const paginationHtml = typeof renderPaginationControls_ === 'function' ? renderPaginationControls_(pagination, 'products') : '';
+  const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(from, to) : '';
   const period = `${from || 'All dates'} to ${to || 'Today'}`;
   table.innerHTML = `
-    <div class="std-view theme-emerald">
+    <div class="std-view theme-sky">
       ${report.costNotice ? `<div class="std-toolbar-strip"><span class="text-amber">${escapeHtml(report.costNotice)}</span></div>` : ''}
-      <div class="std-hero-card"><div class="std-hero-glow"></div><div class="std-hero-leading"><div class="std-hero-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-7"/><path d="M7 7h10"/></svg></div><div class="std-hero-text"><span class="std-hero-kicker">OWNER REPORTING &bull; MENU PROFITABILITY</span><strong class="std-hero-title">Food Cost &amp; Margin</strong><p class="std-hero-desc">Recorded FIFO cost and gross margin per sold product for ${escapeHtml(period)}.</p></div></div></div>
-      <div class="std-kpi-grid">
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">MENU SALES</span><strong class="std-kpi-value text-sky">${money(totals.sales)}</strong><span class="std-kpi-sub">${totals.qty.toLocaleString('en-PH')} units sold</span></div></div>
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">RECORDED COGS</span><strong class="std-kpi-value text-amber">${money(totals.cogs)}</strong><span class="std-kpi-sub">${totals.foodCostPercent.toFixed(1)}% food cost</span></div></div>
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">GROSS PROFIT</span><strong class="std-kpi-value text-emerald">${money(totals.grossProfit)}</strong><span class="std-kpi-sub">Sales less recorded COGS</span></div></div>
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">GROSS MARGIN</span><strong class="std-kpi-value text-emerald">${totals.marginPercent.toFixed(1)}%</strong><span class="std-kpi-sub">Before operating expenses</span></div></div>
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-7"/><path d="M7 7h10"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">OWNER REPORTING &bull; MENU PROFITABILITY</span>
+            <strong class="std-hero-title">Food Cost &amp; Margin</strong>
+            <p class="std-hero-desc">Recorded FIFO cost and gross margin per sold product for ${escapeHtml(period)}.</p>
+          </div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="button button-secondary std-record-btn" type="button" id="foodCostMarginPrintPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
+            <span>Print PDF</span>
+          </button>
+          <button class="button button-primary std-record-btn" type="button" id="foodCostMarginExportPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
+            <span>Export PDF</span>
+          </button>
+        </div>
       </div>
-      ${totals.pendingLines ? `<div class="std-toolbar-strip"><span style="font-size:12px;color:#fbbf24;">Cost warning: ${totals.pendingLines} sold line${totals.pendingLines === 1 ? '' : 's'} needs cost review and is excluded from recorded COGS.</span></div>` : ''}
-      <div class="std-table-shell"><div class="std-table-header" style="grid-template-columns:1.45fr repeat(6,.8fr);"><span>Product</span><span>Qty Sold</span><span>Sales</span><span>COGS</span><span>Gross Profit</span><span>Food Cost</span><span>Margin</span></div>
-      ${rows.map((row) => `<div class="std-table-row" style="grid-template-columns:1.45fr repeat(6,.8fr);"><div data-label="Product"><strong>${escapeHtml(row.name)}</strong><span class="product-meta">${escapeHtml(row.sku || row.unit)}${row.pendingLines ? ` &bull; ${row.pendingLines} cost pending` : ''}</span></div><div data-label="Qty Sold">${row.qty.toLocaleString('en-PH')}</div><div data-label="Sales">${money(row.sales)}</div><div data-label="COGS">${money(row.cogs)}</div><div data-label="Gross Profit" style="font-weight:800;color:${row.grossProfit >= 0 ? '#34d399' : '#fb7185'};">${money(row.grossProfit)}</div><div data-label="Food Cost">${row.foodCostPercent.toFixed(1)}%</div><div data-label="Margin" style="font-weight:800;color:${row.marginPercent >= 0 ? '#34d399' : '#fb7185'};">${row.marginPercent.toFixed(1)}%</div></div>`).join('') || '<div class="std-empty-state"><h4 class="std-empty-title">No Menu Sales</h4><p class="std-empty-desc">There are no completed sales in this date range.</p></div>'}</div>
-    </div>`;
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">MENU SALES</span>
+            <strong class="std-kpi-value text-sky">${money(totals.sales)}</strong>
+            <span class="std-kpi-sub">${totals.qty.toLocaleString('en-PH')} units sold</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">RECORDED COGS</span>
+            <strong class="std-kpi-value text-amber">${money(totals.cogs)}</strong>
+            <span class="std-kpi-sub">${totals.foodCostPercent.toFixed(1)}% food cost</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">GROSS PROFIT</span>
+            <strong class="std-kpi-value text-emerald">${money(totals.grossProfit)}</strong>
+            <span class="std-kpi-sub">Sales less recorded COGS</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">GROSS MARGIN</span>
+            <strong class="std-kpi-value text-emerald">${totals.marginPercent.toFixed(1)}%</strong>
+            <span class="std-kpi-sub">Before operating expenses</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        ${totals.pendingLines ? `<span style="font-size:12px;color:#fbbf24;">Cost warning: ${totals.pendingLines} sold line${totals.pendingLines === 1 ? '' : 's'} needs cost review and is excluded from recorded COGS.</span>` : `<span class="product-meta">Recorded FIFO product cost and gross margins for ${escapeHtml(period)}.</span>`}
+        ${typeof renderDatePresets === 'function' ? renderDatePresets(activePreset, 'data-food-cost-preset') : ''}
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-foodcost">
+          <span>Product</span><span>Qty Sold</span><span>Sales</span><span>COGS</span><span>Gross Profit</span><span>Food Cost</span><span>Margin</span>
+        </div>
+        ${pagedRows.map((row) => {
+          const thumbHtml = typeof renderProductThumbHtml_ === 'function' ? renderProductThumbHtml_(row.imageUrl || '', row.name) : '';
+          return `
+          <div class="std-table-row grid-cols-foodcost">
+            <div class="product-cell" data-label="Product">
+              ${thumbHtml}
+              <div class="product-details-stack" style="min-width:0;">
+                <strong class="product-name" style="font-size:13px;color:#fff;" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</strong>
+                <span class="product-meta" style="font-size:10.5px;">${escapeHtml(row.sku || row.unit)}${row.pendingLines ? ` &bull; ${row.pendingLines} cost pending` : ''}</span>
+              </div>
+            </div>
+            <div data-label="Qty Sold"><span class="stock-pill stock-quantity">${row.qty.toLocaleString('en-PH')}</span></div>
+            <div data-label="Sales">${money(row.sales)}</div>
+            <div data-label="COGS">${money(row.cogs)}</div>
+            <div data-label="Gross Profit" style="font-weight:800;color:${row.grossProfit >= 0 ? '#34d399' : '#fb7185'};">${money(row.grossProfit)}</div>
+            <div data-label="Food Cost">${row.foodCostPercent.toFixed(1)}%</div>
+            <div data-label="Margin" style="font-weight:800;color:${row.marginPercent >= 0 ? '#34d399' : '#fb7185'};">${row.marginPercent.toFixed(1)}%</div>
+          </div>
+          `;
+        }).join('') || `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#38bdf8;background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-7"/><path d="M7 7h10"/>
+              </svg>
+            </div>
+            <h4 class="std-empty-title">No Menu Sales</h4>
+            <p class="std-empty-desc">There are no completed sales in this date range.</p>
+            <button type="button" class="button button-secondary" id="foodCostMarginResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+              Reset Filters &amp; Date Range
+            </button>
+          </div>
+        `}
+      </div>
+      ${paginationHtml}
+    </div>
+  `;
+
+  if (typeof bindPaginationEvents_ === 'function') bindPaginationEvents_(table, renderFoodCostMargin);
+  table.querySelector?.('#foodCostMarginPrintPdfHeroBtn')?.addEventListener('click', generateFoodCostMarginPdf);
+  table.querySelector?.('#foodCostMarginExportPdfHeroBtn')?.addEventListener('click', exportFoodCostMarginPdf);
+  table.querySelector?.('#foodCostMarginResetFiltersBtn')?.addEventListener('click', () => {
+    ensureFoodCostMarginDateDefaults?.();
+    renderFoodCostMargin();
+  });
+  if (typeof bindDatePresets === 'function') {
+    bindDatePresets(table, 'data-food-cost-preset', 'foodCostMarginDateFrom', 'foodCostMarginDateTo', renderFoodCostMargin);
+  }
 }
 
 function getInventoryValuationReport_() {
@@ -5375,22 +6532,155 @@ function renderInventoryValuation() {
   if (!table) return;
   const report = getInventoryValuationReport_();
   const { rows, totals, from, to } = report;
+  const pagination = typeof paginateItems_ === 'function' ? paginateItems_(rows) : { pagedItems: rows, total: rows.length, page: 1, totalPages: 1 };
+  const pagedRows = pagination.pagedItems;
+  const paginationHtml = typeof renderPaginationControls_ === 'function' ? renderPaginationControls_(pagination, 'products') : '';
+  const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(from, to) : '';
   const period = `${from || 'All dates'} to ${to || 'Today'}`;
   const movementNotice = bundleMovementNotice_();
   table.innerHTML = `
-    <div class="std-view theme-emerald">
+    <div class="std-view theme-sky">
       ${movementNotice ? `<div class="std-toolbar-strip"><span class="text-amber">${escapeHtml(movementNotice)}</span></div>` : ''}
-      <div class="std-hero-card"><div class="std-hero-glow"></div><div class="std-hero-leading"><div class="std-hero-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-7"/></svg></div><div class="std-hero-text"><span class="std-hero-kicker">OWNER REPORTING &bull; FIFO INVENTORY VALUE</span><strong class="std-hero-title">Inventory Valuation &amp; Movement</strong><p class="std-hero-desc">Current on-hand FIFO cost value with stock movement for ${escapeHtml(period)}.</p></div></div></div>
-      <div class="std-kpi-grid">
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">ON-HAND COST VALUE</span><strong class="std-kpi-value text-emerald">${money(totals.costValue)}</strong><span class="std-kpi-sub">Current remaining FIFO batches</span></div></div>
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">ON-HAND UNITS</span><strong class="std-kpi-value text-sky">${totals.onHand.toLocaleString('en-PH')}</strong><span class="std-kpi-sub">Physical individual products</span></div></div>
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">PERIOD MOVEMENT</span><strong class="std-kpi-value text-amber">${totals.stockIn.toLocaleString('en-PH')} in</strong><span class="std-kpi-sub">${totals.sold.toLocaleString('en-PH')} sold &bull; ${totals.losses.toLocaleString('en-PH')} written off</span></div></div>
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">COST TO REVIEW</span><strong class="std-kpi-value ${totals.unknownQty ? 'text-crimson' : 'text-emerald'}">${totals.unknownQty.toLocaleString('en-PH')} units</strong><span class="std-kpi-sub">${totals.unknownQty ? 'On hand without a recorded FIFO cost' : 'All on-hand units have FIFO cost'}</span></div></div>
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-7"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">OWNER REPORTING &bull; FIFO INVENTORY VALUE</span>
+            <strong class="std-hero-title">Inventory Valuation &amp; Movement</strong>
+            <p class="std-hero-desc">Current on-hand FIFO cost value with stock movement for ${escapeHtml(period)}.</p>
+          </div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="button button-secondary std-record-btn" type="button" id="inventoryValuationPrintPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
+            <span>Print PDF</span>
+          </button>
+          <button class="button button-primary std-record-btn" type="button" id="inventoryValuationExportPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
+            <span>Export PDF</span>
+          </button>
+        </div>
       </div>
-      ${totals.unknownQty ? `<div class="std-toolbar-strip"><span style="font-size:12px;color:#fbbf24;">Cost warning: ${totals.unknownQty.toLocaleString('en-PH')} on-hand unit${totals.unknownQty === 1 ? '' : 's'} has no FIFO cost and is excluded from the valuation total.</span></div>` : ''}
-      <div class="std-table-shell"><div class="std-table-header" style="grid-template-columns:1.5fr repeat(6, .8fr);"><span>Product</span><span>On Hand</span><span>Stock In</span><span>Sold</span><span>Loss</span><span>Transfers</span><span>FIFO Value</span></div>
-      ${rows.map((row) => { const transfer = Number(row.movement.transferIn || 0) - Number(row.movement.transferOut || 0); return `<div class="std-table-row" style="grid-template-columns:1.5fr repeat(6, .8fr);"><div data-label="Product"><strong>${escapeHtml(row.name)}</strong><span class="product-meta">${escapeHtml(row.sku || row.id)} &bull; ${escapeHtml(row.unit || 'unit')}${row.unknownQty ? ` &bull; ${row.unknownQty.toLocaleString('en-PH')} cost pending` : ''}</span></div><div data-label="On Hand"><strong>${row.onHand.toLocaleString('en-PH')}</strong></div><div data-label="Stock In">+${Number(row.movement.stockIn || 0).toLocaleString('en-PH')}</div><div data-label="Sold">-${Number(row.movement.sold || 0).toLocaleString('en-PH')}</div><div data-label="Loss">-${Number(row.movement.losses || 0).toLocaleString('en-PH')}</div><div data-label="Transfers">${transfer > 0 ? '+' : ''}${transfer.toLocaleString('en-PH')}</div><div data-label="FIFO Value" style="font-weight:800;color:#34d399;">${money(row.costValue)}</div></div>`; }).join('') || '<div class="std-empty-state"><h4 class="std-empty-title">No Inventory Records</h4><p class="std-empty-desc">No matching individual inventory products were found.</p></div>'}</div>
-    </div>`;
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">ON-HAND COST VALUE</span>
+            <strong class="std-kpi-value text-emerald">${money(totals.costValue)}</strong>
+            <span class="std-kpi-sub">Current remaining FIFO batches</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">ON-HAND UNITS</span>
+            <strong class="std-kpi-value text-sky">${totals.onHand.toLocaleString('en-PH')}</strong>
+            <span class="std-kpi-sub">Physical individual products</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">PERIOD MOVEMENT</span>
+            <strong class="std-kpi-value text-amber">${totals.stockIn.toLocaleString('en-PH')} in</strong>
+            <span class="std-kpi-sub">${totals.sold.toLocaleString('en-PH')} sold &bull; ${totals.losses.toLocaleString('en-PH')} written off</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon ${totals.unknownQty ? 'icon-rose' : 'icon-emerald'}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">COST TO REVIEW</span>
+            <strong class="std-kpi-value ${totals.unknownQty ? 'text-crimson' : 'text-emerald'}">${totals.unknownQty.toLocaleString('en-PH')} units</strong>
+            <span class="std-kpi-sub">${totals.unknownQty ? 'On hand without a recorded FIFO cost' : 'All on-hand units have FIFO cost'}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        ${totals.unknownQty ? `<span style="font-size:12px;color:#fbbf24;">Cost warning: ${totals.unknownQty.toLocaleString('en-PH')} on-hand unit${totals.unknownQty === 1 ? '' : 's'} has no FIFO cost and is excluded from the valuation total.</span>` : `<span class="product-meta">On-hand FIFO valuation and movement quantities for selected period.</span>`}
+        ${typeof renderDatePresets === 'function' ? renderDatePresets(activePreset, 'data-inv-val-preset') : ''}
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-invvaluation">
+          <span>Product</span><span>On Hand</span><span>Stock In</span><span>Sold</span><span>Loss</span><span>Transfers</span><span>FIFO Value</span>
+        </div>
+        ${pagedRows.map((row) => {
+          const transfer = Number(row.movement.transferIn || 0) - Number(row.movement.transferOut || 0);
+          const thumbHtml = typeof renderProductThumbHtml_ === 'function' ? renderProductThumbHtml_(row.imageUrl || '', row.name) : '';
+          return `
+            <div class="std-table-row grid-cols-invvaluation">
+              <div class="product-cell" data-label="Product">
+                ${thumbHtml}
+                <div class="product-details-stack" style="min-width:0;">
+                  <strong class="product-name" style="font-size:13px;color:#fff;" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</strong>
+                  <span class="product-meta" style="font-size:10.5px;">${escapeHtml(row.sku || row.id)} &bull; ${escapeHtml(row.unit || 'unit')}${row.unknownQty ? ` &bull; ${row.unknownQty.toLocaleString('en-PH')} cost pending` : ''}</span>
+                </div>
+              </div>
+              <div data-label="On Hand"><span class="stock-pill stock-quantity">${row.onHand.toLocaleString('en-PH')}</span></div>
+              <div data-label="Stock In"><span class="stock-pill stock-normal">+${Number(row.movement.stockIn || 0).toLocaleString('en-PH')}</span></div>
+              <div data-label="Sold"><span class="stock-pill stock-info">-${Number(row.movement.sold || 0).toLocaleString('en-PH')}</span></div>
+              <div data-label="Loss"><span class="stock-pill stock-low">-${Number(row.movement.losses || 0).toLocaleString('en-PH')}</span></div>
+              <div data-label="Transfers"><span class="stock-pill category-badge">${transfer > 0 ? '+' : ''}${transfer.toLocaleString('en-PH')}</span></div>
+              <div data-label="FIFO Value" style="font-weight:800;color:#34d399;">${money(row.costValue)}</div>
+            </div>
+          `;
+        }).join('') || `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#38bdf8;background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-7"/>
+              </svg>
+            </div>
+            <h4 class="std-empty-title">No Inventory Records</h4>
+            <p class="std-empty-desc">No matching individual inventory products were found.</p>
+            <button type="button" class="button button-secondary" id="inventoryValuationResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+              Reset Filters &amp; Date Range
+            </button>
+          </div>
+        `}
+      </div>
+      ${paginationHtml}
+    </div>
+  `;
+
+  if (typeof bindPaginationEvents_ === 'function') bindPaginationEvents_(table, renderInventoryValuation);
+  table.querySelector?.('#inventoryValuationPrintPdfHeroBtn')?.addEventListener('click', generateInventoryValuationPdf);
+  table.querySelector?.('#inventoryValuationExportPdfHeroBtn')?.addEventListener('click', exportInventoryValuationPdf);
+  table.querySelector?.('#inventoryValuationResetFiltersBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    ensureInventoryValuationDateDefaults();
+    renderInventoryValuation();
+  });
+  if (typeof bindDatePresets === 'function') {
+    bindDatePresets(table, 'data-inv-val-preset', 'inventoryValuationDateFrom', 'inventoryValuationDateTo', renderInventoryValuation);
+  }
 }
 
 function renderCashBankOverview_() {
@@ -5398,23 +6688,183 @@ function renderCashBankOverview_() {
   if (!table) return;
   const report = getCashBankReconciliationReport_();
   const { rows, totals, bankActivity, from, to } = report;
+  const term = ($('#searchInput')?.value || '').trim().toLowerCase();
+  const filteredRows = term ? rows.filter((r) => r.date.toLowerCase().includes(term)) : rows;
+  const pagination = typeof paginateItems_ === 'function' ? paginateItems_(filteredRows) : { pagedItems: filteredRows, total: filteredRows.length, page: 1, totalPages: 1 };
+  const pagedRows = pagination.pagedItems;
+  const paginationHtml = typeof renderPaginationControls_ === 'function' ? renderPaginationControls_(pagination, 'reconciliation dates') : '';
+  const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(from, to) : '';
   const period = `${from || 'All dates'} to ${to || 'Today'}`;
   const openDays = rows.length - totals.reconciled;
+  const isNetFlowPositive = totals.deposits >= totals.withdrawals;
+
   table.innerHTML = `
-    <div class="std-view theme-emerald">
-      <div class="std-hero-card"><div class="std-hero-glow"></div><div class="std-hero-leading"><div class="std-hero-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h12M6 14h4"/></svg></div><div class="std-hero-text"><span class="std-hero-kicker">OWNER REPORTING &bull; CASH CONTROL</span><strong class="std-hero-title">Cash &amp; Bank Reconciliation</strong><p class="std-hero-desc">Compare expected cash with daily counts and bank movement for ${escapeHtml(period)}.</p></div></div></div>
-      <div class="std-kpi-grid">
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">EXPECTED CASH</span><strong class="std-kpi-value text-sky">${money(totals.expectedCash)}</strong><span class="std-kpi-sub">Daily closing cash totals</span></div></div>
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">COUNTED CASH</span><strong class="std-kpi-value text-emerald">${money(totals.countedCash)}</strong><span class="std-kpi-sub">${totals.reconciled} of ${rows.length} day${rows.length === 1 ? '' : 's'} counted</span></div></div>
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">CASH OVER / (SHORT)</span><strong class="std-kpi-value ${totals.variance === 0 ? 'text-emerald' : 'text-amber'}">${money(totals.variance)}</strong><span class="std-kpi-sub">Counted less expected cash</span></div></div>
-        <div class="std-kpi-card"><div class="std-kpi-content"><span class="std-kpi-label">BANK NET FLOW</span><strong class="std-kpi-value text-emerald">${money(totals.deposits - totals.withdrawals)}</strong><span class="std-kpi-sub">${bankActivity.length} bank transaction${bankActivity.length === 1 ? '' : 's'} in this period</span></div></div>
+    <div class="std-view theme-sky">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h12M6 14h4"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">OWNER REPORTING &bull; CASH CONTROL</span>
+            <strong class="std-hero-title">Cash &amp; Bank Reconciliation</strong>
+            <p class="std-hero-desc">Compare expected cash with daily counts and bank movement for ${escapeHtml(period)}.</p>
+          </div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="button button-secondary std-record-btn" type="button" id="cashBankPrintPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
+            <span>Print PDF</span>
+          </button>
+          <button class="button button-primary std-record-btn" type="button" id="cashBankExportPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
+            <span>Export PDF</span>
+          </button>
+        </div>
       </div>
-      ${openDays ? `<div class="std-toolbar-strip"><span style="font-size:12px;color:#fbbf24;">${openDays} day${openDays === 1 ? '' : 's'} has no counted cash yet. Record a daily cash count to complete reconciliation.</span></div>` : ''}
-      <div class="std-table-shell"><div class="std-table-header" style="grid-template-columns:1.25fr repeat(3, 1fr) .8fr;"><span>Business Date</span><span>Expected Cash</span><span>Counted Cash</span><span>Over / (Short)</span><span>Status</span></div>
-${rows.map((row) => { const status = row.countedCash === null ? 'Open' : Math.abs(row.variance) >= 0.005 ? 'Variance' : (row.closed ? 'Reconciled' : 'Counted'); const statusColor = row.countedCash === null || Math.abs(row.variance) >= 0.005 ? '#fbbf24' : (row.closed ? '#34d399' : '#38bdf8'); return `<div class="std-table-row" style="grid-template-columns:1.25fr repeat(3, 1fr) .8fr;"><div data-label="Business Date"><strong>${escapeHtml(row.date)}</strong></div><div data-label="Expected Cash">${money(row.expectedCash)}</div><div data-label="Counted Cash">${row.countedCash === null ? '—' : money(row.countedCash)}</div><div data-label="Over / (Short)" style="font-weight:800;color:${row.variance === null || row.variance === 0 ? '#34d399' : '#fbbf24'};">${row.variance === null ? '—' : money(row.variance)}</div><div data-label="Status" style="font-weight:800;color:${statusColor};">${status}</div></div>`; }).join('') || '<div class="std-empty-state"><h4 class="std-empty-title">No Reconciliation Activity</h4><p class="std-empty-desc">There are no cash reconciliation records in this date range.</p></div>'}</div>
-      <div class="std-table-shell" style="margin-top:16px;"><div class="std-table-header" style="grid-template-columns:1fr 1fr .8fr 1fr 1.5fr;"><span>Bank Date</span><span>Transaction</span><span>Method</span><span>Amount</span><span>Reference / Details</span></div>
-      ${bankActivity.map((item) => `<div class="std-table-row" style="grid-template-columns:1fr 1fr .8fr 1fr 1.5fr;"><div data-label="Bank Date"><strong>${escapeHtml(item.businessDate || '')}</strong></div><div data-label="Transaction">${escapeHtml(item.type || '')}</div><div data-label="Method">${escapeHtml(item.method || '')}</div><div data-label="Amount" style="font-weight:800;color:${item.type === 'Deposit' ? '#34d399' : '#fbbf24'};">${money(item.amount)}</div><div data-label="Reference / Details">${escapeHtml(item.reference || item.chequeNumber || item.details || '—')}</div></div>`).join('') || '<div class="std-empty-state"><h4 class="std-empty-title">No Bank Activity</h4><p class="std-empty-desc">No deposits or withdrawals were recorded in this date range.</p></div>'}</div>
-    </div>`;
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">EXPECTED CASH</span>
+            <strong class="std-kpi-value text-sky">${money(totals.expectedCash)}</strong>
+            <span class="std-kpi-sub">Daily closing cash totals</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">COUNTED CASH</span>
+            <strong class="std-kpi-value text-emerald">${money(totals.countedCash)}</strong>
+            <span class="std-kpi-sub">${totals.reconciled} of ${rows.length} day${rows.length === 1 ? '' : 's'} counted</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon ${totals.variance === 0 ? 'icon-emerald' : 'icon-amber'}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">CASH OVER / (SHORT)</span>
+            <strong class="std-kpi-value ${totals.variance === 0 ? 'text-emerald' : 'text-amber'}">${money(totals.variance)}</strong>
+            <span class="std-kpi-sub">Counted less expected cash</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon ${isNetFlowPositive ? 'icon-emerald' : 'icon-amber'}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">BANK NET FLOW</span>
+            <strong class="std-kpi-value ${isNetFlowPositive ? 'text-emerald' : 'text-amber'}">${money(totals.deposits - totals.withdrawals)}</strong>
+            <span class="std-kpi-sub">${bankActivity.length} bank transaction${bankActivity.length === 1 ? '' : 's'} in this period</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        ${openDays ? `<span style="font-size:12px;color:#fbbf24;">${openDays} day${openDays === 1 ? '' : 's'} has no counted cash yet. Record a daily cash count to complete reconciliation.</span>` : `<span class="product-meta">Daily cash counts and bank ledger reconciliation for selected period.</span>`}
+        ${typeof renderDatePresets === 'function' ? renderDatePresets(activePreset, 'data-cash-bank-preset') : ''}
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-reconciliation">
+          <span>Business Date</span><span>Expected Cash</span><span>Counted Cash</span><span>Over / (Short)</span><span>Status</span>
+        </div>
+        ${pagedRows.map((row) => {
+          const status = row.countedCash === null ? 'Open' : Math.abs(row.variance) >= 0.005 ? 'Variance' : (row.closed ? 'Reconciled' : 'Counted');
+          const statusColor = row.countedCash === null || Math.abs(row.variance) >= 0.005 ? '#fbbf24' : (row.closed ? '#34d399' : '#38bdf8');
+          return `
+            <div class="std-table-row grid-cols-reconciliation">
+              <div data-label="Business Date"><strong>${escapeHtml(row.date)}</strong></div>
+              <div data-label="Expected Cash">${money(row.expectedCash)}</div>
+              <div data-label="Counted Cash">${row.countedCash === null ? '—' : money(row.countedCash)}</div>
+              <div data-label="Over / (Short)" style="font-weight:800;color:${row.variance === null || row.variance === 0 ? '#34d399' : '#fbbf24'};">${row.variance === null ? '—' : money(row.variance)}</div>
+              <div data-label="Status" style="font-weight:800;color:${statusColor};">${status}</div>
+            </div>
+          `;
+        }).join('') || `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#38bdf8;background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h12M6 14h4"/>
+              </svg>
+            </div>
+            <h4 class="std-empty-title">No Reconciliation Activity</h4>
+            <p class="std-empty-desc">There are no cash reconciliation records in this date range.</p>
+            <button type="button" class="button button-secondary" id="cashBankResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+              Reset Filters &amp; Date Range
+            </button>
+          </div>
+        `}
+      </div>
+      ${paginationHtml}
+
+      <div class="std-table-shell" style="margin-top:16px;">
+        <div class="std-table-header grid-cols-bankactivity">
+          <span>Bank Date</span><span>Transaction</span><span>Method</span><span>Amount</span><span>Reference / Details</span>
+        </div>
+        ${bankActivity.map((item) => `
+          <div class="std-table-row grid-cols-bankactivity">
+            <div data-label="Bank Date"><strong>${escapeHtml(item.businessDate || '')}</strong></div>
+            <div data-label="Transaction">${escapeHtml(item.type || '')}</div>
+            <div data-label="Method">${escapeHtml(item.method || '')}</div>
+            <div data-label="Amount" style="font-weight:800;color:${item.type === 'Deposit' ? '#34d399' : '#fbbf24'};">${money(item.amount)}</div>
+            <div data-label="Reference / Details">${escapeHtml(item.reference || item.chequeNumber || item.details || '—')}</div>
+          </div>
+        `).join('') || `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#38bdf8;background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              </svg>
+            </div>
+            <h4 class="std-empty-title">No Bank Activity</h4>
+            <p class="std-empty-desc">No deposits or withdrawals were recorded in this date range.</p>
+          </div>
+        `}
+      </div>
+      ${paginationHtml}
+    </div>
+  `;
+
+  if (typeof bindPaginationEvents_ === 'function') {
+    bindPaginationEvents_(table, () => {
+      if (typeof renderCashBankReconciliation === 'function') renderCashBankReconciliation();
+      else renderCashBankOverview_();
+    });
+  }
+  table.querySelector?.('#cashBankPrintPdfHeroBtn')?.addEventListener('click', generateCashBankReconciliationPdf);
+  table.querySelector?.('#cashBankExportPdfHeroBtn')?.addEventListener('click', exportCashBankReconciliationPdf);
+  table.querySelector?.('#cashBankResetFiltersBtn')?.addEventListener('click', () => {
+    ensureCashBankReconciliationDateDefaults?.();
+    if (typeof renderCashBankReconciliation === 'function') renderCashBankReconciliation();
+    else renderCashBankOverview_();
+  });
+  if (typeof bindDatePresets === 'function') {
+    bindDatePresets(table, 'data-cash-bank-preset', 'cashBankReconciliationDateFrom', 'cashBankReconciliationDateTo', () => {
+      if (typeof renderCashBankReconciliation === 'function') renderCashBankReconciliation();
+      else renderCashBankOverview_();
+    });
+  }
 }
 
 const STAFF_MENU_DEFS = {
@@ -5733,12 +7183,11 @@ function renderStaffAccounts() {
             <div class="std-empty-icon" style="background:rgba(59,130,246,0.1);color:#60a5fa;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:28px;height:28px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
             </div>
-            <strong>${term ? 'No matching staff accounts' : 'No staff accounts configured'}</strong>
-            <p>${term ? 'No staff accounts match your search query.' : 'Add staff member credentials to assign branch locations and specific menu permissions.'}</p>
-            ${!term ? `
-              <button class="button button-primary std-record-btn" type="button" id="staffEmptyAddBtn" style="margin-top:14px;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M12 5v14M5 12h14"/></svg>
-                <span>Add Staff Account</span>
+            <h4 class="std-empty-title">${term || activeStaffFilter !== 'all' ? 'No Matching Staff Accounts' : 'No Staff Accounts Configured'}</h4>
+            <p class="std-empty-desc">${term || activeStaffFilter !== 'all' ? 'No staff accounts match your current search or filter criteria.' : 'Add staff member credentials to assign branch locations and specific menu permissions.'}</p>
+            ${term || activeStaffFilter !== 'all' ? `
+              <button class="button button-secondary" type="button" id="staffResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters
               </button>
             ` : ''}
           </div>
@@ -5753,7 +7202,12 @@ function renderStaffAccounts() {
 
   // Bind Buttons
   table.querySelector('#addStaffHeroBtn')?.addEventListener('click', () => openForm('staff'));
-  table.querySelector('#staffEmptyAddBtn')?.addEventListener('click', () => openForm('staff'));
+  table.querySelector('#staffResetFiltersBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    activeStaffFilter = 'all';
+    renderStaffAccounts();
+  });
 
   // Bind Chips
   table.querySelectorAll('[data-staff-filter]').forEach((chip) => {
@@ -6027,12 +7481,11 @@ function renderAdminAccount() {
             <div class="std-empty-icon" style="background:rgba(59,130,246,0.1);color:#60a5fa;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:28px;height:28px;"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/></svg>
             </div>
-            <strong>${term ? 'No matching administrator accounts' : 'No administrator accounts found'}</strong>
-            <p>${term ? 'No administrator accounts match your search query.' : 'Administrator accounts have full privileges.'}</p>
-            ${!term ? `
-              <button class="button button-primary std-record-btn" type="button" id="adminEmptyAddBtn" style="margin-top:14px;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M12 5v14M5 12h14"/></svg>
-                <span>Add Administrator</span>
+            <h4 class="std-empty-title">${term || activeAdminFilter !== 'all' ? 'No Matching Administrator Accounts' : 'No Administrator Accounts Found'}</h4>
+            <p class="std-empty-desc">${term || activeAdminFilter !== 'all' ? 'No administrator accounts match your current search or filter criteria.' : 'Administrator accounts have full privileges.'}</p>
+            ${term || activeAdminFilter !== 'all' ? `
+              <button class="button button-secondary" type="button" id="adminResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters
               </button>
             ` : ''}
           </div>
@@ -6047,7 +7500,12 @@ function renderAdminAccount() {
 
   // Bind Buttons
   table.querySelector('#addAdminHeroBtn')?.addEventListener('click', () => openForm('admin'));
-  table.querySelector('#adminEmptyAddBtn')?.addEventListener('click', () => openForm('admin'));
+  table.querySelector('#adminResetFiltersBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    activeAdminFilter = 'all';
+    renderAdminAccount();
+  });
 
   // Bind Chips
   table.querySelectorAll('[data-admin-filter]').forEach((chip) => {
@@ -6394,20 +7852,63 @@ function renderTableService() {
   const hasKitchenRoutedItems = selectedItems.some((item) => productMap.get(item.productId)?.kitchenEnabled === true);
   const availableProducts = products.filter((product) => product.category !== RAW_MATERIAL_CATEGORY && product.status === 'Active' && Number(product.qty || 0) > 0);
   const canRegisterTables = currentSession?.account?.role === 'admin';
+  const tableServiceHeroHtml = `
+    <div class="std-hero-card table-hero-card" style="margin-bottom: 18px;">
+      <div class="std-hero-glow"></div>
+      <div class="std-hero-leading">
+        <div class="std-hero-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 10h16"/>
+            <path d="M6 10v9M18 10v9M3 19h18"/>
+            <path d="M8 6a4 4 0 0 1 8 0v4H8Z"/>
+          </svg>
+        </div>
+        <div class="std-hero-text">
+          <span class="std-hero-kicker">SERVICE FLOOR &bull; DINING TABLES</span>
+          <strong class="std-hero-title">Table Service &amp; Dine-In Tabs</strong>
+          <p class="std-hero-desc">Monitor floor layout, table occupancy, guest seating, open tabs, and kitchen order status in real time.</p>
+        </div>
+      </div>
+      <div class="std-hero-actions">
+        ${canRegisterTables ? `
+          <button class="button button-primary std-record-btn" type="button" data-register-table id="tableServiceRegisterHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Register Table</span>
+          </button>
+        ` : ''}
+      </div>
+    </div>
+  `;
 
   if (!visibleTables.length) {
     table.innerHTML = `
-      <div class="empty-state">
-        <p>${query ? 'No matching dining tables' : 'No tables registered'}</p>
-        <small>${query ? 'Try adjusting your search query' : 'Register each dining table before taking table orders.'}</small>
-        ${canRegisterTables && !query ? '<button class="button button-primary" type="button" data-register-table>Register Table</button>' : ''}
+      ${tableServiceHeroHtml}
+      <div class="std-empty-state">
+        <div class="std-empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 10h16"/><path d="M6 10v9M18 10v9M3 19h18"/><path d="M8 6a4 4 0 0 1 8 0v4H8Z"/>
+          </svg>
+        </div>
+        <h4 class="std-empty-title">${query ? 'No Matching Dining Tables' : 'No Tables Registered'}</h4>
+        <p class="std-empty-desc">${query ? 'Try adjusting your search query.' : 'Register each dining table before taking table orders.'}</p>
+        ${query ? `
+          <button type="button" class="button button-secondary" id="tableServiceResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+            Reset Filters
+          </button>
+        ` : ''}
       </div>
     `;
-    table.querySelector('[data-register-table]')?.addEventListener('click', () => openForm('restaurantTable'));
+    table.querySelectorAll('[data-register-table]').forEach((btn) => btn.addEventListener('click', () => openForm('restaurantTable')));
+    table.querySelector('#tableServiceResetFiltersBtn')?.addEventListener('click', () => {
+      const sInput = $('#searchInput');
+      if (sInput) sInput.value = '';
+      renderTableService();
+    });
     return;
   }
 
   table.innerHTML = `
+    ${tableServiceHeroHtml}
     <section class="table-service-shell">
       <div class="table-floor-column">
         <div class="table-floor-header">
@@ -7053,27 +8554,40 @@ async function renderWaiterQueue_() {
 
     root.innerHTML = `
       <section class="waiter-queue-shell">
-        <div class="waiter-queue-header-card">
-          <div class="waiter-queue-header-left">
-            <div class="waiter-queue-live-indicator">
-              <span class="live-dot"></span>
-              <span>Realtime Waiter Queue</span>
+        <div class="std-hero-card waiter-hero-card">
+          <div class="std-hero-glow"></div>
+          <div class="std-hero-leading">
+            <div class="std-hero-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                <path d="M2 8c0-2.2.9-4.2 2.3-5.7"/>
+                <path d="M22 8c0-2.2-.9-4.2-2.3-5.7"/>
+              </svg>
             </div>
-            <h3 class="waiter-queue-header-title">Customer QR Orders</h3>
-            <p class="waiter-queue-header-desc">Orders placed by guests via table QR codes. Claim an order to review items and dispatch directly to the kitchen.</p>
+            <div class="std-hero-text">
+              <span class="std-hero-kicker" style="display:inline-flex;align-items:center;gap:6px;">
+                <span class="live-dot" style="display:inline-block;"></span>
+                SERVICE FLOOR &bull; CUSTOMER REQUESTS
+              </span>
+              <strong class="std-hero-title">Customer QR Orders &amp; Waiter Queue</strong>
+              <p class="std-hero-desc">Orders placed by guests via table QR codes. Claim an order to review items and dispatch directly to the kitchen.</p>
+            </div>
           </div>
-          <div class="waiter-queue-stats">
-            <div class="waiter-stat-pill is-pending">
-              <span class="waiter-stat-val">${pendingRequests.length}</span>
-              <span class="waiter-stat-lbl">Awaiting Claim</span>
-            </div>
-            <div class="waiter-stat-pill is-claimed">
-              <span class="waiter-stat-val">${claimedByMeRequests.length}</span>
-              <span class="waiter-stat-lbl">Claimed by You</span>
-            </div>
-            <div class="waiter-stat-pill is-total">
-              <span class="waiter-stat-val">${totalCount}</span>
-              <span class="waiter-stat-lbl">Total in Queue</span>
+          <div class="std-hero-actions">
+            <div class="waiter-queue-stats">
+              <div class="waiter-stat-pill is-pending">
+                <span class="waiter-stat-val">${pendingRequests.length}</span>
+                <span class="waiter-stat-lbl">Awaiting Claim</span>
+              </div>
+              <div class="waiter-stat-pill is-claimed">
+                <span class="waiter-stat-val">${claimedByMeRequests.length}</span>
+                <span class="waiter-stat-lbl">Claimed by You</span>
+              </div>
+              <div class="waiter-stat-pill is-total">
+                <span class="waiter-stat-val">${totalCount}</span>
+                <span class="waiter-stat-lbl">Total in Queue</span>
+              </div>
             </div>
           </div>
         </div>
@@ -7244,9 +8758,15 @@ async function renderWaiterQueue_() {
                   <path d="M22 8c0-2.2-.9-4.2-2.3-5.7"/>
                 </svg>
               </div>
-              <h4>${searchTerm ? 'No Matching Requests' : 'Queue is Clear'}</h4>
-              <p>${searchTerm ? `No customer requests match "${escapeHtml(searchTerm)}".` : 'No customer QR requests are currently awaiting waiter confirmation.'}</p>
-              <small>${searchTerm ? 'Try clearing your search query to see all pending orders.' : 'When customers scan a table QR code and submit their order, it will appear here live in real-time.'}</small>
+              <h4>${searchTerm || waiterQueueFilter_ !== 'all' ? 'No Matching Requests' : 'Queue is Clear'}</h4>
+              <p>${searchTerm ? `No customer requests match "${escapeHtml(searchTerm)}".` : (waiterQueueFilter_ !== 'all' ? 'No customer requests match the active tab filter.' : 'No customer QR requests are currently awaiting waiter confirmation.')}</p>
+              ${searchTerm || waiterQueueFilter_ !== 'all' ? `
+                <button type="button" class="button button-secondary" id="waiterResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                  Reset Filters
+                </button>
+              ` : `
+                <small>When customers scan a table QR code and submit their order, it will appear here live in real-time.</small>
+              `}
             </div>
           `}
         </div>
@@ -7277,6 +8797,13 @@ async function renderWaiterQueue_() {
 
     root.querySelectorAll('[data-refresh-waiter-queue]').forEach((btn) => {
       btn.addEventListener('click', () => renderWaiterQueue_());
+    });
+
+    root.querySelector('#waiterResetFiltersBtn')?.addEventListener('click', () => {
+      const sInput = $('#searchInput');
+      if (sInput) sInput.value = '';
+      waiterQueueFilter_ = 'all';
+      renderWaiterQueue_();
     });
 
     root.querySelectorAll('[data-claim-request]').forEach((btn) => {
@@ -7494,17 +9021,26 @@ async function renderKitchenDisplay_() {
 
     root.innerHTML = `
       <section class="kitchen-display-shell">
-        <div class="kitchen-header-card">
-          <div class="kitchen-header-left">
-            <div class="kitchen-live-indicator">
-              <span class="kitchen-dot"></span>
-              <span>Realtime Kitchen Display System (KDS)</span>
+        <div class="std-hero-card kitchen-hero-card">
+          <div class="std-hero-glow"></div>
+          <div class="std-hero-leading">
+            <div class="std-hero-icon" aria-hidden="true" style="color:#38bdf8;background:linear-gradient(135deg, rgba(56, 189, 248, 0.18) 0%, rgba(2, 132, 199, 0.28) 100%);border-color:rgba(56, 189, 248, 0.4);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="6 2 18 2 18 6 6 6 6 2"/>
+                <rect width="20" height="14" x="2" y="6" rx="2"/>
+              </svg>
             </div>
-            <h3 class="kitchen-header-title">Active Food Preparation</h3>
-            <p class="kitchen-header-desc">Incoming kitchen tickets ordered by arrival. Update cooking progress on each line item and dispatch served orders once handed off.</p>
+            <div class="std-hero-text">
+              <span class="std-hero-kicker" style="display:inline-flex;align-items:center;gap:6px;">
+                <span class="kitchen-dot" style="display:inline-block;"></span>
+                KITCHEN DISPLAY SYSTEM &bull; FOOD PREPARATION
+              </span>
+              <strong class="std-hero-title">Active Food Preparation &amp; Kitchen Tickets</strong>
+              <p class="std-hero-desc">Incoming kitchen tickets ordered by arrival. Update cooking progress on each line item and dispatch served orders once handed off.</p>
+            </div>
           </div>
 
-          <div class="kitchen-header-right">
+          <div class="std-hero-actions">
             <div class="kitchen-stats-row">
               <div class="kitchen-stat-pill is-new">
                 <span class="kitchen-stat-val">${newCount}</span>
@@ -7687,9 +9223,15 @@ async function renderKitchenDisplay_() {
                   <rect width="20" height="14" x="2" y="6" rx="2"/>
                 </svg>
               </div>
-              <h4>${searchTerm ? 'No Matching Tickets' : 'Kitchen Queue is Clear'}</h4>
-              <p>${searchTerm ? `No active tickets match "${escapeHtml(searchTerm)}".` : 'All food and beverage tickets have been prepared and served.'}</p>
-              <small>${searchTerm ? 'Try clearing your search query to see all active tickets.' : 'When waiters confirm customer QR requests or orders are sent from the POS, they will appear here live in real-time.'}</small>
+              <h4>${searchTerm || kitchenDisplayFilter_ !== 'all' ? 'No Matching Tickets' : 'Kitchen Queue is Clear'}</h4>
+              <p>${searchTerm ? `No active tickets match "${escapeHtml(searchTerm)}".` : (kitchenDisplayFilter_ !== 'all' ? 'No tickets match the selected status filter.' : 'All food and beverage tickets have been prepared and served.')}</p>
+              ${searchTerm || kitchenDisplayFilter_ !== 'all' ? `
+                <button type="button" class="button button-secondary" id="kitchenResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                  Reset Filters
+                </button>
+              ` : `
+                <small>When waiters confirm customer QR requests or orders are sent from the POS, they will appear here live in real-time.</small>
+              `}
             </div>
           `}
         </div>
@@ -7706,6 +9248,13 @@ async function renderKitchenDisplay_() {
 
     root.querySelectorAll('[data-refresh-kitchen-display]').forEach((btn) => {
       btn.addEventListener('click', () => renderKitchenDisplay_());
+    });
+
+    root.querySelector('#kitchenResetFiltersBtn')?.addEventListener('click', () => {
+      const sInput = $('#searchInput');
+      if (sInput) sInput.value = '';
+      kitchenDisplayFilter_ = 'all';
+      renderKitchenDisplay_();
     });
 
     root.querySelector('[data-toggle-kitchen-sound]')?.addEventListener('click', () => {
@@ -8041,10 +9590,12 @@ function renderProductsTable_() {
               </svg>
             </div>
             <h4 class="std-empty-title">No Products Found</h4>
-            <p class="std-empty-desc">No catalog items match your search or selected filter.</p>
-            <button type="button" class="button button-primary" id="productEmptyAddBtn" style="margin-top:8px;font-size:12px;padding:8px 16px;">
-              + Register Product
-            </button>
+            <p class="std-empty-desc">${term || activeProductsFilter !== 'all' ? 'No catalog items match your search or selected filter.' : 'No catalog items registered yet.'}</p>
+            ${term || activeProductsFilter !== 'all' ? `
+              <button type="button" class="button button-secondary" id="productResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters
+              </button>
+            ` : ''}
           </div>
         `}
       </div>
@@ -8057,7 +9608,12 @@ function renderProductsTable_() {
 
   table.querySelector('#registerProductHeroBtn')?.addEventListener('click', () => openForm('product'));
   table.querySelector('#addExistingProductHeroBtn')?.addEventListener('click', () => openForm('linkProduct'));
-  table.querySelector('#productEmptyAddBtn')?.addEventListener('click', () => openForm('product'));
+  table.querySelector('#productResetFiltersBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    activeProductsFilter = 'all';
+    renderProductsTable_();
+  });
 
   table.querySelectorAll('[data-prod-filter]').forEach((chip) => {
     chip.addEventListener('click', () => {
@@ -8114,7 +9670,7 @@ function renderInventoryStockTable_() {
   const paginationHtml = renderPaginationControls_(pagination, 'inventory items');
 
   table.innerHTML = `
-    <div class="std-view theme-emerald">
+    <div class="std-view theme-sky">
       <div class="std-hero-card">
         <div class="std-hero-glow"></div>
         <div class="std-hero-leading">
@@ -8276,10 +9832,12 @@ function renderInventoryStockTable_() {
               </svg>
             </div>
             <h4 class="std-empty-title">No Inventory Items Found</h4>
-            <p class="std-empty-desc">No inventory stock records match your query.</p>
-            <button type="button" class="button button-primary" id="inventoryEmptyStockInBtn" style="margin-top:8px;font-size:12px;padding:8px 16px;">
-              + Stock In Receipt
-            </button>
+            <p class="std-empty-desc">${term || activeInventoryFilter !== 'all' ? 'No inventory stock records match your query or filter.' : 'No inventory stock records available.'}</p>
+            ${term || activeInventoryFilter !== 'all' ? `
+              <button type="button" class="button button-secondary" id="inventoryResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters
+              </button>
+            ` : ''}
           </div>
         `}
       </div>
@@ -8292,7 +9850,12 @@ function renderInventoryStockTable_() {
 
   table.querySelector('#stockInHeroBtn')?.addEventListener('click', () => openForm('stock'));
   table.querySelector('#stockInHistoryHeroBtn')?.addEventListener('click', showStockInHistory);
-  table.querySelector('#inventoryEmptyStockInBtn')?.addEventListener('click', () => openForm('stock'));
+  table.querySelector('#inventoryResetFiltersBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    activeInventoryFilter = 'all';
+    renderInventoryStockTable_();
+  });
 
   table.querySelectorAll('[data-inv-filter]').forEach((chip) => {
     chip.addEventListener('click', () => {
@@ -8502,11 +10065,33 @@ function renderInventory() {
     <div class="table-row table-header">
       ${headers.map((header) => `<span>${header}</span>`).join('')}
     </div>
-    ${content || '<div class="empty-state"><p>No products found</p><small>Try adjusting your search query</small></div>'}
+    ${content || `
+      <div class="std-empty-state" style="padding:48px 16px;">
+        <div class="std-empty-icon" style="margin-bottom:12px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:36px;height:36px;color:#94a3b8;">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+            <line x1="12" y1="22.08" x2="12" y2="12"/>
+          </svg>
+        </div>
+        <h4 class="std-empty-title">No Products Found</h4>
+        <p class="std-empty-desc">${term ? 'No products match your current search query.' : 'Available products will appear here.'}</p>
+        ${term ? `
+          <button type="button" class="button button-secondary" id="posResetSearchBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+            Reset Filters
+          </button>
+        ` : ''}
+      </div>
+    `}
     ${paginationHtml}
   `;
 
   bindPaginationEvents_(table);
+  table.querySelector('#posResetSearchBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    renderInventory();
+  });
 
   table.querySelectorAll('[data-add]').forEach((button) => button.addEventListener('click', () => addToCart(button.dataset.add)));
   table.querySelectorAll('[data-row-add]').forEach((row) => {
@@ -8753,9 +10338,11 @@ function renderBundleMonitoring() {
                 ? 'No configured bundle sets match your current search or filter criteria.'
                 : 'No bundles or combo sets have been configured yet. Register a bundle in Product Registration.'}
             </p>
-            <button type="button" class="button button-primary" id="bundleEmptyAddBtn" style="margin-top:8px;font-size:12px;padding:8px 16px;">
-              + Register Bundle / Set
-            </button>
+            ${term || activeBundleFilter !== 'all' ? `
+              <button type="button" class="button button-secondary" id="bundleResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters
+              </button>
+            ` : ''}
           </div>
         `}
       </div>
@@ -8767,7 +10354,12 @@ function renderBundleMonitoring() {
   bindPaginationEvents_(table, renderBundleMonitoring);
 
   table.querySelector('#bundleRegisterHeroBtn')?.addEventListener('click', () => openForm('product'));
-  table.querySelector('#bundleEmptyAddBtn')?.addEventListener('click', () => openForm('product'));
+  table.querySelector('#bundleResetFiltersBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    activeBundleFilter = 'all';
+    renderBundleMonitoring();
+  });
 
   table.querySelectorAll('[data-bundle-filter]').forEach((chip) => {
     chip.addEventListener('click', () => {
@@ -8797,6 +10389,7 @@ function renderLossDamages() {
 
   const dateFrom = $('#lossDamagesDateFrom')?.value || '';
   const dateTo = $('#lossDamagesDateTo')?.value || '';
+  const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(dateFrom, dateTo) : '';
   const term = ($('#searchInput')?.value || '').trim().toLowerCase();
   const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -8859,6 +10452,7 @@ function renderLossDamages() {
   });
 
   const pagination = paginateItems_(finalFiltered);
+  const paginationHtml = renderPaginationControls_(pagination, 'loss records');
 
   table.innerHTML = `
     <div class="loss-damages-view">
@@ -8955,22 +10549,22 @@ function renderLossDamages() {
           `).join('')}
         </div>
 
-        <div class="loss-quick-dates">
-          <span class="loss-quick-dates-label">Presets:</span>
-          <button type="button" class="loss-date-btn" data-date-preset="thisMonth">This Month</button>
-          <button type="button" class="loss-date-btn" data-date-preset="last30">Last 30 Days</button>
-          <button type="button" class="loss-date-btn" data-date-preset="all">All Time</button>
+        <div class="std-quick-dates loss-quick-dates">
+          <span class="std-quick-dates-label loss-quick-dates-label">Presets:</span>
+          <button type="button" class="std-date-btn loss-date-btn ${activePreset === 'thisMonth' ? 'active' : ''}" data-date-preset="thisMonth">This Month</button>
+          <button type="button" class="std-date-btn loss-date-btn ${activePreset === 'last30' ? 'active' : ''}" data-date-preset="last30">Last 30 Days</button>
+          <button type="button" class="std-date-btn loss-date-btn ${activePreset === 'all' ? 'active' : ''}" data-date-preset="all">All Time</button>
         </div>
       </div>
 
-      <div class="loss-table-shell">
-        <div class="loss-table-header">
-          <span class="col-product">Product &amp; Reference</span>
-          <span class="col-qty">Written Off</span>
-          <span class="col-reason">Reason</span>
-          <span class="col-date">Date Recorded</span>
-          <span class="col-notes">Audit Notes</span>
-          <span class="col-impact">Loss Cost</span>
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-loss">
+          <span>Product &amp; Reference</span>
+          <span>Written Off</span>
+          <span>Reason</span>
+          <span>Date Recorded</span>
+          <span>Audit Notes</span>
+          <span style="text-align: right;">Loss Cost</span>
         </div>
 
         ${pagination.pagedItems.length ? pagination.pagedItems.map((item) => {
@@ -8986,97 +10580,91 @@ function renderLossDamages() {
             : 'reason-other';
 
           return `
-            <div class="loss-table-row">
-              <div class="col-product loss-product-cell" data-label="Product">
-                <span class="loss-prod-thumb">
+            <div class="std-table-row grid-cols-loss">
+              <div class="product-cell" data-label="Product">
+                <div class="product-thumb-frame" style="width:36px;height:36px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#0f1c32;display:grid;place-items:center;">
                   ${imgUrl ? `
-                    <img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(item.productName)}" onerror="this.onerror=null;this.parentElement.innerHTML='<span class=\\'loss-prod-fallback\\'><svg viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'2\\'><path d=\\'M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2\\'/><path d=\\'M7 2v20\\'/><path d=\\'M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7\\'/></svg></span>';" />
+                    <img class="product-photo-thumb" src="${escapeHtml(imgUrl)}" alt="${escapeHtml(item.productName)}" onerror="this.onerror=null;this.parentElement.innerHTML='<svg viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'1.8\\' style=\\'width:16px;height:16px;color:#64748b;\\'><path d=\\'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z\\'/></svg>';" loading="lazy" />
                   ` : `
-                    <span class="loss-prod-fallback">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
-                    </span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:16px;height:16px;color:#64748b;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
                   `}
-                </span>
-                <div class="loss-prod-info">
-                  <strong class="loss-prod-name" title="${escapeHtml(item.productName)}">${escapeHtml(item.productName)}</strong>
-                  <div class="loss-prod-meta">
-                    <span class="loss-id-pill" title="Audit reference ID">#${escapeHtml(item.id)}</span>
-                    ${product?.category ? `<span class="loss-cat-pill">${escapeHtml(product.category)}</span>` : ''}
-                  </div>
+                </div>
+                <div class="product-details-stack" style="min-width:0;">
+                  <strong class="product-name" style="font-size:13px;color:#fff;" title="${escapeHtml(item.productName)}">${escapeHtml(item.productName)}</strong>
+                  <span class="product-meta" style="font-size:10.5px;">#${escapeHtml(item.id)}${product?.category ? ` &bull; ${escapeHtml(product.category)}` : ''}</span>
                 </div>
               </div>
 
-              <div class="col-qty loss-qty-cell" data-label="Written Off">
-                <span class="loss-qty-badge">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  <span>${Number(item.qty).toLocaleString('en-PH')} ${escapeHtml(item.unit || 'unit')}</span>
+              <div data-label="Written Off">
+                <span class="stock-pill" style="font-size:11px;color:#fca5a5;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);font-feature-settings:'tnum';">
+                  &minus;&nbsp;${Number(item.qty).toLocaleString('en-PH')} ${escapeHtml(item.unit || 'unit')}
                 </span>
               </div>
 
-              <div class="col-reason loss-reason-cell" data-label="Reason">
-                <span class="loss-reason-badge ${reasonBadgeClass}">
+              <div data-label="Reason">
+                <span class="loss-reason-badge ${reasonBadgeClass}" style="font-size:11px;">
                   <span class="reason-dot"></span>
                   <span>${escapeHtml(item.reason || 'Other')}</span>
                 </span>
               </div>
 
-              <div class="col-date loss-date-cell" data-label="Date">
-                <span class="loss-date-main">${escapeHtml(formatDateHuman(item.occurredAt || item.createdAt))}</span>
-                <span class="loss-date-sub">${escapeHtml(formatTimeHuman(item.occurredAt || item.createdAt))}</span>
+              <div data-label="Date Recorded">
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                  <strong style="font-size:12.5px;color:#ffffff;display:block;">${escapeHtml(formatDateHuman(item.occurredAt || item.createdAt))}</strong>
+                  <span class="product-meta" style="font-size:10.5px;">${escapeHtml(formatTimeHuman(item.occurredAt || item.createdAt))}</span>
+                </div>
               </div>
 
-              <div class="col-notes loss-notes-cell" data-label="Notes">
+              <div data-label="Audit Notes" style="min-width:0;">
                 ${item.notes ? `
-                  <span class="loss-notes-text" title="${escapeHtml(item.notes)}">
+                  <span style="font-size:12px;color:#cbd5e1;font-style:italic;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(item.notes)}">
                     &ldquo;${escapeHtml(item.notes)}&rdquo;
                   </span>
                 ` : `
-                  <span class="loss-notes-empty">&mdash;</span>
+                  <span style="color:#64748b;">&mdash;</span>
                 `}
               </div>
 
-              <div class="col-impact loss-impact-cell" data-label="Loss Cost">
-                ${estLoss !== null ? `
-                  <strong class="loss-impact-val">${money(estLoss)}</strong>
-                  <span class="loss-impact-lbl">${lossValuation.basis} cost loss</span>
-                ` : `
-                  <span class="loss-impact-val neutral">Cost pending</span>
-                `}
+              <div data-label="Loss Cost" style="font-feature-settings:'tnum';">
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+                  ${estLoss !== null ? `
+                    <strong class="price-text" style="color:#f87171;font-size:13px;display:block;">${money(estLoss)}</strong>
+                    <span style="font-size:10px;color:#64748b;display:block;">${escapeHtml(lossValuation.basis)} cost loss</span>
+                  ` : `
+                    <span style="color:#64748b;font-size:11.5px;">Cost pending</span>
+                  `}
+                </div>
               </div>
             </div>
           `;
         }).join('') : `
-          <div class="loss-empty-state">
-            <div class="loss-empty-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#f87171;background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/>
                 <path d="m9 9 6 6m0-6-6 6"/>
               </svg>
             </div>
-            <strong class="loss-empty-title">No loss or damage records found</strong>
-            <p class="loss-empty-desc">
+            <h4 class="std-empty-title">No Loss or Damage Records Found</h4>
+            <p class="std-empty-desc">
               ${term || activeLossReasonFilter !== 'all' || dateFrom || dateTo
                 ? 'Try adjusting your search query, cause filter, or date range.'
                 : 'No inventory write-offs have been recorded yet.'}
             </p>
-            <div class="loss-empty-actions">
-              ${term || activeLossReasonFilter !== 'all' || dateFrom || dateTo ? `
-                <button class="button button-secondary" type="button" id="resetLossFiltersBtn">Reset Filters</button>
-              ` : ''}
-              <button class="button button-danger" type="button" id="emptyRecordLossBtn">Record Loss / Damage</button>
-            </div>
+            ${term || activeLossReasonFilter !== 'all' || dateFrom || dateTo ? `
+              <button class="button button-secondary" type="button" id="resetLossFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">Reset Filters &amp; Date Range</button>
+            ` : ''}
           </div>
         `}
-
-        ${renderPaginationControls_(pagination, 'loss records')}
       </div>
+
+      ${paginationHtml}
     </div>
   `;
 
-  bindPaginationEvents_(table);
+  bindPaginationEvents_(table, renderLossDamages);
 
   table.querySelector('#recordLossButton')?.addEventListener('click', () => openForm('lossDamage'));
-  table.querySelector('#emptyRecordLossBtn')?.addEventListener('click', () => openForm('lossDamage'));
 
   table.querySelectorAll('.loss-chip').forEach((chip) => {
     chip.addEventListener('click', () => {
@@ -9208,27 +10796,35 @@ function renderQuarantinedItems() {
             <span><b>Inspection Reason:</b> ${escapeHtml(caseItem.reason || 'Not recorded')}</span>
           </div>
           <div class="quarantine-items">
-            ${items.map((item) => `<div class="quarantine-item-row"><div class="product-cell"><strong class="product-name">${escapeHtml(item.productName)}</strong><span class="product-meta">${Number(item.qty).toLocaleString('en-PH')} ${escapeHtml(item.unit)}${item.sellingPrice === null ? '' : ` &bull; Receipt price ${money(item.sellingPrice)}`}</span></div><div class="quarantine-item-action">${actionButtons(item, caseItem.sourceType)}</div></div>`).join('') || '<div class="empty-state"><p>No quarantine items found</p></div>'}
+            ${items.map((item) => {
+              const thumbHtml = typeof renderProductThumbHtml_ === 'function' ? renderProductThumbHtml_(item.imageUrl || '', item.productName, '#0284c7') : '';
+              return `<div class="quarantine-item-row"><div class="product-cell">${thumbHtml}<div class="product-details-stack" style="min-width:0;"><strong class="product-name">${escapeHtml(item.productName)}</strong><span class="product-meta">${Number(item.qty).toLocaleString('en-PH')} ${escapeHtml(item.unit)}${item.sellingPrice === null ? '' : ` &bull; Receipt price ${money(item.sellingPrice)}`}</span></div></div><div class="quarantine-item-action">${actionButtons(item, caseItem.sourceType)}</div></div>`;
+            }).join('') || '<div class="empty-state"><p>No quarantine items found</p></div>'}
           </div>
         </section>`;
       }).join('')
-    : `<div class="quarantine-empty-state">
-        <div class="quarantine-empty-icon-box">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            <path d="m9 12 2 2 4-4"/>
+    : `<div class="std-empty-state">
+        <div class="std-empty-icon" style="color:#0284c7;background:rgba(2,132,199,0.1);border-color:rgba(2,132,199,0.25);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="M12 8v4"/><path d="M12 16h.01"/>
           </svg>
         </div>
-        <h3 class="quarantine-empty-title">No Quarantined Items</h3>
-        <p class="quarantine-empty-desc">Inspection holding area is currently clear. Any stock-in receipts or branch transfers flagged for inspection will appear here for verification and disposition.</p>
-        <div class="quarantine-empty-status">
-          <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-          <span>Holding Area All Clear</span>
-        </div>
+        <h4 class="std-empty-title">${term || activeQuarantineFilter !== 'all' ? 'No Matching Quarantined Items' : 'No Quarantined Items'}</h4>
+        <p class="std-empty-desc">${term || activeQuarantineFilter !== 'all' ? 'No quarantine cases match your current search or filter.' : 'Inspection holding area is currently clear. Any stock-in receipts or branch transfers flagged for inspection will appear here for verification and disposition.'}</p>
+        ${term || activeQuarantineFilter !== 'all' ? `
+          <button type="button" class="button button-secondary" id="quarantineResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+            Reset Filters
+          </button>
+        ` : `
+          <div class="quarantine-empty-status" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:6px 12px;border-radius:999px;background:rgba(16,185,129,0.12);color:#34d399;font-size:12px;font-weight:600;border:1px solid rgba(16,185,129,0.25);">
+            <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px;"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+            <span>Holding Area All Clear</span>
+          </div>
+        `}
       </div>`;
 
   table.innerHTML = `
-    <div class="std-view theme-orange">
+    <div class="std-view theme-sky">
       <div class="std-hero-card">
         <div class="std-hero-glow"></div>
         <div class="std-hero-leading">
@@ -9254,14 +10850,14 @@ function renderQuarantinedItems() {
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
-          <div class="std-kpi-icon icon-orange">
+          <div class="std-kpi-icon icon-amber">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="M12 8v4"/><path d="M12 16h.01"/>
             </svg>
           </div>
           <div class="std-kpi-content">
             <span class="std-kpi-label">PENDING CASES</span>
-            <strong class="std-kpi-value" style="color:#fb923c;">${totalCases}</strong>
+            <strong class="std-kpi-value text-amber">${totalCases}</strong>
             <span class="std-kpi-sub">${totalCases === 0 ? 'Holding area clear' : `${totalCases} case${totalCases === 1 ? '' : 's'} awaiting audit`}</span>
           </div>
         </div>
@@ -9309,7 +10905,7 @@ function renderQuarantinedItems() {
       <div class="std-toolbar-strip">
         <div class="std-filter-chips" role="tablist" aria-label="Filter quarantine cases">
           <button type="button" class="std-chip ${activeQuarantineFilter === 'all' ? 'active' : ''}" data-quarantine-filter="all">
-            <span class="std-chip-dot" style="background:#fb923c;"></span>
+            <span class="std-chip-dot" style="background:#0284c7;"></span>
             <span class="std-chip-label">All Cases</span>
             <span class="std-chip-badge">${totalCases}</span>
           </button>
@@ -9335,10 +10931,16 @@ function renderQuarantinedItems() {
   `;
 
   bindPaginationEvents_(table);
-  table.querySelectorAll('[data-quarantine-item]').forEach((button) => button.addEventListener('click', () => resolveInventoryQuarantineItem_(button.dataset.quarantineItem, button.dataset.quarantineResolution)));
-  table.querySelector('#quarantineReportNavBtn')?.addEventListener('click', () => setView('quarantineReport'));
+  table.querySelectorAll?.('[data-quarantine-item]')?.forEach((button) => button.addEventListener('click', () => resolveInventoryQuarantineItem_(button.dataset.quarantineItem, button.dataset.quarantineResolution)));
+  table.querySelector?.('#quarantineReportNavBtn')?.addEventListener('click', () => setView('quarantineReport'));
+  table.querySelector?.('#quarantineResetFiltersBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    activeQuarantineFilter = 'all';
+    renderQuarantinedItems();
+  });
 
-  table.querySelectorAll('[data-quarantine-filter]').forEach((chip) => {
+  table.querySelectorAll?.('[data-quarantine-filter]')?.forEach((chip) => {
     chip.addEventListener('click', () => {
       activeQuarantineFilter = chip.dataset.quarantineFilter;
       renderQuarantinedItems();
@@ -9556,7 +11158,7 @@ function renderQuarantineReport() {
   }
 
   table.innerHTML = `
-    <div class="std-view theme-amber">
+    <div class="std-view theme-sky">
       <div class="std-hero-card">
         <div class="std-hero-glow"></div>
         <div class="std-hero-leading">
@@ -9572,9 +11174,13 @@ function renderQuarantineReport() {
           </div>
         </div>
         <div class="std-hero-actions">
-          <button class="button button-primary std-record-btn" type="button" id="quarantineReportPdfHeroBtn">
+          <button class="button button-secondary std-record-btn" type="button" id="quarantineReportPrintPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
-            <span>Generate PDF</span>
+            <span>Print PDF</span>
+          </button>
+          <button class="button button-primary std-record-btn" type="button" id="quarantineReportExportPdfHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
+            <span>Export PDF</span>
           </button>
         </div>
       </div>
@@ -9636,7 +11242,7 @@ function renderQuarantineReport() {
       <div class="std-toolbar-strip">
         <div class="std-filter-chips" role="tablist" aria-label="Filter quarantine disposition">
           <button type="button" class="std-chip ${activeQuarantineFilter === 'all' ? 'active' : ''}" data-quarantine-filter="all">
-            <span class="std-chip-dot" style="background:#f59e0b;"></span>
+            <span class="std-chip-dot" style="background:#0284c7;"></span>
             <span class="std-chip-label">All</span>
             <span class="std-chip-badge">${records.length}</span>
           </button>
@@ -9664,13 +11270,8 @@ function renderQuarantineReport() {
           ` : ''}
         </div>
 
-        <div class="std-date-presets" role="group" aria-label="Date range quick presets" style="margin-left:auto;">
-          <svg class="std-date-presets-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
-            <line x1="16" x2="16" y1="2" y2="6"/>
-            <line x1="8" x2="8" y1="2" y2="6"/>
-            <line x1="3" x2="21" y1="10" y2="10"/>
-          </svg>
+        <div class="std-quick-dates">
+          <span class="std-quick-dates-label">Presets:</span>
           <button type="button" class="std-date-btn ${activePreset === 'thisMonth' ? 'active' : ''}" data-quarantine-preset="thisMonth">This Month</button>
           <button type="button" class="std-date-btn ${activePreset === 'last30' ? 'active' : ''}" data-quarantine-preset="last30">Last 30 Days</button>
           <button type="button" class="std-date-btn ${activePreset === 'all' ? 'active' : ''}" data-quarantine-preset="all">All Time</button>
@@ -9701,11 +11302,16 @@ function renderQuarantineReport() {
               <span class="stock-pill ${g.pillClass}" style="font-size:10.5px;">${Number(g.units).toLocaleString('en-PH')} Units</span>
             </div>
           </div>
-          ${g.items.map((r) => `
+          ${g.items.map((r) => {
+            const thumbHtml = typeof renderProductThumbHtml_ === 'function' ? renderProductThumbHtml_(r.imageUrl || '', r.productName, '#0284c7') : '';
+            return `
             <div class="std-table-row grid-cols-quarantinereport">
               <div class="product-cell qr-product-cell" data-label="Product">
-                <strong class="product-name" style="font-size:13px;color:#fff;">${escapeHtml(r.productName)}</strong>
-                <span class="product-meta" style="font-size:10.5px;">${escapeHtml(r.unit)}${r.sellingPrice !== null ? ` &bull; Cost: ${money(r.sellingPrice)}` : ''}</span>
+                ${thumbHtml}
+                <div class="product-details-stack" style="min-width:0;">
+                  <strong class="product-name" style="font-size:13px;color:#fff;" title="${escapeHtml(r.productName)}">${escapeHtml(r.productName)}</strong>
+                  <span class="product-meta" style="font-size:10.5px;">${escapeHtml(r.unit)}${r.sellingPrice !== null ? ` &bull; Cost: ${money(r.sellingPrice)}` : ''}</span>
+                </div>
               </div>
 
               <div class="product-cell qr-case-cell" data-label="Case / Date">
@@ -9734,16 +11340,22 @@ function renderQuarantineReport() {
                 </span>
               </div>
             </div>
-          `).join('')}
+          `;
+          }).join('')}
         `).join('') : `
           <div class="std-empty-state">
-            <div class="std-empty-icon" style="color:#f59e0b;background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.25);">
+            <div class="std-empty-icon" style="color:#0284c7;background:rgba(2,132,199,0.1);border-color:rgba(2,132,199,0.25);">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="M12 8v4"/><path d="M12 16h.01"/>
               </svg>
             </div>
             <h4 class="std-empty-title">No Quarantine Records Found</h4>
-            <p class="std-empty-desc">No inspection items match the selected date range or filter criteria.</p>
+            <p class="std-empty-desc">${activeQuarantineFilter !== 'all' || activePreset !== 'thisMonth' ? 'No inspection items match the selected date range or filter criteria.' : 'Quarantine audit records will appear here as items are inspected, restocked, returned, or disposed.'}</p>
+            ${activeQuarantineFilter !== 'all' || activePreset !== 'thisMonth' ? `
+              <button type="button" class="button button-secondary" id="quarantineResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters &amp; Date Range
+              </button>
+            ` : ''}
           </div>
         `}
       </div>
@@ -9755,33 +11367,50 @@ function renderQuarantineReport() {
   bindQuarantineFilterChips_(table);
   bindPaginationEvents_(table, renderQuarantineReport);
 
-  table.querySelector('#quarantineReportPdfHeroBtn')?.addEventListener('click', generateQuarantinePdf);
-
-  table.querySelectorAll('[data-quarantine-preset]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const preset = btn.dataset.quarantinePreset;
-      const fromInput = $('#quarantineDateFrom');
-      const toInput = $('#quarantineDateTo');
-      if (!fromInput || !toInput) return;
-
-      const now = new Date();
-      if (preset === 'thisMonth') {
-        fromInput.value = formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
-        toInput.value = formatDateInput(now);
-      } else if (preset === 'last30') {
-        const d = new Date();
-        d.setDate(d.getDate() - 29);
-        fromInput.value = formatDateInput(d);
-        toInput.value = formatDateInput(now);
-      } else if (preset === 'all') {
-        fromInput.value = '';
-        toInput.value = '';
-      }
-      syncCustomDatePicker(fromInput);
-      syncCustomDatePicker(toInput);
-      renderQuarantineReport();
-    });
+  table.querySelector?.('#quarantineReportPrintPdfHeroBtn')?.addEventListener('click', () => generateQuarantinePdf(true));
+  table.querySelector?.('#quarantineReportPdfHeroBtn')?.addEventListener('click', () => generateQuarantinePdf(true));
+  table.querySelector?.('#quarantineReportExportPdfHeroBtn')?.addEventListener('click', exportQuarantinePdf);
+  table.querySelector?.('#quarantineResetFiltersBtn')?.addEventListener('click', () => {
+    activeQuarantineFilter = 'all';
+    const fromInput = $('#quarantineDateFrom');
+    const toInput = $('#quarantineDateTo');
+    const now = new Date();
+    if (fromInput) fromInput.value = formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
+    if (toInput) toInput.value = formatDateInput(now);
+    if (fromInput) syncCustomDatePicker(fromInput);
+    if (toInput) syncCustomDatePicker(toInput);
+    renderQuarantineReport();
   });
+
+  if (typeof bindDatePresets === 'function') {
+    bindDatePresets(table, 'data-quarantine-preset', 'quarantineDateFrom', 'quarantineDateTo', renderQuarantineReport);
+  } else {
+    table.querySelectorAll?.('[data-quarantine-preset]')?.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const preset = btn.dataset.quarantinePreset;
+        const fromInput = $('#quarantineDateFrom');
+        const toInput = $('#quarantineDateTo');
+        if (!fromInput || !toInput) return;
+
+        const now = new Date();
+        if (preset === 'thisMonth') {
+          fromInput.value = formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
+          toInput.value = formatDateInput(now);
+        } else if (preset === 'last30') {
+          const d = new Date();
+          d.setDate(d.getDate() - 29);
+          fromInput.value = formatDateInput(d);
+          toInput.value = formatDateInput(now);
+        } else if (preset === 'all') {
+          fromInput.value = '';
+          toInput.value = '';
+        }
+        syncCustomDatePicker(fromInput);
+        syncCustomDatePicker(toInput);
+        renderQuarantineReport();
+      });
+    });
+  }
 
   scheduleBadgeAlignment();
 }
@@ -9998,7 +11627,7 @@ function generateQuarantinePdf(openReport = true) {
 async function exportQuarantinePdf() {
   const report = generateQuarantinePdf(false);
   const filenamePeriod = `${report.dateFrom || 'all'}_to_${report.dateTo || 'all'}`.replace(/[^a-z0-9_-]/gi, '-');
-  await exportReportPagesPdf_(report.renderedPagesHtml, 'Quarantine Report', `quarantine-report_${filenamePeriod}.pdf`, $('#quarantineReportPdfHeroBtn') || $('#exportQuarantinePdfButton'));
+  await exportReportPagesPdf_(report.renderedPagesHtml, 'Quarantine Report', `quarantine-report_${filenamePeriod}.pdf`, $('#quarantineReportExportPdfHeroBtn') || $('#quarantineReportPdfHeroBtn') || $('#exportQuarantinePdfButton'));
 }
 
 let stockInHistoryCurrentPage = 1;
@@ -10413,30 +12042,216 @@ function showStockInHistory() {
   }, 50);
 }
 
+let activeBranchFilter = 'all';
+
 function renderBranches() {
-  const term = ($('#searchInput')?.value || '').trim().toLowerCase();
   const table = $('#inventoryTable');
   if (!table) return;
-  const rows = sortByName_(branches.filter((branch) => `${branch.name} ${branch.type} ${branch.address}`.toLowerCase().includes(term)));
-  const paginated = paginateItems_(rows);
+  const term = ($('#searchInput')?.value || '').trim().toLowerCase();
+
+  const allItems = sortByName_(branches);
+  const totalBranches = allItems.length;
+  let activeCount = 0;
+  let satelliteCount = 0;
+  allItems.forEach((b) => {
+    if (b.status === 'Active') activeCount++;
+    if (b.type !== 'Main' && b.id !== 'MAIN') satelliteCount++;
+  });
+  const inactiveCount = totalBranches - activeCount;
+  const mainBranch = allItems.find((b) => b.type === 'Main' || b.id === 'MAIN')?.name || 'Main Location';
+
+  const isFiltered = Boolean(term || activeBranchFilter !== 'all');
+
+  const filtered = allItems.filter((branch) => {
+    if (activeBranchFilter === 'active' && branch.status !== 'Active') return false;
+    if (activeBranchFilter === 'inactive' && branch.status === 'Active') return false;
+    if (activeBranchFilter === 'satellite' && (branch.type === 'Main' || branch.id === 'MAIN')) return false;
+    if (term) {
+      const matchStr = `${branch.name} ${branch.type || ''} ${branch.address || ''} ${branch.id || ''}`.toLowerCase();
+      if (!matchStr.includes(term)) return false;
+    }
+    return true;
+  });
+
+  const paginated = paginateItems_(filtered);
+  const rows = paginated.pagedItems;
+  const paginationHtml = renderPaginationControls_(paginated, 'branches');
+
   table.innerHTML = `
-    <div class="table-row table-header">
-      <span>Branch</span><span>Type</span><span>Address</span><span>Status</span><span style="text-align: center;">Action</span>
-    </div>
-    ${paginated.pagedItems.map((branch) => `
-      <div class="table-row">
-        <div class="product-cell"><strong class="product-name">${escapeHtml(branch.name)}</strong><span class="product-meta">${escapeHtml(branch.id)}${branch.id === activeBranchId ? ' &bull; Active location' : ''}</span></div>
-        <div class="row-middle-cells">
-          <span class="category-badge">${escapeHtml(branch.type)}</span>
-          <span class="branch-address">${escapeHtml(branch.address || 'No address recorded')}</span>
-          <span class="stock-pill ${branch.status === 'Active' ? 'stock-normal' : 'stock-low'}">${escapeHtml(branch.status)}</span>
+    <div class="std-view theme-sky">
+      <div class="std-hero-card">
+        <div class="std-hero-glow"></div>
+        <div class="std-hero-leading">
+          <div class="std-hero-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </div>
+          <div class="std-hero-text">
+            <span class="std-hero-kicker">ORGANIZATION &bull; LOCATIONS</span>
+            <strong class="std-hero-title">Branch Management &amp; Locations</strong>
+            <p class="std-hero-desc">Manage business branches, satellite outlets, and warehouse locations. Configure addresses and operational branch status.</p>
+          </div>
         </div>
-        <div class="row-action-cell"><button class="icon-button" data-edit-branch="${branch.id}" aria-label="Edit ${escapeHtml(branch.name)}" title="Edit branch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button></div>
+        <div class="std-hero-actions">
+          <button class="button button-primary std-record-btn" type="button" id="registerBranchHeroBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Register Branch</span>
+          </button>
+        </div>
       </div>
-    `).join('') || '<div class="empty-state"><p>No branches found</p><small>Add a branch to begin branch-level operations.</small></div>'}
-    ${renderPaginationControls_(paginated, 'branches')}
+
+      <div class="std-kpi-grid">
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">TOTAL LOCATIONS</span>
+            <strong class="std-kpi-value text-sky">${totalBranches}</strong>
+            <span class="std-kpi-sub">Registered branches &amp; sites</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">ACTIVE OUTLETS</span>
+            <strong class="std-kpi-value text-sky">${activeCount}</strong>
+            <span class="std-kpi-sub">Serving transactions &amp; POS</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">HEADQUARTERS / MAIN</span>
+            <strong class="std-kpi-value text-amber" style="font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(mainBranch)}">${escapeHtml(mainBranch)}</strong>
+            <span class="std-kpi-sub">Primary business location</span>
+          </div>
+        </div>
+
+        <div class="std-kpi-card">
+          <div class="std-kpi-icon icon-purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+            </svg>
+          </div>
+          <div class="std-kpi-content">
+            <span class="std-kpi-label">SATELLITE BRANCHES</span>
+            <strong class="std-kpi-value text-purple">${satelliteCount}</strong>
+            <span class="std-kpi-sub">Secondary stores &amp; hubs</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="std-toolbar-strip">
+        <div class="std-filter-chips" role="tablist" aria-label="Filter branches">
+          <button type="button" class="std-chip ${activeBranchFilter === 'all' ? 'active' : ''}" data-branch-filter="all">
+            <span class="std-chip-dot" style="background:#38bdf8;"></span>
+            <span class="std-chip-label">All Branches</span>
+            <span class="std-chip-badge">${totalBranches}</span>
+          </button>
+          <button type="button" class="std-chip ${activeBranchFilter === 'active' ? 'active' : ''}" data-branch-filter="active">
+            <span class="std-chip-dot" style="background:#38bdf8;"></span>
+            <span class="std-chip-label">Active</span>
+            <span class="std-chip-badge">${activeCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeBranchFilter === 'satellite' ? 'active' : ''}" data-branch-filter="satellite">
+            <span class="std-chip-dot" style="background:#c084fc;"></span>
+            <span class="std-chip-label">Satellite</span>
+            <span class="std-chip-badge">${satelliteCount}</span>
+          </button>
+          <button type="button" class="std-chip ${activeBranchFilter === 'inactive' ? 'active' : ''}" data-branch-filter="inactive">
+            <span class="std-chip-dot" style="background:#f87171;"></span>
+            <span class="std-chip-label">Inactive</span>
+            <span class="std-chip-badge">${inactiveCount}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="std-table-shell">
+        <div class="std-table-header grid-cols-branches">
+          <span>Branch &amp; Code</span>
+          <span>Type</span>
+          <span>Address</span>
+          <span>Status</span>
+          <span style="text-align: center;">Action</span>
+        </div>
+
+        ${rows.length ? rows.map((branch) => `
+          <div class="std-table-row grid-cols-branches">
+            <div class="product-cell" data-label="Branch &amp; Code">
+              <strong class="product-name">${escapeHtml(branch.name)}</strong>
+              <span class="product-meta">${escapeHtml(branch.id)}${branch.id === activeBranchId ? ' &bull; Active location' : ''}</span>
+            </div>
+            <div data-label="Type">
+              <span class="category-badge">${escapeHtml(branch.type || 'Branch')}</span>
+            </div>
+            <div data-label="Address">
+              <span class="branch-address">${escapeHtml(branch.address || 'No address recorded')}</span>
+            </div>
+            <div data-label="Status">
+              <span class="stock-pill ${branch.status === 'Active' ? 'stock-normal' : 'stock-low'}">${escapeHtml(branch.status || 'Active')}</span>
+            </div>
+            <div data-label="Action" style="display:flex;justify-content:center;align-items:center;">
+              <button class="icon-button" data-edit-branch="${branch.id}" aria-label="Edit ${escapeHtml(branch.name)}" title="Edit branch">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+              </button>
+            </div>
+          </div>
+        `).join('') : `
+          <div class="std-empty-state">
+            <div class="std-empty-icon" style="color:#38bdf8;background:rgba(14,165,233,0.1);border-color:rgba(56,189,248,0.25);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+            </div>
+            <h4 class="std-empty-title">No Branches Found</h4>
+            <p class="std-empty-desc">${isFiltered ? 'No branches match your search or selected filter.' : 'No branches registered yet.'}</p>
+            ${isFiltered ? `
+              <button type="button" class="button button-secondary" id="branchResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters
+              </button>
+            ` : ''}
+          </div>
+        `}
+      </div>
+
+      ${paginationHtml}
+    </div>
   `;
+
   bindPaginationEvents_(table, renderBranches);
+
+  table.querySelector('#registerBranchHeroBtn')?.addEventListener('click', () => openForm('branch'));
+  table.querySelector('#branchResetFiltersBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    activeBranchFilter = 'all';
+    renderBranches();
+  });
+
+  table.querySelectorAll('[data-branch-filter]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeBranchFilter = chip.dataset.branchFilter;
+      renderBranches();
+    });
+  });
+
   table.querySelectorAll('[data-edit-branch]').forEach((button) => button.addEventListener('click', () => openForm('editBranch', button.dataset.editBranch)));
 }
 
@@ -10682,12 +12497,11 @@ function renderCustomers() {
             <div class="std-empty-icon" style="background:rgba(56,189,248,0.1);color:#38bdf8;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:28px;height:28px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
             </div>
-            <strong>${term ? 'No matching customers found' : 'No customers on record'}</strong>
-            <p>${term ? 'No customer profiles match your search query.' : 'Register customer accounts to manage credit sales, contact directories, and transaction histories.'}</p>
-            ${!term ? `
-              <button class="button button-primary std-record-btn" type="button" id="customerEmptyAddBtn" style="margin-top:14px;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M12 5v14M5 12h14"/></svg>
-                <span>Add Customer</span>
+            <h4 class="std-empty-title">${term || activeCustomerFilter !== 'all' ? 'No Matching Customers Found' : 'No Customers on Record'}</h4>
+            <p class="std-empty-desc">${term || activeCustomerFilter !== 'all' ? 'No customer profiles match your current search or selected filter.' : 'Register customer accounts to manage credit sales, contact directories, and transaction histories.'}</p>
+            ${term || activeCustomerFilter !== 'all' ? `
+              <button class="button button-secondary" type="button" id="customerResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters
               </button>
             ` : ''}
           </div>
@@ -10702,7 +12516,12 @@ function renderCustomers() {
 
   // Bind Buttons
   table.querySelector('#addCustomerHeroBtn')?.addEventListener('click', () => openForm('customer'));
-  table.querySelector('#customerEmptyAddBtn')?.addEventListener('click', () => openForm('customer'));
+  table.querySelector('#customerResetFiltersBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    activeCustomerFilter = 'all';
+    renderCustomers();
+  });
 
   // Bind Filter Chips
   table.querySelectorAll('[data-customer-filter]').forEach((chip) => {
@@ -10729,6 +12548,7 @@ function renderCreditPayments() {
   const term = ($('#searchInput')?.value || '').trim().toLowerCase();
   const dateFrom = $('#creditsDateFrom')?.value || '';
   const dateTo = $('#creditsDateTo')?.value || '';
+  const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(dateFrom, dateTo) : '';
   const table = $('#inventoryTable');
   if (!table) return;
 
@@ -10944,9 +12764,9 @@ function renderCreditPayments() {
 
         <div class="std-quick-dates">
           <span class="std-quick-dates-label">Presets:</span>
-          <button type="button" class="std-date-btn" data-credit-preset="thisMonth">This Month</button>
-          <button type="button" class="std-date-btn" data-credit-preset="last30">Last 30 Days</button>
-          <button type="button" class="std-date-btn" data-credit-preset="all">All Time</button>
+          <button type="button" class="std-date-btn ${activePreset === 'thisMonth' ? 'active' : ''}" data-credit-preset="thisMonth">This Month</button>
+          <button type="button" class="std-date-btn ${activePreset === 'last30' ? 'active' : ''}" data-credit-preset="last30">Last 30 Days</button>
+          <button type="button" class="std-date-btn ${activePreset === 'all' ? 'active' : ''}" data-credit-preset="all">All Time</button>
         </div>
       </div>
 
@@ -11025,10 +12845,12 @@ function renderCreditPayments() {
             <div class="std-empty-icon" style="background:rgba(239,68,68,0.1);color:#f87171;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:28px;height:28px;"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
             </div>
-            <strong>${term ? 'No matching credit records' : 'No credit records on file'}</strong>
-            <p>${term ? 'No credit records match your search query.' : 'Credit sales and customer receivables for the selected date range will appear here.'}</p>
-            ${term ? `
-              <button type="button" class="button button-secondary std-record-btn" id="creditResetFiltersBtn" style="margin-top:14px;">Reset Search</button>
+            <h4 class="std-empty-title">${term || activeCreditFilter !== 'all' ? 'No Matching Credit Records' : 'No Credit Records Found'}</h4>
+            <p class="std-empty-desc">${term || activeCreditFilter !== 'all' ? 'No credit records match your search or filter criteria.' : 'Credit sales and customer receivables for the selected date range will appear here.'}</p>
+            ${term || activeCreditFilter !== 'all' ? `
+              <button type="button" class="button button-secondary" id="creditResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters &amp; Date Range
+              </button>
             ` : ''}
           </div>
         `}
@@ -11047,6 +12869,14 @@ function renderCreditPayments() {
   table.querySelector('#creditResetFiltersBtn')?.addEventListener('click', () => {
     const searchInput = $('#searchInput');
     if (searchInput) searchInput.value = '';
+    activeCreditFilter = 'all';
+    const dateFrom = $('#creditsDateFrom');
+    const dateTo = $('#creditsDateTo');
+    const today = new Date();
+    if (dateFrom) dateFrom.value = formatDateInput(new Date(today.getFullYear(), today.getMonth(), 1));
+    if (dateTo) dateTo.value = formatDateInput(today);
+    if (dateFrom) syncCustomDatePicker(dateFrom);
+    if (dateTo) syncCustomDatePicker(dateTo);
     renderCreditPayments();
   });
 
@@ -11128,6 +12958,7 @@ function renderDailySpotCash() {
   const term = ($('#searchInput')?.value || '').trim().toLowerCase();
   const dateFrom = $('#dailySpotCashDateFrom')?.value || '';
   const dateTo = $('#dailySpotCashDateTo')?.value || '';
+  const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(dateFrom, dateTo) : '';
   const table = $('#inventoryTable');
   if (!table) return;
 
@@ -11279,17 +13110,19 @@ function renderDailySpotCash() {
 
         <div class="std-quick-dates">
           <span class="std-quick-dates-label">Presets:</span>
-          <button type="button" class="std-date-btn" data-spot-preset="thisMonth">This Month</button>
-          <button type="button" class="std-date-btn" data-spot-preset="last30">Last 30 Days</button>
-          <button type="button" class="std-date-btn" data-spot-preset="all">All Time</button>
+          <button type="button" class="std-date-btn ${activePreset === 'thisMonth' ? 'active' : ''}" data-spot-preset="thisMonth">This Month</button>
+          <button type="button" class="std-date-btn ${activePreset === 'last30' ? 'active' : ''}" data-spot-preset="last30">Last 30 Days</button>
+          <button type="button" class="std-date-btn ${activePreset === 'all' ? 'active' : ''}" data-spot-preset="all">All Time</button>
         </div>
       </div>
 
-      <div class="std-table-shell">
+      <div class="std-table-shell spotcash-table-shell">
         <div class="std-table-header grid-cols-spotcash">
           <span>Business Date</span>
-          <span>Opening Float</span>
-          <span>Daily Reconciliation</span>
+          <span class="cash-amount-heading">Opening Float</span>
+          <span class="cash-amount-heading">Expected Cash</span>
+          <span class="cash-amount-heading">Counted Cash</span>
+          <span class="cash-amount-heading">Over / (Short)</span>
           <span>Close Status</span>
           <span style="text-align: center;">Action</span>
         </div>
@@ -11299,34 +13132,37 @@ function renderDailySpotCash() {
           const formattedDate = dateObj && !isNaN(dateObj.getTime())
             ? dateObj.toLocaleDateString('en-PH', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
             : item.businessDate;
-          const formattedUpdated = item.updatedAt
-            ? new Date(item.updatedAt).toLocaleString('en-PH', { dateStyle: 'short', timeStyle: 'short' })
-            : '—';
-          const isStandard = Number(item.openingCash || 0) >= 5000;
           const position = dailyCashPosition_(item.businessDate);
           const reconciliation = dailyCashReconciliations.find((entry) => entry.businessDate === item.businessDate);
-          const variance = reconciliation ? Number(reconciliation.countedCash || 0) - position.expectedCash : 0;
+          const variance = reconciliation ? Number(reconciliation.countedCash || 0) - position.expectedCash : null;
+          const balanced = variance !== null && Math.abs(variance) < 0.005;
+          const closeStatus = !reconciliation ? 'Open' : reconciliation.closedAt ? 'Closed' : 'Counted';
+          const actionLabel = reconciliation ? 'Update Close' : 'Close Day';
 
           return `
             <div class="std-table-row grid-cols-spotcash">
-              <div class="product-cell" data-label="Date">
+              <div class="product-cell cash-date-cell" data-label="Business Date">
                 <strong class="product-name" style="font-size:13px;color:#fff;">${escapeHtml(formattedDate)}</strong>
-                <span class="product-meta" style="font-family:ui-monospace,SFMono-Regular,monospace;font-size:10.5px;">${escapeHtml(item.businessDate)}</span>
+                ${item.notes ? `<span class="product-meta cash-entry-note" title="${escapeHtml(item.notes)}">${escapeHtml(item.notes)}</span>` : ''}
               </div>
-              <div data-label="Opening Float" style="display:flex;align-items:center;gap:6px;">
-                <strong style="color:var(--accent-emerald, #10b981); font-size:14px; font-weight:800; font-feature-settings:'tnum';">${money(item.openingCash)}</strong>
-                <span class="stock-pill ${isStandard ? 'stock-normal' : 'stock-low'}" style="font-size:10px;padding:1px 6px;">${isStandard ? 'Standard' : 'Low'}</span>
+              <div class="cash-amount-cell" data-label="Opening Float">
+                <strong>${money(item.openingCash)}</strong>
               </div>
-              <div data-label="Notes" style="font-size:12px;color:#cbd5e1;min-width:0;">
-                <strong style="color:#e2e8f0;font-size:12px;display:block;">Expected ${money(position.expectedCash)}</strong>
-                <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(item.notes || '')}">${escapeHtml(item.notes || '—')}</span>
+              <div class="cash-amount-cell" data-label="Expected Cash">
+                <strong>${money(position.expectedCash)}</strong>
               </div>
-              <div data-label="Updated" style="font-size:11px;color:#94a3b8;">
-                ${reconciliation ? `<span class="stock-pill ${Math.abs(variance) < 0.005 ? 'stock-normal' : 'stock-low'}">${Math.abs(variance) < 0.005 ? 'Balanced' : `Variance ${money(variance)}`}</span><span style="display:block;margin-top:5px;">Counted ${money(reconciliation.countedCash)}</span>` : '<span class="stock-pill stock-low">Open</span>'}
+              <div class="cash-amount-cell" data-label="Counted Cash">
+                ${reconciliation ? `<strong>${money(reconciliation.countedCash)}</strong>` : '<span class="product-meta">Not counted</span>'}
               </div>
-              <div data-label="Action" style="display:flex;gap:6px;justify-content:center;align-items:center;">
-                <button class="button ${reconciliation ? 'button-secondary' : 'button-primary'}" data-close-cash-date="${escapeHtml(item.businessDate)}" style="padding:6px 14px;font-size:11.5px;font-weight:700;white-space:nowrap;">
-                  ${reconciliation ? 'Update Close' : 'Close Day'}
+              <div class="cash-amount-cell" data-label="Over / (Short)">
+                ${variance === null ? '<span class="product-meta">Not counted</span>' : `<div class="cash-variance ${balanced ? 'text-emerald' : variance < 0 ? 'text-rose' : 'text-amber'}"><strong>${money(balanced ? 0 : variance)}</strong><span class="product-meta">${balanced ? 'Balanced' : variance < 0 ? 'Short' : 'Over'}</span></div>`}
+              </div>
+              <div data-label="Close Status">
+                <span class="stock-pill ${closeStatus === 'Closed' ? 'stock-normal' : 'stock-low'}">${closeStatus}</span>
+              </div>
+              <div class="row-action-cell" data-label="Action">
+                <button class="icon-button" type="button" data-close-cash-date="${escapeHtml(item.businessDate)}" title="${actionLabel}" aria-label="${actionLabel} for ${escapeHtml(formattedDate)}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5M4 20l4-1L21 6a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/></svg>
                 </button>
               </div>
             </div>
@@ -11348,11 +13184,7 @@ function renderDailySpotCash() {
               <button type="button" class="button button-secondary" id="spotResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
                 Reset Filters &amp; Date Range
               </button>
-            ` : `
-              <button type="button" class="button button-primary" id="spotEmptyAddBtn" style="margin-top:8px;font-size:12px;padding:8px 16px;">
-                + Add Daily Spot Cash
-              </button>
-            `}
+            ` : ''}
           </div>
         `}
       </div>
@@ -11365,7 +13197,6 @@ function renderDailySpotCash() {
 
   // Bind Buttons
   table.querySelector('#recordDailySpotCashBtn')?.addEventListener('click', () => openForm('dailySpotCash'));
-  table.querySelector('#spotEmptyAddBtn')?.addEventListener('click', () => openForm('dailySpotCash'));
 
   // Bind Chips
   table.querySelectorAll('[data-spot-filter]').forEach((chip) => {
@@ -11427,6 +13258,7 @@ function renderDailyExpenses() {
   const term = ($('#searchInput')?.value || '').trim().toLowerCase();
   const dateFrom = $('#dailyExpensesDateFrom')?.value || '';
   const dateTo = $('#dailyExpensesDateTo')?.value || '';
+  const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(dateFrom, dateTo) : '';
   const table = $('#inventoryTable');
   if (!table) return;
 
@@ -11596,11 +13428,11 @@ function renderDailyExpenses() {
           `).join('')}
         </div>
 
-        <div class="expenses-quick-dates">
-          <span class="expenses-quick-dates-label">Presets:</span>
-          <button type="button" class="expenses-date-btn" data-expense-preset="thisMonth">This Month</button>
-          <button type="button" class="expenses-date-btn" data-expense-preset="last30">Last 30 Days</button>
-          <button type="button" class="expenses-date-btn" data-expense-preset="all">All Time</button>
+        <div class="std-quick-dates expenses-quick-dates">
+          <span class="std-quick-dates-label expenses-quick-dates-label">Presets:</span>
+          <button type="button" class="std-date-btn expenses-date-btn ${activePreset === 'thisMonth' ? 'active' : ''}" data-expense-preset="thisMonth">This Month</button>
+          <button type="button" class="std-date-btn expenses-date-btn ${activePreset === 'last30' ? 'active' : ''}" data-expense-preset="last30">Last 30 Days</button>
+          <button type="button" class="std-date-btn expenses-date-btn ${activePreset === 'all' ? 'active' : ''}" data-expense-preset="all">All Time</button>
         </div>
       </div>
 
@@ -11667,17 +13499,13 @@ function renderDailyExpenses() {
             <p class="expenses-empty-desc">
               ${term || activeExpenseCategoryFilter !== 'all' || dateFrom || dateTo
                 ? 'No expense vouchers match your current search, filter, or selected date range.'
-                : 'No expenses recorded for this branch yet. Click below to add the first expense voucher.'}
+                : 'No expenses recorded for this branch yet. Use the record expense action to log vouchers.'}
             </p>
             ${term || activeExpenseCategoryFilter !== 'all' || dateFrom || dateTo ? `
               <button type="button" class="button button-secondary" id="expenseResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
                 Reset Filters &amp; Date Range
               </button>
-            ` : `
-              <button type="button" class="button button-primary" id="expenseEmptyAddBtn" style="margin-top:8px;font-size:12px;padding:8px 16px;">
-                + Add Daily Expense
-              </button>
-            `}
+            ` : ''}
           </div>
         `}
       </div>
@@ -11690,7 +13518,6 @@ function renderDailyExpenses() {
 
   // Bind Record buttons
   table.querySelector('#recordDailyExpenseButton')?.addEventListener('click', () => openForm('dailyExpenses'));
-  table.querySelector('#expenseEmptyAddBtn')?.addEventListener('click', () => openForm('dailyExpenses'));
 
   // Bind Category Chips
   table.querySelectorAll('[data-expense-cat]').forEach((chip) => {
@@ -11752,6 +13579,7 @@ function renderBankTransactions() {
   ensureBankTransactionsDateDefaults();
   const dateFrom = $('#bankTransactionsDateFrom')?.value || '';
   const dateTo = $('#bankTransactionsDateTo')?.value || '';
+  const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(dateFrom, dateTo) : '';
   const term = ($('#searchInput')?.value || '').trim().toLowerCase();
 
   // 1. Sort all branch transactions chronologically from earliest to latest
@@ -11939,11 +13767,11 @@ function renderBankTransactions() {
           </button>
         </div>
 
-        <div class="bank-quick-dates">
-          <span class="bank-quick-dates-label">Presets:</span>
-          <button type="button" class="bank-date-btn" data-bank-preset="thisMonth">This Month</button>
-          <button type="button" class="bank-date-btn" data-bank-preset="last30">Last 30 Days</button>
-          <button type="button" class="bank-date-btn" data-bank-preset="all">All Time</button>
+        <div class="std-quick-dates bank-quick-dates">
+          <span class="std-quick-dates-label bank-quick-dates-label">Presets:</span>
+          <button type="button" class="std-date-btn bank-date-btn ${activePreset === 'thisMonth' ? 'active' : ''}" data-bank-preset="thisMonth">This Month</button>
+          <button type="button" class="std-date-btn bank-date-btn ${activePreset === 'last30' ? 'active' : ''}" data-bank-preset="last30">Last 30 Days</button>
+          <button type="button" class="std-date-btn bank-date-btn ${activePreset === 'all' ? 'active' : ''}" data-bank-preset="all">All Time</button>
         </div>
       </div>
 
@@ -12034,17 +13862,13 @@ function renderBankTransactions() {
             <p class="bank-empty-desc">
               ${term || activeBankLedgerFilter !== 'all' || dateFrom || dateTo
                 ? 'No ledger entries match your current search, filter, or selected date range.'
-                : 'No bank transactions recorded for this branch yet. Click below to add the first deposit or withdrawal.'}
+                : 'No bank transactions recorded for this branch yet. Use the record transaction action to log deposits or withdrawals.'}
             </p>
             ${term || activeBankLedgerFilter !== 'all' || dateFrom || dateTo ? `
               <button type="button" class="button button-secondary" id="bankResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
                 Reset Filters &amp; Date Range
               </button>
-            ` : `
-              <button type="button" class="button button-primary" id="bankEmptyAddBtn" style="margin-top:8px;font-size:12px;padding:8px 16px;">
-                + Add Transaction
-              </button>
-            `}
+            ` : ''}
           </div>
         `}
       </div>
@@ -12057,7 +13881,6 @@ function renderBankTransactions() {
 
   // Bind Record buttons
   table.querySelector('#recordBankTransactionButton')?.addEventListener('click', () => openForm('bankTransaction'));
-  table.querySelector('#bankEmptyAddBtn')?.addEventListener('click', () => openForm('bankTransaction'));
 
   // Bind filter chips
   table.querySelectorAll('[data-bank-filter]').forEach((chip) => {
@@ -12216,7 +14039,7 @@ function renderSalesHistory() {
   const paginated = paginateItems_(filtered);
 
   table.innerHTML = `
-    <div class="std-view theme-emerald">
+    <div class="std-view theme-sky">
       <div class="std-hero-card">
         <div class="std-hero-glow"></div>
         <div class="std-hero-leading">
@@ -12316,13 +14139,8 @@ function renderSalesHistory() {
           </button>
         </div>
 
-        <div class="std-date-presets" role="group" aria-label="Date range quick presets" style="margin-left:auto;">
-          <svg class="std-date-presets-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
-            <line x1="16" x2="16" y1="2" y2="6"/>
-            <line x1="8" x2="8" y1="2" y2="6"/>
-            <line x1="3" x2="21" y1="10" y2="10"/>
-          </svg>
+        <div class="std-quick-dates">
+          <span class="std-quick-dates-label">Presets:</span>
           <button type="button" class="std-date-btn ${activePreset === 'thisMonth' ? 'active' : ''}" data-sales-preset="thisMonth">This Month</button>
           <button type="button" class="std-date-btn ${activePreset === 'last30' ? 'active' : ''}" data-sales-preset="last30">Last 30 Days</button>
           <button type="button" class="std-date-btn ${activePreset === 'all' ? 'active' : ''}" data-sales-preset="all">All Time</button>
@@ -12396,7 +14214,12 @@ function renderSalesHistory() {
               </svg>
             </div>
             <h4 class="std-empty-title">No Sales Found</h4>
-            <p class="std-empty-desc">Completed sales for the selected branch and date range will appear here.</p>
+            <p class="std-empty-desc">${term || activeSalesFilter !== 'all' || activePreset !== 'thisMonth' ? 'No completed sales match your current search, filter, or selected date range.' : 'Completed sales for the selected branch and date range will appear here.'}</p>
+            ${term || activeSalesFilter !== 'all' || activePreset !== 'thisMonth' ? `
+              <button type="button" class="button button-secondary" id="salesResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
+                Reset Filters &amp; Date Range
+              </button>
+            ` : ''}
           </div>
         `}
       </div>
@@ -12409,6 +14232,19 @@ function renderSalesHistory() {
 
   table.querySelector('#salesHistoryPrintPdfHeroBtn')?.addEventListener('click', generateSalesPdf);
   table.querySelector('#salesHistoryExportPdfHeroBtn')?.addEventListener('click', exportSalesPdf);
+  table.querySelector('#salesResetFiltersBtn')?.addEventListener('click', () => {
+    const sInput = $('#searchInput');
+    if (sInput) sInput.value = '';
+    activeSalesFilter = 'all';
+    const fromInput = $('#salesDateFrom');
+    const toInput = $('#salesDateTo');
+    const now = new Date();
+    if (fromInput) fromInput.value = formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
+    if (toInput) toInput.value = formatDateInput(now);
+    if (fromInput) syncCustomDatePicker(fromInput);
+    if (toInput) syncCustomDatePicker(toInput);
+    renderSalesHistory();
+  });
 
   table.querySelectorAll('[data-sales-filter]').forEach((chip) => {
     chip.addEventListener('click', () => {
@@ -12907,6 +14743,7 @@ function renderTransfers() {
   const term = ($('#searchInput')?.value || '').trim().toLowerCase();
   const dateFrom = $('#transfersDateFrom')?.value || '';
   const dateTo = $('#transfersDateTo')?.value || '';
+  const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(dateFrom, dateTo) : '';
   const table = $('#inventoryTable');
   if (!table) return;
 
@@ -13092,9 +14929,9 @@ function renderTransfers() {
 
         <div class="std-quick-dates">
           <span class="std-quick-dates-label">Presets:</span>
-          <button type="button" class="std-date-btn" data-transfer-preset="thisMonth">This Month</button>
-          <button type="button" class="std-date-btn" data-transfer-preset="last30">Last 30 Days</button>
-          <button type="button" class="std-date-btn" data-transfer-preset="all">All Time</button>
+          <button type="button" class="std-date-btn ${activePreset === 'thisMonth' ? 'active' : ''}" data-transfer-preset="thisMonth">This Month</button>
+          <button type="button" class="std-date-btn ${activePreset === 'last30' ? 'active' : ''}" data-transfer-preset="last30">Last 30 Days</button>
+          <button type="button" class="std-date-btn ${activePreset === 'all' ? 'active' : ''}" data-transfer-preset="all">All Time</button>
         </div>
       </div>
 
@@ -13166,11 +15003,7 @@ function renderTransfers() {
               <button type="button" class="button button-secondary" id="transferResetFiltersBtn" style="margin-top:8px;font-size:12px;padding:6px 14px;">
                 Reset Filters &amp; Date Range
               </button>
-            ` : `
-              <button type="button" class="button button-primary" id="transferEmptyAddBtn" style="margin-top:8px;font-size:12px;padding:8px 16px;">
-                + Create Transfer
-              </button>
-            `}
+            ` : ''}
           </div>
         `}
       </div>
@@ -13183,7 +15016,6 @@ function renderTransfers() {
 
   // Bind Buttons
   table.querySelector('#createTransferHeroBtn')?.addEventListener('click', () => openForm('stockTransfers'));
-  table.querySelector('#transferEmptyAddBtn')?.addEventListener('click', () => openForm('stockTransfers'));
 
   // Bind Status Chips
   table.querySelectorAll('[data-transfer-status]').forEach((chip) => {
@@ -14430,7 +16262,7 @@ function openForm(type, productId = '') {
         </div>
 
         <div class="stock-in-field-col col-subtotal">
-          <label class="field-label">Line Total</label>
+          <label class="field-label">Line Subtotal</label>
           <div class="stock-in-line-total">
             <span class="total-currency">₱</span><strong class="total-amount">0.00</strong>
           </div>
@@ -14448,7 +16280,6 @@ function openForm(type, productId = '') {
             </div>
             <div class="toggle-text-group">
               <span class="toggle-title">Delivery Inspection &amp; Quarantine</span>
-              <span class="toggle-sub">Flag damages, broken seals, or expired units for isolation</span>
             </div>
             <span class="quarantine-status-pill" data-quarantine-badge>
               <span class="status-dot"></span>No quarantine
@@ -14596,11 +16427,11 @@ function openForm(type, productId = '') {
         </div>
         <div class="summary-metric highlight-cost">
           <span class="metric-label">Total Inbound Cost</span>
-          <strong class="metric-value" id="stockInTotalCost">₱0.00</strong>
+          <strong class="metric-value" id="stockInTotalCost">PHP 0.00</strong>
         </div>
         <div class="summary-metric highlight-retail">
           <span class="metric-label">Est. Retail Value</span>
-          <strong class="metric-value" id="stockInTotalRetail">₱0.00</strong>
+          <strong class="metric-value" id="stockInTotalRetail">PHP 0.00</strong>
         </div>
         <div class="summary-metric quarantine-alert" id="stockInQuarantineSummary" hidden>
           <span class="metric-label">Flagged for Inspection</span>
@@ -15795,6 +17626,7 @@ function setView(view, preserveSidebarOpen = false, deferDataRender = false) {
     view === 'transfers' ||
     view === 'customers' ||
     view === 'staffAccounts' ||
+    view === 'tableService' ||
     view === 'adminAccount';
   if (sectionActions) sectionActions.style.display = hideSectionActions ? 'none' : 'flex';
   const addBtn = $('#addProductButton');
@@ -16146,18 +17978,17 @@ $('#stockInButton').addEventListener('click', () => openForm('stock'));
 $('#stockInHistoryButton').addEventListener('click', showStockInHistory);
 const stockInSearchInput = $('#stockInSearchInput');
 if (stockInSearchInput) {
-  stockInSearchInput.addEventListener('input', () => renderStockInHistoryTable(stockInSearchInput.value));
+  const triggerStockInSearch = () => renderStockInHistoryTable(stockInSearchInput.value);
+  stockInSearchInput.addEventListener('input', triggerStockInSearch);
+  stockInSearchInput.addEventListener('search', triggerStockInSearch);
   stockInSearchInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      renderStockInHistoryTable(stockInSearchInput.value);
+      triggerStockInSearch();
+    } else if (e.key === 'Escape') {
+      stockInSearchInput.value = '';
+      triggerStockInSearch();
     }
-  });
-}
-const stockInSearchBtn = $('#stockInSearchButton');
-if (stockInSearchBtn) {
-  stockInSearchBtn.addEventListener('click', () => {
-    renderStockInHistoryTable($('#stockInSearchInput')?.value || '');
   });
 }
 
@@ -16663,7 +18494,15 @@ $('#modalForm').addEventListener('submit', async (event) => {
   }
 });
 
-$('#searchInput').addEventListener('input', debounce(renderInventory, 150));
+const handleSearchChange = debounce(renderInventory, 150);
+$('#searchInput').addEventListener('input', handleSearchChange);
+$('#searchInput').addEventListener('search', handleSearchChange);
+$('#searchInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    $('#searchInput').value = '';
+    renderInventory();
+  }
+});
 $('#salesDateFrom').addEventListener('change', () => {
   const dateFrom = $('#salesDateFrom');
   const dateTo = $('#salesDateTo');
