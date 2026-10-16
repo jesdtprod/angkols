@@ -25157,5 +25157,63 @@ dialog#formDialog[data-form-type="cashReconciliation"] #formFields {
   }
 }
 
+/* Hide Service Performance (Kitchen/Waiter) and Table QR Performance reports */
+.nav-item[data-view="servicePerformance"],
+.nav-item[data-view="tableQrPerformance"],
+[data-view="servicePerformance"].nav-item,
+[data-view="tableQrPerformance"].nav-item {
+  display: none !important;
+}
 
+/* Report Table Shell Grid Columns */
+.grid-cols-reconciliation {
+  grid-template-columns: 140px 1.2fr 1.2fr 1.2fr 120px;
+}
+.grid-cols-bankactivity {
+  grid-template-columns: 130px 130px 100px 130px 1.5fr;
+}
+.grid-cols-foodcost {
+  grid-template-columns: minmax(180px, 1.8fr) 90px 110px 110px 110px 95px 95px;
+}
+.grid-cols-invvaluation {
+  grid-template-columns: minmax(180px, 1.8fr) 90px 90px 90px 90px 90px 120px;
+}
 
+@media (max-width: 900px) {
+  .grid-cols-reconciliation {
+    grid-template-columns: 1fr 1fr;
+  }
+  .grid-cols-bankactivity {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .grid-cols-reconciliation,
+  .grid-cols-bankactivity,
+  .grid-cols-foodcost,
+  .grid-cols-invvaluation {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Cash & Bank Reconciliation multi-section natural vertical flow */
+.workspace[data-view="cashBankReconciliation"] .catalog {
+  display: flex !important;
+  flex-direction: column !important;
+}
+.workspace[data-view="cashBankReconciliation"] #inventoryTable {
+  order: 5 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+}
+.workspace[data-view="cashBankReconciliation"] .std-view {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  width: 100% !important;
+}
+.workspace[data-view="cashBankReconciliation"] .std-view > * {
+  order: unset !important;
+}

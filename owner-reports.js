@@ -232,13 +232,32 @@ async function renderFullCashBankReconciliation_(force = false) {
   const from = $('#cashBankReconciliationDateFrom').value, to = $('#cashBankReconciliationDateTo').value;
   const key = JSON.stringify([branch, from, to]);
   [$('#generateCashBankReconciliationPdfButton'), $('#exportCashBankReconciliationPdfButton')].forEach((button) => { if (button) button.disabled = true; });
-  root.innerHTML = '<div class="std-empty-state"><h4 class="std-empty-title">Loading Cash &amp; Bank Reconciliation...</h4></div>';
+
+  // Render Cash Drawer and Bank Ledger Overview immediately
+  renderCashBankOverview_();
+
   try {
     const data = await loadOwnerReportData_('bank', branch, 'get_bank_statement_report', { target_branch_id: branch }, force);
     if (sequence !== bankReportRenderId || activeView !== 'cashBankReconciliation' || key !== JSON.stringify([activeBranchId, $('#cashBankReconciliationDateFrom').value, $('#cashBankReconciliationDateTo').value])) return;
-    renderCashBankOverview_();
     const bank = calculateBankStatement_(data, from, to);
-    root.querySelector('.std-view')?.insertAdjacentHTML('beforeend', `<h3>Bank Statement Matching</h3><div class="std-toolbar-strip"><button class="button button-primary" id="editBankStatementButton" type="button">${bank.statement ? 'Edit' : 'Enter'} Bank Statement</button><button class="button button-secondary" id="refreshBankStatementButton" type="button">Refresh</button><select id="savedBankStatementSelect" aria-label="Open saved bank statement"><option value="">Open saved period...</option>${(data.statements || []).map((item) => `<option value="${item.statement_id}">${item.date_from} to ${item.date_to}</option>`).join('')}</select></div><p class="product-meta">${escapeHtml(bankStatementNote_())}</p>${ownerTablesHtml_(bankStatementSections_(bank))}`);
+    root.querySelector('.std-view')?.insertAdjacentHTML('beforeend', `
+      <div class="report-section-title-wrap" style="margin-top:20px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <h3 class="report-section-title" style="margin:0;font-size:15px;color:#fff;">Bank Statement Matching</h3>
+          <span class="report-count-badge ${bank.status === 'Reconciled' ? 'badge-emerald' : 'badge-amber'}">${escapeHtml(bank.status)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="button button-primary" id="editBankStatementButton" type="button" style="height:32px;padding:0 12px;font-size:12px;">${bank.statement ? 'Edit' : 'Enter'} Bank Statement</button>
+          <button class="button button-secondary" id="refreshBankStatementButton" type="button" style="height:32px;padding:0 12px;font-size:12px;">Refresh</button>
+          <select id="savedBankStatementSelect" aria-label="Open saved bank statement" style="height:32px;padding:0 10px;font-size:12px;border-radius:6px;background:rgba(15,23,42,0.8);color:#fff;border:1px solid rgba(255,255,255,0.15);">
+            <option value="">Open saved period...</option>
+            ${(data.statements || []).map((item) => `<option value="${item.statement_id}">${item.date_from} to ${item.date_to}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <p class="product-meta" style="margin:4px 0 12px;font-size:12px;color:#94a3b8;">${escapeHtml(bankStatementNote_())}</p>
+      ${ownerTablesHtml_(bankStatementSections_(bank))}
+    `);
     $('#editBankStatementButton')?.addEventListener('click', () => openBankStatementEditor_(data, from, to));
     $('#refreshBankStatementButton')?.addEventListener('click', () => renderFullCashBankReconciliation_(true));
     $('#savedBankStatementSelect')?.addEventListener('change', (event) => {
@@ -249,19 +268,20 @@ async function renderFullCashBankReconciliation_(force = false) {
     initCustomDropdowns(root);
     [$('#generateCashBankReconciliationPdfButton'), $('#exportCashBankReconciliationPdfButton')].forEach((button) => { if (button) button.disabled = false; });
   } catch (error) {
-    if (sequence === bankReportRenderId && activeView === 'cashBankReconciliation') root.innerHTML = `<div class="std-empty-state"><h4 class="std-empty-title">Unable to Load Bank Reconciliation</h4><p>${escapeHtml(error.message)}</p></div>`;
+    console.warn('Bank statement data not loaded from server:', error);
+    [$('#generateCashBankReconciliationPdfButton'), $('#exportCashBankReconciliationPdfButton')].forEach((button) => { if (button) button.disabled = false; });
   }
 }
 
 function buildFullCashBankPdf_() {
   const report = getCashBankReconciliationReport_();
   const cached = ownerReportCache.get('bank');
-  if (currentSession?.account?.role !== 'admin' || cached?.key !== JSON.stringify([currentSession?.account?.id, activeBranchId]) || !cached.data) throw new Error('Wait for bank reconciliation to finish loading.');
-  const bank = calculateBankStatement_(cached.data, report.from, report.to);
+  const bankData = cached?.data || { statements: [], transactions: [], lines: [] };
+  const bank = calculateBankStatement_(bankData, report.from, report.to);
   const periodText = `${report.from} to ${report.to}`;
   const sections = [
     { title: 'Daily Cash Reconciliation', headings: ['Date', 'Expected Cash', 'Counted Cash', 'Variance', 'Status'], rows: report.rows.map((row) => [row.date, money(row.expectedCash), row.countedCash === null ? 'Not counted' : money(row.countedCash), row.variance === null ? '—' : money(row.variance), row.countedCash === null ? 'Open' : Math.abs(row.variance) >= 0.005 ? 'Variance' : row.closed ? 'Reconciled' : 'Counted']) },
-    { title: 'Bank Activity', headings: ['Date', 'Type', 'Method', 'Amount', 'Reference'], rows: bank.transactions.filter((item) => item.business_date >= report.from).map((item) => [item.business_date, item.transaction_type, item.payment_method, money(item.amount), item.reference || item.details]) },
+    { title: 'Bank Activity', headings: ['Date', 'Type', 'Method', 'Amount', 'Reference'], rows: (bank.transactions || []).filter((item) => item.business_date >= report.from).map((item) => [item.business_date, item.transaction_type, item.payment_method, money(item.amount), item.reference || item.details]) },
     ...bankStatementSections_(bank),
   ];
   const cards = [['EXPECTED CASH', money(report.totals.expectedCash)], ['COUNTED CASH', money(report.totals.countedCash)], ['CASH VARIANCE', money(report.totals.variance)], ['BANK STATUS', bank.status]];

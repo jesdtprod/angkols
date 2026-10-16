@@ -6785,20 +6785,25 @@ function renderCashBankOverview_() {
         ${typeof renderDatePresets === 'function' ? renderDatePresets(activePreset, 'data-cash-bank-preset') : ''}
       </div>
 
+      <div class="report-section-title-wrap" style="margin-top:10px;">
+        <h3 class="report-section-title" style="margin:0;font-size:15px;color:#fff;">Daily Cash Drawer Reconciliation</h3>
+        <span class="report-count-badge">${filteredRows.length} day${filteredRows.length === 1 ? '' : 's'}</span>
+      </div>
       <div class="std-table-shell">
         <div class="std-table-header grid-cols-reconciliation">
           <span>Business Date</span><span>Expected Cash</span><span>Counted Cash</span><span>Over / (Short)</span><span>Status</span>
         </div>
         ${pagedRows.map((row) => {
           const status = row.countedCash === null ? 'Open' : Math.abs(row.variance) >= 0.005 ? 'Variance' : (row.closed ? 'Reconciled' : 'Counted');
-          const statusColor = row.countedCash === null || Math.abs(row.variance) >= 0.005 ? '#fbbf24' : (row.closed ? '#34d399' : '#38bdf8');
+          const statusClass = row.countedCash === null ? 'stock-low' : Math.abs(row.variance) >= 0.005 ? 'stock-warning' : (row.closed ? 'stock-normal' : 'stock-info');
+          const varColor = row.variance === null ? '#94a3b8' : Math.abs(row.variance) < 0.005 ? '#34d399' : '#fbbf24';
           return `
             <div class="std-table-row grid-cols-reconciliation">
               <div data-label="Business Date"><strong>${escapeHtml(row.date)}</strong></div>
               <div data-label="Expected Cash">${money(row.expectedCash)}</div>
               <div data-label="Counted Cash">${row.countedCash === null ? '—' : money(row.countedCash)}</div>
-              <div data-label="Over / (Short)" style="font-weight:800;color:${row.variance === null || row.variance === 0 ? '#34d399' : '#fbbf24'};">${row.variance === null ? '—' : money(row.variance)}</div>
-              <div data-label="Status" style="font-weight:800;color:${statusColor};">${status}</div>
+              <div data-label="Over / (Short)" style="font-weight:800;color:${varColor};">${row.variance === null ? '—' : money(row.variance)}</div>
+              <div data-label="Status"><span class="stock-pill ${statusClass}">${status}</span></div>
             </div>
           `;
         }).join('') || `
@@ -6818,14 +6823,18 @@ function renderCashBankOverview_() {
       </div>
       ${paginationHtml}
 
-      <div class="std-table-shell" style="margin-top:16px;">
+      <div class="report-section-title-wrap" style="margin-top:20px;">
+        <h3 class="report-section-title" style="margin:0;font-size:15px;color:#fff;">Bank Transactions Ledger</h3>
+        <span class="report-count-badge">${bankActivity.length} transaction${bankActivity.length === 1 ? '' : 's'}</span>
+      </div>
+      <div class="std-table-shell">
         <div class="std-table-header grid-cols-bankactivity">
           <span>Bank Date</span><span>Transaction</span><span>Method</span><span>Amount</span><span>Reference / Details</span>
         </div>
         ${bankActivity.map((item) => `
           <div class="std-table-row grid-cols-bankactivity">
             <div data-label="Bank Date"><strong>${escapeHtml(item.businessDate || '')}</strong></div>
-            <div data-label="Transaction">${escapeHtml(item.type || '')}</div>
+            <div data-label="Transaction"><span class="stock-pill ${item.type === 'Deposit' ? 'stock-normal' : 'stock-warning'}">${escapeHtml(item.type || '')}</span></div>
             <div data-label="Method">${escapeHtml(item.method || '')}</div>
             <div data-label="Amount" style="font-weight:800;color:${item.type === 'Deposit' ? '#34d399' : '#fbbf24'};">${money(item.amount)}</div>
             <div data-label="Reference / Details">${escapeHtml(item.reference || item.chequeNumber || item.details || '—')}</div>
@@ -6842,7 +6851,6 @@ function renderCashBankOverview_() {
           </div>
         `}
       </div>
-      ${paginationHtml}
     </div>
   `;
 
@@ -17428,9 +17436,9 @@ function setView(view, preserveSidebarOpen = false, deferDataRender = false) {
   const lossesWastageNav = document.querySelector('[data-view="lossesWastage"]');
   if (lossesWastageNav) lossesWastageNav.hidden = currentSession?.account?.role !== 'admin';
   const servicePerformanceNav = document.querySelector('[data-view="servicePerformance"]');
-  if (servicePerformanceNav) servicePerformanceNav.hidden = currentSession?.account?.role !== 'admin';
+  if (servicePerformanceNav) servicePerformanceNav.hidden = true;
   const tableQrPerformanceNav = document.querySelector('[data-view="tableQrPerformance"]');
-  if (tableQrPerformanceNav) tableQrPerformanceNav.hidden = currentSession?.account?.role !== 'admin';
+  if (tableQrPerformanceNav) tableQrPerformanceNav.hidden = true;
   const inventoryValuationNav = document.querySelector('[data-view="inventoryValuation"]');
   if (inventoryValuationNav) inventoryValuationNav.hidden = currentSession?.account?.role !== 'admin';
   const cashBankReconciliationNav = document.querySelector('[data-view="cashBankReconciliation"]');
@@ -19556,7 +19564,8 @@ async function applySession(session, useRoleDefaultView = false) {
     const isLegacyProdSub = v === 'bundleMonitoring' && permittedViews.includes('products');
     const isLegacyInvSub = ['quarantine', 'lossDamages', 'quarantineReport'].includes(v) && permittedViews.includes('inventory');
     const isLegacyFinanceSub = v === 'bankTransactions' && permittedViews.includes('dailyExpenses');
-    const allowed = ['productSalesPerformance', 'creditAging', 'lossesWastage', 'servicePerformance', 'tableQrPerformance'].includes(v) ? account.role === 'admin'
+    const allowed = ['productSalesPerformance', 'creditAging', 'lossesWastage'].includes(v) ? account.role === 'admin'
+      : ['servicePerformance', 'tableQrPerformance'].includes(v) ? false
       : (v === 'dashboard' && account.role === 'admin') || permittedViews.includes('*') || permittedViews.includes(v) || isLegacyPosSub || isLegacyProdSub || isLegacyInvSub || isLegacyFinanceSub;
     item.hidden = !allowed;
   });
