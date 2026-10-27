@@ -21,7 +21,7 @@ const context = vm.createContext({
   products: [], stockInHistory: [], salesHistory: [], branches: [], activeBranchId: 'MAIN',
   saleReturns: [], dailyExpenses: [], inventoryLosses: [], transfers: [], inventoryCostBatches: [],
 });
-for (const name of ['resolveBundleReportCost_', 'reportCostNotice_', 'getCostPendingSaleLines_',
+for (const name of ['renderPageHeader_', 'resolveBundleReportCost_', 'reportCostNotice_', 'getCostPendingSaleLines_',
   'getFoodCostMarginReport_', 'buildFoodCostMarginPdfReport_', 'buildProfitLossPdfReport_',
   'renderProfitLoss', 'renderFoodCostMargin', 'getInventoryValuationReport_',
   'getProductSalesPerformanceReport_', 'productPerformanceNotes_', 'buildProductSalesPerformancePdfReport_', 'renderProductSalesPerformance']) {
@@ -119,11 +119,13 @@ assert.equal(performance.rows.length, 1);
 assert.equal(performance.rows[0].share, 62.5, 'sales share keeps branch denominator after filtering');
 assert.equal(performance.totals.sales, 800);
 const pdf = context.buildProductSalesPerformancePdfReport_().renderedPagesHtml;
+assert.doesNotMatch(pdf, /<th>Rank<\/th>|colspan="7">No matching products/, 'PDF uses the six visible data columns');
 assert.match(pdf, /Beer Bucket/);
 assert.doesNotMatch(pdf, /Beer Bottle/);
 assert.match(pdf, /estimated component cost/);
 assert.match(pdf, /62.5%/);
 context.renderProductSalesPerformance();
+assert.doesNotMatch(table.innerHTML, /<span>Rank<\/span>|data-label="Rank"/, 'rank column is removed from the page');
 assert.match(table.innerHTML, /Beer Bucket/);
 assert.doesNotMatch(table.innerHTML, /Beer Bottle/);
 fields.productSalesPerformanceType = 'all';

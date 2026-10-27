@@ -11,6 +11,7 @@ const context = vm.createContext({
   $: (selector) => selector === '#inventoryTable' ? table : fields[selector.slice(1)],
   formatDateInput: (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
   syncCustomDatePicker() {}, escapeHtml: (value) => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;'),
+  renderSkeletonTable() {},
   renderReportRunningHeader: () => '', renderReportPageFooter: () => '',
   openReportInNewPage_: (html) => { printed = html; }, exportReportPagesPdf_: async (html, title, filename) => { downloaded = { html, filename }; },
   showToast: (message) => { throw new Error(message); }, throwIfError_: (error) => { if (error) throw new Error(error.message); },
@@ -18,7 +19,7 @@ const context = vm.createContext({
   currentSession: { account: { id: 'owner', role: 'admin' } }, activeBranchId: 'MAIN', activeView: 'servicePerformance',
   servicePerformanceCache: { key: '', data: null, loadedAt: 0 }, servicePerformanceRenderId: 0, branches: [],
 });
-for (const name of ['ensureServicePerformanceDateDefaults', 'servicePerformanceKey_', 'performanceMinutes_', 'performanceAverage_',
+for (const name of ['renderPageHeader_', 'ensureServicePerformanceDateDefaults', 'servicePerformanceKey_', 'performanceMinutes_', 'performanceAverage_',
   'calculateServicePerformance_', 'servicePerformanceNote_', 'servicePerformanceTables_', 'loadedServicePerformanceReport_',
   'buildServicePerformancePdfReport_', 'generateServicePerformancePdf', 'exportServicePerformancePdf', 'renderServicePerformance']) {
   const declaration = source.match(new RegExp(`(?:async )?function ${name}\\([^]*?\\n}`))?.[0];

@@ -16,7 +16,7 @@ const context = vm.createContext({
   paginateItems_: (items) => ({ pagedItems: items }), renderPaginationControls_: () => '', bindPaginationEvents_() {},
   openForm: (...args) => { opened = args; },
 });
-for (const name of ['dailyCashPosition_', 'renderDailySpotCash']) vm.runInContext(source.match(new RegExp(`function ${name}\\([^]*?\\n}`))[0], context);
+for (const name of ['renderPageHeader_', 'dailyCashPosition_', 'renderDailySpotCash']) vm.runInContext(source.match(new RegExp(`function ${name}\\([^]*?\\n}`))[0], context);
 context.renderDailySpotCash();
 for (const label of ['Business Date', 'Opening Float', 'Expected Cash', 'Counted Cash', 'Over / (Short)', 'Close Status', 'Action']) assert.match(table.innerHTML, new RegExp(`data-label="${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
 assert.match(table.innerHTML, /PHP 5190.00/);

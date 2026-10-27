@@ -1,0 +1,236 @@
+{
+  ".codex/hooks.json": {
+    "mtime": 1793065194.5524306,
+    "seen": 1793066597.8537047,
+    "ast_hash": "5ebef3dd159986e465ab65e4014107ec",
+    "semantic_hash": "5ebef3dd159986e465ab65e4014107ec"
+  },
+  ".vscode/extensions.json": {
+    "mtime": 1793065194.6054301,
+    "seen": 1793066597.8537047,
+    "ast_hash": "355c30fd3c68c681860970a064d85586",
+    "semantic_hash": ""
+  },
+  ".vscode/settings.json": {
+    "mtime": 1793065194.6064296,
+    "seen": 1793066597.8537047,
+    "ast_hash": "0102d1985d49f3b6e6c2dd8407618237",
+    "semantic_hash": ""
+  },
+  "app.js": {
+    "mtime": 1793070021.8547487,
+    "seen": 1793070159.0079484,
+    "ast_hash": "7b808fc71a86a4ace05e8939a8628a64",
+    "semantic_hash": ""
+  },
+  "deno.json": {
+    "mtime": 1793065194.6970165,
+    "seen": 1793066597.8537047,
+    "ast_hash": "dc617a009a01d4fbdbe63e483a9f0f19",
+    "semantic_hash": ""
+  },
+  "scripts/check-pos.mjs": {
+    "mtime": 1793065195.5262766,
+    "seen": 1793066597.8537047,
+    "ast_hash": "224fc88377dd6184e275978c5de99674",
+    "semantic_hash": ""
+  },
+  "service-worker.js": {
+    "mtime": 1793065195.5452762,
+    "seen": 1793066597.8537047,
+    "ast_hash": "90171804792f017cb9715e358a0f958b",
+    "semantic_hash": ""
+  },
+  "supabase-config.js": {
+    "mtime": 1793065195.5532756,
+    "seen": 1793066597.8537047,
+    "ast_hash": "4b339a17b17660aff6fe62fd65eb1f2c",
+    "semantic_hash": ""
+  },
+  "AGENTS.md": {
+    "mtime": 1793065194.60743,
+    "seen": 1793066597.8537047,
+    "ast_hash": "21ceb6533048be51308e69e7b74a35cf",
+    "semantic_hash": "21ceb6533048be51308e69e7b74a35cf"
+  },
+  "README.md": {
+    "mtime": 1793065194.61543,
+    "seen": 1793066597.8537047,
+    "ast_hash": "5faa40bd5e1fd3db0626beae5765f441",
+    "semantic_hash": ""
+  },
+  "TASKS.md": {
+    "mtime": 1793065194.6224294,
+    "seen": 1793066597.8537047,
+    "ast_hash": "c5f6b3c9b4f694d334eddedda3d6bf97",
+    "semantic_hash": ""
+  },
+  "docs/OPERATIONS.md": {
+    "mtime": 1793065194.7000144,
+    "seen": 1793066597.8537047,
+    "ast_hash": "bec45a93f6a512f56416df2b3f4882e6",
+    "semantic_hash": ""
+  },
+  "index.html": {
+    "mtime": 1793068094.5277586,
+    "seen": 1793068279.213175,
+    "ast_hash": "ca5107ed891fa1d80125d8b98fe417a8",
+    "semantic_hash": ""
+  },
+  "report.html": {
+    "mtime": 1793065195.4892766,
+    "seen": 1793066597.8537047,
+    "ast_hash": "62e4c713254bfa39988823c3681e5810",
+    "semantic_hash": ""
+  },
+  "favicon.svg": {
+    "mtime": 1793065194.7260146,
+    "seen": 1793066597.8537047,
+    "ast_hash": "9931bebde8d4295ac59045aeed3591e4",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/specs/2026-09-29-daily-spot-cash-design.md": {
+    "mtime": 1793065194.7180166,
+    "seen": 1793066597.8537047,
+    "ast_hash": "a2d9bab6a0bed1dd6b3583053e82fff8",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/plans/2026-09-29-daily-spot-cash.md": {
+    "mtime": 1793065194.7020164,
+    "seen": 1793066597.8537047,
+    "ast_hash": "2e997e92954e5e4ed7a37c61be166481",
+    "semantic_hash": ""
+  },
+  "assets/angkols-logo.png": {
+    "mtime": 1793065194.6600156,
+    "seen": 1793066597.8537047,
+    "ast_hash": "a6394dd77ed2c2516764ca0839b60bc6",
+    "semantic_hash": ""
+  },
+  "supabase/functions/manage-account/index.ts": {
+    "mtime": 1793065195.5592754,
+    "seen": 1793066597.8537047,
+    "ast_hash": "446e57476072680120ada915ee677206",
+    "semantic_hash": ""
+  },
+  "table-order.html": {
+    "mtime": 1793065195.9577909,
+    "seen": 1793066597.8537047,
+    "ast_hash": "336e51d15909d77708009b170c4ddfed",
+    "semantic_hash": ""
+  },
+  "table-qr-card.html": {
+    "mtime": 1793065195.9717906,
+    "seen": 1793066597.8537047,
+    "ast_hash": "a9042da3691d197624e4015a42a4577e",
+    "semantic_hash": ""
+  },
+  ".playwright-mcp/page-2026-10-13T06-04-15-833Z.yml": {
+    "mtime": 1793065194.603431,
+    "seen": 1793066597.8537047,
+    "ast_hash": "be8f4e18f086b0b7baadf9fc79a7a3a2",
+    "semantic_hash": ""
+  },
+  "product-kitchen-restored.png": {
+    "mtime": 1793065195.488277,
+    "seen": 1793066597.8537047,
+    "ast_hash": "cf32e21bed40867a1167faf73422363f",
+    "semantic_hash": ""
+  },
+  "assets/html2canvas.min.js": {
+    "mtime": 1793065194.661015,
+    "seen": 1793066597.8537047,
+    "ast_hash": "d0742edd178c84f1a681c5f61d871359",
+    "semantic_hash": ""
+  },
+  ".agents/rules/updating-code.md": {
+    "mtime": 1793065194.5484302,
+    "seen": 1793066597.8537047,
+    "ast_hash": "0b88b71a01b211e24d0322ec3cb6f240",
+    "semantic_hash": ""
+  },
+  ".agents/workflows/analyze-edit.md": {
+    "mtime": 1793065194.5504303,
+    "seen": 1793066597.8537047,
+    "ast_hash": "e41bb6237f5329c57d44b94bf71d4b63",
+    "semantic_hash": ""
+  },
+  "DESIGN.md": {
+    "mtime": 1793065194.6114295,
+    "seen": 1793066597.8537047,
+    "ast_hash": "36a4943993eb68630c2c90a42a5b5cd0",
+    "semantic_hash": ""
+  },
+  "SECURITY.md": {
+    "mtime": 1793065194.6204302,
+    "seen": 1793066597.8537047,
+    "ast_hash": "958046280fef7f72b8be3f23aba1e484",
+    "semantic_hash": ""
+  },
+  "scripts/check-bundle-report-costs.mjs": {
+    "mtime": 1793067417.3176978,
+    "seen": 1793067426.690048,
+    "ast_hash": "0b386f84a98c6fdffbad0417adf5951f",
+    "semantic_hash": ""
+  },
+  "scripts/check-credit-aging.mjs": {
+    "mtime": 1793067000.229142,
+    "seen": 1793067227.0119054,
+    "ast_hash": "f9742f499b92bf44a6b8cac3653513a3",
+    "semantic_hash": ""
+  },
+  "scripts/check-losses-wastage.mjs": {
+    "mtime": 1793067000.2301416,
+    "seen": 1793067227.0119054,
+    "ast_hash": "83eba10c37740a07fb0cce2ad33eace4",
+    "semantic_hash": ""
+  },
+  "scripts/check-service-performance.mjs": {
+    "mtime": 1793068244.9495988,
+    "seen": 1793068279.209176,
+    "ast_hash": "8400ff666fc7e30e585bba67a48e0610",
+    "semantic_hash": ""
+  },
+  "owner-reports.js": {
+    "mtime": 1793069316.302534,
+    "seen": 1793069329.3471937,
+    "ast_hash": "6aaf4017e8bc4b5b9758ee86ab0b9598",
+    "semantic_hash": ""
+  },
+  "scripts/check-owner-bank-table-reports.mjs": {
+    "mtime": 1793065195.522276,
+    "seen": 1793066597.8537047,
+    "ast_hash": "9a9dad3de6cfca521e431670c92a1c75",
+    "semantic_hash": ""
+  },
+  "scripts/check-daily-cash-columns.mjs": {
+    "mtime": 1793067000.229142,
+    "seen": 1793067227.0119054,
+    "ast_hash": "a7504c1cee041219e052281f5b1559f9",
+    "semantic_hash": ""
+  },
+  "UI DESIGN.md": {
+    "mtime": 1793069320.6790035,
+    "seen": 1793069329.351194,
+    "ast_hash": "0c659f09b7989bc495a0eeb7245583c2",
+    "semantic_hash": ""
+  },
+  "scripts/check-quarantine-reports.mjs": {
+    "mtime": 1793067133.225994,
+    "seen": 1793067227.0119054,
+    "ast_hash": "dbf10e16ba23030cfa0bd2c4eedae605",
+    "semantic_hash": ""
+  },
+  "docs/page-header-coverage.md": {
+    "mtime": 1793068034.0094292,
+    "seen": 1793068043.357337,
+    "ast_hash": "6da2acc5ef1d8a8ca1eb9aa647a13bcc",
+    "semantic_hash": ""
+  },
+  "docs/table-column-coverage.md": {
+    "mtime": 1793069134.4981756,
+    "seen": 1793069137.5104127,
+    "ast_hash": "3ed4cd1d35eb4a38b0c65f8ecac04d0b",
+    "semantic_hash": ""
+  }
+}

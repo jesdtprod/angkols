@@ -19,7 +19,7 @@ const context = vm.createContext({
   customers: [{ id: 'A', name: 'Alice' }, { id: 'B', name: 'Bob', phone: '091234' }],
   salesHistory: [], creditPayments: [], openingCreditAccounts: [], branches: [], activeBranchId: 'MAIN',
 });
-for (const name of ['calculateOutstandingCreditAccounts', 'ensureCreditAgingDateDefaults', 'getCreditAgingReport_', 'creditAgingNote_',
+for (const name of ['renderPageHeader_', 'calculateOutstandingCreditAccounts', 'ensureCreditAgingDateDefaults', 'getCreditAgingReport_', 'creditAgingNote_',
   'creditAgingCells_', 'buildCreditAgingPdfReport_', 'generateCreditAgingPdf', 'exportCreditAgingPdf', 'renderCreditAging']) {
   const declaration = source.match(new RegExp(`(?:async )?function ${name}\\([^]*?\\n}`))?.[0];
   assert.ok(declaration, name);

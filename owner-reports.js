@@ -143,7 +143,11 @@ function currentOwnerDashboardReport_() {
 function renderOwnerDashboard_() {
   const root = $('#dashboard'); if (!root) return;
   const report = currentOwnerDashboardReport_();
-  root.innerHTML = `<div class="std-view theme-sky owner-dashboard-report"><div class="std-hero-card"><div class="std-hero-leading"><div class="std-hero-text"><span class="std-hero-kicker">OWNER REPORTING</span><strong class="std-hero-title">Owner Dashboard</strong><p class="std-hero-desc">Sales, recorded costs, profitability, collections, receivables, and current stock risks.</p></div></div><div class="std-hero-actions"><button class="button button-secondary std-record-btn" id="printOwnerDashboardButton" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span></button><button class="button button-primary std-record-btn" id="exportOwnerDashboardButton" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg><span>Export PDF</span></button></div></div><div class="sales-date-range" id="ownerDashboardDateRange"><div class="sales-date-control"><input id="ownerDashboardDateFrom" type="date" value="${report.from}" aria-label="Owner dashboard date from"></div><div class="sales-date-control"><input id="ownerDashboardDateTo" type="date" value="${report.to}" aria-label="Owner dashboard date to"></div></div>${ownerKpisHtml_(report.cards)}<div class="std-toolbar-strip"><span class="product-meta">${escapeHtml(report.note)}</span></div>${ownerTablesHtml_(report.sections)}</div>`;
+  root.innerHTML = `<div class="std-view theme-sky owner-dashboard-report">${renderPageHeader_({
+        titleHtml: `Owner Dashboard`,
+        descriptionHtml: `Sales, recorded costs, profitability, collections, receivables, and current stock risks.`,
+        actionsHtml: `<button class="button button-secondary std-record-btn pdf-print-button" id="printOwnerDashboardButton" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span></button><button class="button button-primary std-record-btn pdf-export-button" id="exportOwnerDashboardButton" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg><span>Export PDF</span></button>`
+      })}<div class="sales-date-range" id="ownerDashboardDateRange"><div class="sales-date-control"><input id="ownerDashboardDateFrom" type="date" value="${report.from}" aria-label="Owner dashboard date from"></div><div class="sales-date-control"><input id="ownerDashboardDateTo" type="date" value="${report.to}" aria-label="Owner dashboard date to"></div></div>${ownerKpisHtml_(report.cards)}<div class="std-toolbar-strip"><span class="product-meta">${escapeHtml(report.note)}</span></div>${ownerTablesHtml_(report.sections)}</div>`;
   initCustomDatePickers(root);
   ['ownerDashboardDateFrom', 'ownerDashboardDateTo'].forEach((id) => $(`#${id}`).addEventListener('change', () => {
     const from = $('#ownerDashboardDateFrom').value, to = $('#ownerDashboardDateTo').value;
@@ -241,12 +245,22 @@ async function renderFullCashBankReconciliation_(force = false) {
     if (sequence !== bankReportRenderId || activeView !== 'cashBankReconciliation' || key !== JSON.stringify([activeBranchId, $('#cashBankReconciliationDateFrom').value, $('#cashBankReconciliationDateTo').value])) return;
     const bank = calculateBankStatement_(data, from, to);
     root.querySelector('.std-view')?.insertAdjacentHTML('beforeend', `
-      <div class="report-section-title-wrap" style="margin-top:20px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <h3 class="report-section-title" style="margin:0;font-size:15px;color:#fff;">Bank Statement Matching</h3>
-          <span class="report-count-badge ${bank.status === 'Reconciled' ? 'badge-emerald' : 'badge-amber'}">${escapeHtml(bank.status)}</span>
+      <div class="std-section-head" style="margin-top:24px;flex-wrap:wrap;gap:12px;">
+        <div class="std-section-title-group">
+          <div class="std-section-icon icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+            </svg>
+          </div>
+          <div class="std-section-text">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <h3 class="std-section-title">Bank Statement Matching</h3>
+              <span class="std-section-badge ${bank.status === 'Reconciled' ? 'badge-emerald' : 'badge-amber'}">${escapeHtml(bank.status)}</span>
+            </div>
+            <span class="std-section-sub">${escapeHtml(bankStatementNote_())}</span>
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
           <button class="button button-primary" id="editBankStatementButton" type="button" style="height:32px;padding:0 12px;font-size:12px;">${bank.statement ? 'Edit' : 'Enter'} Bank Statement</button>
           <button class="button button-secondary" id="refreshBankStatementButton" type="button" style="height:32px;padding:0 12px;font-size:12px;">Refresh</button>
           <select id="savedBankStatementSelect" aria-label="Open saved bank statement" style="height:32px;padding:0 10px;font-size:12px;border-radius:6px;background:rgba(15,23,42,0.8);color:#fff;border:1px solid rgba(255,255,255,0.15);">
@@ -255,7 +269,6 @@ async function renderFullCashBankReconciliation_(force = false) {
           </select>
         </div>
       </div>
-      <p class="product-meta" style="margin:4px 0 12px;font-size:12px;color:#94a3b8;">${escapeHtml(bankStatementNote_())}</p>
       ${ownerTablesHtml_(bankStatementSections_(bank))}
     `);
     $('#editBankStatementButton')?.addEventListener('click', () => openBankStatementEditor_(data, from, to));
@@ -396,38 +409,28 @@ async function renderTableQrPerformance(force = false) {
   const range = ownerDefaultRange_('tableQrPerformance');
   const actions = [$('#generateTableQrPerformancePdfButton'),$('#exportTableQrPerformancePdfButton')];
   actions.forEach((button) => { if (button) button.disabled = true; });
-  root.innerHTML = '<div class="std-empty-state"><h4 class="std-empty-title">Loading Table / QR Performance...</h4></div>';
+  if (typeof renderSkeletonTable === 'function') renderSkeletonTable();
   try {
     await loadOwnerReportData_('tableQr',key,'get_table_qr_performance_report',{ target_branch_id: activeBranchId,date_from_input: range.from,date_to_input: range.to },force);
     if (sequence !== tableQrReportRenderId || activeView !== 'tableQrPerformance' || key !== tableQrReportKey_()) return;
     const report = loadedTableQrReport_();
     const activePreset = typeof getDatePresetState === 'function' ? getDatePresetState(range.from, range.to) : '';
     root.innerHTML = `<div class="std-view theme-sky">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      ${renderPageHeader_({
+        titleHtml: `Table / QR Ordering Performance`,
+        descriptionHtml: `Table activity, settled sales, QR outcomes, and recorded service durations.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 10h16M6 10v10m12-10v10M8 5h8v5H8z"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">OWNER REPORTING &bull; TABLE SERVICE</span>
-            <strong class="std-hero-title">Table / QR Ordering Performance</strong>
-            <p class="std-hero-desc">Table activity, settled sales, QR outcomes, and recorded service durations.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="tableQrPrintPdfHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn pdf-print-button" type="button" id="tableQrPrintPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
             <span>Print PDF</span>
           </button>
-          <button class="button button-primary std-record-btn" type="button" id="tableQrExportPdfHeroBtn">
+          <button class="button button-primary std-record-btn pdf-export-button" type="button" id="tableQrExportPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
             <span>Export PDF</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
       ${ownerKpisHtml_(tableQrReportCards_(report))}
       <div class="std-toolbar-strip">
         <span class="product-meta">${escapeHtml(tableQrReportNote_())}</span>

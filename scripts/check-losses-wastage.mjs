@@ -18,7 +18,7 @@ const context = vm.createContext({
   stockInHistory: [], inventoryLosses: [], inventoryQuarantineCases: [], inventoryQuarantineItems: [], inventoryReturnLots: [],
   allProducts: [{ id: 'beer', name: 'Beer', unit: 'bottle', price: 900 }], saleReturnItems: [], saleReturns: [], branches: [], activeBranchId: 'MAIN',
 });
-for (const name of ['ensureLossesWastageDateDefaults', 'resolveLossReportCost_', 'getLossesWastageReport_', 'lossesWastageNote_',
+for (const name of ['renderPageHeader_', 'ensureLossesWastageDateDefaults', 'resolveLossReportCost_', 'getLossesWastageReport_', 'lossesWastageNote_',
   'lossesWastageCells_', 'buildLossesWastagePdfReport_', 'generateLossesWastagePdf', 'exportLossesWastagePdf', 'renderLossesWastage']) {
   const declaration = source.match(new RegExp(`(?:async )?function ${name}\\([^]*?\\n}`))?.[0];
   assert.ok(declaration, name); vm.runInContext(declaration, context);

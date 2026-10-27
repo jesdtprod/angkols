@@ -12,6 +12,8 @@ Preserve business logic, calculations, permissions, routes, data, and working in
 
 ## 1. Visual reference and implementation approach
 
+- Use the approved Table Service screenshot as the page-header and search-spacing reference: dark navy gradient, rounded blue border, green LIVE OPERATIONS pill and date chip above the title, a small cyan line icon directly before the title, and a muted description below. Reuse the existing `dashboard-header-banner`, `dashboard-title-area`, `dashboard-eyebrow-row`, `dashboard-main-title`, and related classes; place page actions on the right and stack them on mobile. Match the banner's 20px vertical / 24px horizontal desktop padding and 14px gaps from header to search and search to content. Keep the upper and lower search gaps equal; do not add extra hero margins.
+
 - Use the approved Product Registration & Price Management page as the visual reference: dark navy surfaces, subtle blue borders, cyan/blue accents, restrained gradients, rounded cards, and clear typography.
 - Use the approved date-preset strip and centered empty-table design as the corresponding references.
 - Reuse the existing font family and icon system. Do not introduce competing fonts or icon styles.
@@ -19,6 +21,9 @@ Preserve business logic, calculations, permissions, routes, data, and working in
 - Consolidate conflicting overrides rather than adding another layer of page-specific CSS or inline styles.
 - Use reusable renderers/components for repeated table, modal, toolbar, empty-state, pagination, and skeleton patterns.
 - Consistency means a shared visual language, not forcing every workflow into the same page layout.
+- All matching inventory, finance, reporting, directory, Table Service, waiter, and kitchen page headers use `renderPageHeader_()` in `app.js`. Supply the existing page icon, title, description, and actions; keep action IDs and permission checks intact. Use `renderPageHeaderSkeleton_()` for their loading headers. The dashboard keeps its selected-date controls and graphs.
+- Keep the page header in the top-level page slot, before search, filters, and content. Kitchen and Waiter headers must be siblings before their content shells, including during loading; never nest them inside the ordered content shell. Verify the complete page hierarchy, not just the isolated header.
+- Page banners must remain below the sticky top navigation while scrolling. Keep the shared banner at stacking level 10 and its open-datepicker state at 11, below the topbar's 15. Check scrolling with the actual navigation present at desktop and mobile widths.
 
 ## 2. Design tokens
 
@@ -48,6 +53,8 @@ Use comfortable spacing, not excessive empty areas or compressed controls. Allow
 
 - Separate page background, raised panels, inputs, and hover states using subtle surface differences.
 - Use blue/cyan for primary actions and information; green for success; amber for warning; red for destructive actions and errors.
+- Monetary readouts use one shared palette across matching table columns, KPI cards, dashboard amounts, table tabs, and POS summaries: sales/prices cyan, costs/COGS amber, expenses/refunds rose, gross profit green, net profit lavender, cash/collections teal, credit/due amounts orange, and balances/stock values blue. Negative monetary values override the category color with red. Keep dates, quantities, percentages, labels, and calculations unchanged. Apply through the shared amount helpers and CSS rather than individual page overrides.
+- Loss, write-off and disposal amounts are red even when recorded as positive costs. Table monetary values use weight 700 to match Sales History; supporting notes such as Estimated remain weight 400. Nested price elements must inherit their monetary column's category rather than reverting loss/cost amounts to sales colors.
 - Never communicate meaning through color alone. Add a text label or recognizable icon.
 - Keep primary text clearly readable; do not use faint text for essential values or instructions.
 - Maintain at least 4.5:1 contrast for normal text and 3:1 for large text and meaningful control boundaries.
@@ -60,8 +67,8 @@ Use this order when the section is applicable:
 
 1. Page header: icon, optional eyebrow, title, short description, necessary actions.
 2. Relevant KPI cards.
-3. Search and filtering controls.
-4. Date range, presets, and report actions.
+3. Search and filtering controls, with date range alongside search in the same desktop row when present.
+4. Presets and report actions, grouped with the filters where space allows.
 5. Table or task-specific content.
 6. Pagination/footer.
 
@@ -90,6 +97,8 @@ Use this order when the section is applicable:
 - Distribute ordinary data columns equally across the available width. Reserve a compact, consistent width for Action based on its button count.
 - Any necessary exception for long content must be defined in a shared table schema and applied identically to its header, rows, and skeleton—not as an isolated inline override.
 - Center the Action heading and all action icons beneath it. Keep action-button gaps consistent.
+- Center status headings and badges in the same column. Apply alignment from the column heading to its corresponding cells; never assume that the last column is an Action column. Shared fractional tracks must use explicit zero minimums so long content cannot give individual rows different column widths.
+- Treat grouped desktop row wrappers as separate logical columns when applying alignment and amount colors. Price and stock must never share an amount color. Center stock badges below their heading: healthy stock green, low stock amber, and unavailable stock red.
 - Left-align text. Right-align money and numerical amounts, including their headings. Use tabular numerals.
 - Keep quantities, currency, and dates consistently formatted. Do not wrap a currency label separately from its amount.
 - Place supporting information directly beneath its primary value using consistent spacing and secondary text.
@@ -109,6 +118,8 @@ Use this order when the section is applicable:
 ## 7. Date ranges and presets
 
 - Display date controls only where date filtering is meaningful.
+- When a page has both search and a date range, keep search on the left and the date range on the right in one desktop toolbar row. Let search fill remaining space, keep a consistent gap between controls, and align their vertical centers and control heights (42px). Wrap on smaller screens only when needed to preserve readable controls and avoid horizontal scrolling.
+- Include type and sort filters in that same toolbar group. Keep search at least 240px wide when sharing a desktop row; never let a full-width date/filter group squeeze it closed. Use shared control sizing rather than page-ID width overrides. On mobile, show full-width search above a two-column date/filter grid.
 - Default to the first day of the current month through today, using the application's business timezone: Asia/Manila.
 - Use the same compact preset strip: **Presets: This Month · Last 30 Days · All Time**.
 - This Month means the first day of the current month through today.
@@ -117,6 +128,7 @@ Use this order when the section is applicable:
 - Synchronize preset selection and date inputs. Indicate a custom range when applicable.
 - Prevent a reversed range. Apply inclusive business-date boundaries consistently.
 - Keep Print PDF and Export PDF beside the report filters using shared button styles.
+- All Print PDF buttons use `pdf-print-button`: a dark translucent surface, thin cyan outline, cyan icon/text, and no filled gradient. All Export PDF buttons use `pdf-export-button`: the shared blue gradient, white download icon/text, and subtle blue shadow. Both use 42px height, 10px radius, 16px icons, and an 8px icon/text gap across every page theme.
 - Printed and exported reports must use the current filters and the same figures as the displayed report.
 
 ## 8. Empty, error, and refreshing states

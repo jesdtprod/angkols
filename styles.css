@@ -461,10 +461,15 @@ body {
   line-height: 1.2;
 }
 
+.workspace[data-view="tableService"] .table-floor-title-wrap > .table-floor-count {
+  margin: 0;
+}
+
 .table-floor-legend {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
   font-size: 11.5px;
   color: var(--text-muted);
 }
@@ -472,13 +477,21 @@ body {
 .legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  min-height: 26px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 .legend-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .legend-dot.status-vacant {
@@ -708,6 +721,12 @@ body {
   white-space: nowrap;
 }
 
+.workspace[data-view="tableService"] .table-tab-header > .table-tab-title {
+  order: 0;
+  margin: 0;
+  width: auto;
+}
+
 .table-tab-meta {
   font-size: 12px;
   color: var(--text-muted);
@@ -774,6 +793,7 @@ body {
 
 .table-admin-icon-group {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 4px;
   height: 40px;
@@ -5149,12 +5169,12 @@ body::after {
   box-shadow: 0 10px 30px -8px rgba(2, 6, 14, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   position: relative;
   overflow: visible;
-  z-index: 30;
+  z-index: 10;
 }
 
 .dashboard-header-banner:has(.custom-datepicker.open),
 .dashboard-header-banner.has-open-datepicker {
-  z-index: 200;
+  z-index: 11;
 }
 
 .dashboard-header-banner::before {
@@ -5174,6 +5194,7 @@ body::after {
   flex-direction: column;
   gap: 5px;
   z-index: 1;
+  min-width: 0;
 }
 
 .dashboard-eyebrow-row {
@@ -5225,11 +5246,75 @@ body::after {
 }
 
 .dashboard-main-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 22px;
   font-weight: 800;
   color: var(--text-pure);
   margin: 2px 0 0;
   letter-spacing: -0.3px;
+}
+
+.dashboard-title-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: var(--accent-cyan, #38bdf8);
+}
+
+.dashboard-title-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.page-header {
+  order: -1;
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.page-header::before {
+  top: 0;
+  right: 0;
+  max-width: 100%;
+  height: 100%;
+}
+
+.page-header .dashboard-main-title > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.page-header-actions {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
+.page-header-skeleton .dashboard-title-area { width: min(100%, 620px); }
+.page-header-skeleton-pill { width: 135px; height: 24px; border-radius: 100px; }
+.page-header-skeleton-date { width: 115px; height: 24px; border-radius: 100px; }
+.page-header-skeleton-title { width: min(80%, 340px); height: 26px; }
+.page-header-skeleton-desc { width: 90%; height: 18px; }
+.page-header-skeleton-action { width: 160px; height: 42px; border-radius: 10px; flex-shrink: 0; }
+
+.workspace[data-view] .catalog:has(.page-header) > .toolbar {
+  margin: 14px 0 0 !important;
+}
+
+@media (max-width: 900px) {
+  .page-header-actions { flex: 0 1 auto; }
+}
+
+@media (max-width: 640px) {
+  .page-header-actions.dashboard-quick-actions {
+    display: flex;
+  }
+  .page-header-actions > .button { max-width: 100%; white-space: normal; }
 }
 
 .dashboard-main-sub {
@@ -7168,6 +7253,10 @@ body::after {
   display: block;
 }
 
+.workspace[data-view="tableService"] .toolbar {
+  margin-top: 14px !important;
+}
+
 :is(
   .workspace[data-view="products"],
   .workspace[data-view="bundleMonitoring"],
@@ -8109,8 +8198,6 @@ body::after {
 }
 
 /* Universal Center Alignment for Action Columns across the entire Web App */
-.table-header span:last-child,
-.std-table-header span:last-child,
 .grid-cols-products.std-table-header > span:last-child,
 .grid-cols-staff.std-table-header > span:last-child,
 .grid-cols-admin.std-table-header > span:last-child,
@@ -8187,6 +8274,12 @@ body::after {
   border: 1px solid rgba(59, 130, 246, 0.28);
   font-weight: 700;
   white-space: nowrap;
+}
+
+.stock-sold {
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.3);
 }
 
 .workspace[data-view="pos"] .table-row {
@@ -8412,29 +8505,6 @@ body::after {
   .bank-statement-line .custom-dropdown:last-of-type { grid-column: 1 / -1; }
 }
 
-#ownerDashboardDateRange,
-#tableQrPerformanceDateRange,
-#servicePerformanceDateRange,
-#lossesWastageDateRange,
-#productSalesPerformanceDateRange {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-}
-
-#ownerDashboardDateRange .sales-date-control,
-#tableQrPerformanceDateRange .sales-date-control,
-#servicePerformanceDateRange .sales-date-control,
-#lossesWastageDateRange .sales-date-control,
-#lossesWastageDateRange .custom-dropdown,
-#productSalesPerformanceDateRange .sales-date-control,
-#productSalesPerformanceDateRange .custom-dropdown {
-  flex: 0 1 180px;
-  min-width: 150px;
-}
-
 .sales-date-range {
   display: flex;
   flex-wrap: wrap;
@@ -8528,6 +8598,67 @@ body::after {
   width: 100%;
   margin-top: 0;
   flex: 0 0 auto;
+}
+
+@media (min-width: 961px) {
+  .workspace[data-view] .toolbar:has(.sales-date-range:not([hidden])) {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .workspace[data-view] .toolbar:has(.sales-date-range:not([hidden])) .search-wrap {
+    flex: 1 1 240px;
+    width: auto;
+    min-width: min(100%, 240px);
+  }
+
+  .workspace[data-view] .toolbar:has(.sales-date-range:not([hidden])) .search-wrap input {
+    height: 42px;
+    min-height: 42px;
+  }
+
+  .workspace[data-view] .toolbar .sales-date-range:not([hidden]) {
+    flex: 0 1 auto;
+    width: auto;
+    max-width: 100%;
+    margin-top: 0;
+  }
+}
+
+.sales-date-range > :is(.sales-date-control, .custom-dropdown, select) {
+  flex: 0 1 164px;
+  width: 164px;
+  min-width: 0;
+}
+
+.toolbar .sales-date-range :is(.dropdown-trigger, select) {
+  height: 42px;
+  min-height: 42px;
+}
+
+@media (max-width: 960px) {
+  .workspace[data-view] .toolbar .sales-date-range:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace[data-view] .toolbar .sales-date-range:not([hidden]) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .workspace[data-view] .toolbar .sales-date-range > :is(.sales-date-control, .custom-dropdown, select) {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 #salesDateRange,
@@ -8716,8 +8847,8 @@ body::after {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
-    height: 38px !important;
-    min-height: 38px !important;
+    height: 42px !important;
+    min-height: 42px !important;
     font-size: 12.5px !important;
     padding: 0 10px !important;
     box-sizing: border-box !important;
@@ -9745,6 +9876,12 @@ dialog.credit-history-dialog {
   color: var(--status-in-stock);
   background: var(--status-in-stock-bg);
   border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.stock-warning {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .stock-low {
@@ -15242,7 +15379,7 @@ dialog.receipt-dialog {
 
 .loss-table-header {
   display: grid;
-  grid-template-columns: 2.2fr 1fr 1.1fr 1.2fr 1.8fr 1fr;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.8fr) minmax(0, 1fr);
   gap: 12px;
   padding: 12px 18px;
   background: linear-gradient(180deg, rgba(16, 32, 60, 0.95) 0%, rgba(10, 22, 44, 0.95) 100%);
@@ -15257,7 +15394,7 @@ dialog.receipt-dialog {
 
 .loss-table-row {
   display: grid;
-  grid-template-columns: 2.2fr 1fr 1.1fr 1.2fr 1.8fr 1fr;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.8fr) minmax(0, 1fr);
   gap: 12px;
   padding: 12px 18px;
   align-items: center;
@@ -15951,7 +16088,7 @@ dialog.receipt-dialog {
 
 .bank-table-header {
   display: grid;
-  grid-template-columns: 1.4fr 2.2fr 1fr 1fr 1.1fr 1.1fr 1.3fr;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1.3fr);
   gap: 12px;
   padding: 12px 18px;
   background: linear-gradient(180deg, rgba(16, 32, 60, 0.95) 0%, rgba(10, 22, 44, 0.95) 100%);
@@ -15966,7 +16103,7 @@ dialog.receipt-dialog {
 
 .bank-table-row {
   display: grid;
-  grid-template-columns: 1.4fr 2.2fr 1fr 1fr 1.1fr 1.1fr 1.3fr;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1.3fr);
   gap: 12px;
   padding: 13px 18px;
   align-items: center;
@@ -16589,7 +16726,7 @@ dialog.receipt-dialog {
 
 .expenses-table-header {
   display: grid;
-  grid-template-columns: 1.5fr 1.3fr 1.2fr 2.5fr 1fr;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.3fr) minmax(0, 1.2fr) minmax(0, 2.5fr) minmax(0, 1fr);
   gap: 12px;
   padding: 12px 18px;
   background: linear-gradient(180deg, rgba(16, 32, 60, 0.95) 0%, rgba(10, 22, 44, 0.95) 100%);
@@ -16604,7 +16741,7 @@ dialog.receipt-dialog {
 
 .expenses-table-row {
   display: grid;
-  grid-template-columns: 1.5fr 1.3fr 1.2fr 2.5fr 1fr;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.3fr) minmax(0, 1.2fr) minmax(0, 2.5fr) minmax(0, 1fr);
   gap: 12px;
   padding: 13px 18px;
   align-items: center;
@@ -23156,8 +23293,8 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
     margin-bottom: 16px;
   }
 
-  /* Section Title */
-  .report-section-title-wrap {
+  /* Section Title (Print / PDF Reports) */
+  .report-page .report-section-title-wrap {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -23166,7 +23303,7 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
     border-bottom: 1px solid #e2e8f0;
   }
 
-  .report-section-title {
+  .report-page .report-section-title {
     font-size: 11.5px;
     font-weight: 800;
     color: #0f172a;
@@ -23175,7 +23312,7 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
     margin: 0;
   }
 
-  .report-count-badge {
+  .report-page .report-count-badge {
     font-size: 9.5px;
     font-weight: 700;
     color: #475569;
@@ -23706,8 +23843,7 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-top: 1px solid var(--border-subtle);
-  border-bottom-left-radius: 12px;
-  border-bottom-right-radius: 12px;
+  border-radius: 12px;
   width: 100%;
   box-sizing: border-box;
   flex-wrap: wrap;
@@ -24200,20 +24336,6 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
   box-shadow: 0 6px 20px rgba(0, 102, 245, 0.5) !important;
 }
 
-.std-hero-actions .button-secondary.std-record-btn {
-  background: rgba(14, 165, 233, 0.1) !important;
-  border: 1px solid rgba(56, 189, 248, 0.35) !important;
-  color: #38bdf8 !important;
-  box-shadow: none !important;
-}
-
-.std-hero-actions .button-secondary.std-record-btn:hover {
-  background: rgba(14, 165, 233, 0.2) !important;
-  border-color: #38bdf8 !important;
-  color: #ffffff !important;
-  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.25) !important;
-}
-
 /* Crimson / Rose (Credits, Loss & Damages) */
 .theme-crimson.std-hero-card,
 .theme-crimson .std-hero-card {
@@ -24275,6 +24397,57 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
 .theme-blue .std-record-btn {
   background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
   box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35) !important;
+}
+
+/* Shared PDF actions keep their meaning across every page theme. */
+.button:is(.pdf-print-button, .pdf-export-button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px !important;
+  min-height: 42px !important;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.button.pdf-print-button {
+  background: rgba(14, 165, 233, 0.08) !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  color: #38bdf8 !important;
+  box-shadow: none !important;
+}
+
+.button.pdf-print-button:hover:not(:disabled) {
+  background: rgba(14, 165, 233, 0.18) !important;
+  border-color: #38bdf8 !important;
+  color: #7dd3fc !important;
+  box-shadow: none !important;
+}
+
+.button.pdf-export-button {
+  background: linear-gradient(135deg, #0066f5 0%, #0284c7 100%) !important;
+  border: 1px solid rgba(56, 189, 248, 0.5) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(0, 102, 245, 0.3) !important;
+}
+
+.button.pdf-export-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0076ff 0%, #0ea5e9 100%) !important;
+  box-shadow: 0 6px 20px rgba(0, 102, 245, 0.4) !important;
+}
+
+.button:is(.pdf-print-button, .pdf-export-button):focus-visible {
+  outline: 2px solid #7dd3fc;
+  outline-offset: 3px;
+}
+
+.button:is(.pdf-print-button, .pdf-export-button) svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 /* KPI Metrics Grid */
@@ -24374,6 +24547,34 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
 .std-kpi-value.text-rose { color: #f87171; }
 .std-kpi-value.text-sky { color: #38bdf8; }
 .std-kpi-value.text-purple { color: #c084fc; }
+
+/* Monetary values share the same meaning across tables, cards and POS readouts. */
+.amount-value[data-amount-tone="sales"] { --amount-color: #38bdf8; }
+.amount-value[data-amount-tone="cost"] { --amount-color: #fbbf24; }
+.amount-value[data-amount-tone="loss"] { --amount-color: #f87171; }
+.amount-value[data-amount-tone="expense"] { --amount-color: #fb7185; }
+.amount-value[data-amount-tone="profit"] { --amount-color: #34d399; }
+.amount-value[data-amount-tone="net-profit"] { --amount-color: #c4b5fd; }
+.amount-value[data-amount-tone="cash"] { --amount-color: #2dd4bf; }
+.amount-value[data-amount-tone="credit"] { --amount-color: #fdba74; }
+.amount-value[data-amount-tone="balance"] { --amount-color: #60a5fa; }
+.amount-value[data-amount-negative="true"] { --amount-color: #f87171; }
+
+.amount-value[data-amount-tone],
+.amount-value[data-amount-tone] > :is(strong, span:not(.product-meta)),
+.amount-value[data-amount-tone] .price-text {
+  color: var(--amount-color) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+:is(.std-table-row, .table-row, .expenses-table-row, .bank-table-row) .amount-value,
+:is(.std-table-row, .table-row, .expenses-table-row, .bank-table-row) .amount-value :is(strong, .price-text) {
+  font-weight: 700 !important;
+}
+
+.amount-value .product-meta {
+  font-weight: 400;
+}
 
 .std-kpi-sub {
   font-size: 11px;
@@ -24569,6 +24770,123 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
   }
 }
 
+/* Executive Section Headers (Multi-Table Standard Views) */
+.std-section-head {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-top: 14px !important;
+  margin-bottom: 2px !important;
+  padding: 0 2px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  order: unset !important;
+}
+
+.std-section-title-group {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-width: 0 !important;
+  order: unset !important;
+}
+
+.std-section-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.std-section-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.std-section-icon.icon-sky {
+  background: rgba(14, 165, 233, 0.15);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  color: #38bdf8;
+}
+
+.std-section-icon.icon-emerald {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+.std-section-icon.icon-amber {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+.std-section-icon.icon-purple {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+}
+
+.std-section-text {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+  min-width: 0 !important;
+  order: unset !important;
+}
+
+.std-section-title {
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  letter-spacing: -0.01em !important;
+  margin: 0 !important;
+  line-height: 1.25 !important;
+  width: auto !important;
+  order: unset !important;
+  text-transform: none !important;
+}
+
+.std-section-sub {
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1.3;
+}
+
+.std-section-badge {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #38bdf8 !important;
+  background: rgba(14, 165, 233, 0.12) !important;
+  border: 1px solid rgba(56, 189, 248, 0.25) !important;
+  padding: 3px 10px !important;
+  border-radius: 999px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  order: unset !important;
+}
+
+.std-section-badge.badge-emerald {
+  color: #34d399 !important;
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
+}
+
+.std-section-badge.badge-amber {
+  color: #fbbf24 !important;
+  background: rgba(245, 158, 11, 0.12) !important;
+  border-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+.std-section-badge.badge-purple {
+  color: #c084fc !important;
+  background: rgba(168, 85, 247, 0.12) !important;
+  border-color: rgba(168, 85, 247, 0.25) !important;
+}
+
 /* Cyber Table Shell */
 .std-table-shell {
   border-radius: 14px;
@@ -24607,6 +24925,54 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
 
 .std-table-row:hover {
   background: rgba(14, 165, 233, 0.05);
+}
+
+/* Keep cells inside the shared tracks, including long content and loading rows. */
+:is(.std-table-header, .std-table-row, .table-header, .table-row, .expenses-table-header, .expenses-table-row, .bank-table-header, .bank-table-row) > *,
+.row-middle-cells > * {
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+
+:is(.std-table-row, .table-row, .expenses-table-row, .bank-table-row) .skeleton-shimmer {
+  max-width: 100%;
+}
+
+@media (min-width: 901px) {
+  .row-middle-cells > [data-column-align="left"] {
+    text-align: left !important;
+    justify-content: flex-start !important;
+  }
+
+  .row-middle-cells > [data-column-align="center"] {
+    text-align: center !important;
+    justify-content: center !important;
+    justify-self: center;
+  }
+
+  .row-middle-cells > [data-column-align="right"] {
+    text-align: right !important;
+    align-items: flex-end;
+    font-variant-numeric: tabular-nums;
+  }
+
+  :is(.std-table-header, .std-table-row, .table-header, .table-row, .expenses-table-header, .expenses-table-row, .bank-table-header, .bank-table-row) > [data-column-align="left"] {
+    text-align: left !important;
+    justify-content: flex-start !important;
+  }
+
+  :is(.std-table-header, .std-table-row, .table-header, .table-row, .expenses-table-header, .expenses-table-row, .bank-table-header, .bank-table-row) > [data-column-align="center"] {
+    text-align: center !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+
+  :is(.std-table-header, .std-table-row, .table-header, .table-row, .expenses-table-header, .expenses-table-row, .bank-table-header, .bank-table-row) > [data-column-align="right"] {
+    text-align: right !important;
+    justify-content: flex-end !important;
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 /* Empty State inside Standard Shell */
@@ -24758,19 +25124,19 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
   .grid-cols-spotcash .cash-amount-cell strong { font-size: 11.5px; }
   .std-table-header.grid-cols-spotcash { font-size: 10px; }
 }
-.grid-cols-branches { grid-template-columns: 1.8fr 1.3fr 2.4fr 1.1fr 1fr; }
-.grid-cols-transfers { grid-template-columns: 1.4fr 2fr 2.2fr 1.1fr 1fr; }
-.grid-cols-customers { grid-template-columns: 1.8fr 1.8fr 1.8fr 1.2fr 1fr; }
-.grid-cols-credits { grid-template-columns: 1.8fr 1.6fr 1.3fr 1fr 1.4fr 1fr; }
-.grid-cols-staff { grid-template-columns: 1.8fr 1.3fr 2.6fr 1fr 1.1fr; }
-.grid-cols-admin { grid-template-columns: 1.8fr 1.4fr 2fr 1fr 1fr; }
-.grid-cols-products { grid-template-columns: 2.2fr 1.2fr 1.2fr 1.2fr 1fr 1fr 1.2fr; }
-.grid-cols-inventory { grid-template-columns: 2.5fr 1.3fr 1.4fr 1.2fr 1fr; }
-.grid-cols-bundles { grid-template-columns: 2fr 2.4fr 1fr 1.2fr 1fr 1fr; }
-.grid-cols-invreport { grid-template-columns: 2.2fr 1.1fr 1.1fr 1fr 1.1fr 1.1fr 1fr; }
-.grid-cols-sales { grid-template-columns: 2fr 1.3fr 1.6fr 1fr 1.2fr 1.1fr; }
-.grid-cols-quarantinereport { grid-template-columns: 2fr 1.3fr 1.8fr 1.8fr 1fr 1.2fr; }
-.grid-cols-loss { grid-template-columns: 2.2fr 1fr 1.1fr 1.2fr 1.8fr 1.1fr; }
+.grid-cols-branches { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.3fr) minmax(0, 2.4fr) minmax(0, 1.1fr) minmax(0, 1fr); }
+.grid-cols-transfers { grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr) minmax(0, 2.2fr) minmax(0, 1.1fr) minmax(0, 1fr); }
+.grid-cols-customers { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.8fr) minmax(0, 1.8fr) minmax(0, 1.2fr) minmax(0, 1fr); }
+.grid-cols-credits { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.6fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr); }
+.grid-cols-staff { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.3fr) minmax(0, 2.6fr) minmax(0, 1fr) minmax(0, 1.1fr); }
+.grid-cols-admin { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.4fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); }
+.grid-cols-products { grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr); }
+.grid-cols-inventory { grid-template-columns: minmax(0, 2.5fr) minmax(0, 1.3fr) minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 1fr); }
+.grid-cols-bundles { grid-template-columns: minmax(0, 2fr) minmax(0, 2.4fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); }
+.grid-cols-invreport { grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1fr); }
+.grid-cols-sales { grid-template-columns: minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.1fr); }
+.grid-cols-quarantinereport { grid-template-columns: minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1.8fr) minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 1.2fr); }
+.grid-cols-loss { grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1.8fr) minmax(0, 1.1fr); }
 .grid-cols-loss.std-table-header > span:last-child {
   display: flex !important;
   align-items: center !important;
@@ -24794,14 +25160,14 @@ dialog .return-item-group .sale-return-resolution-actions .resolve-btn {
   }
 }
 
-.grid-cols-profitloss { grid-template-columns: 1.3fr repeat(5, 1fr); }
-.grid-cols-foodcost { grid-template-columns: 2.2fr repeat(6, 0.9fr); }
-.grid-cols-productperformance { grid-template-columns: 0.5fr 2.2fr repeat(5, 1fr); }
-.grid-cols-creditaging { grid-template-columns: 1.8fr repeat(5, 1fr); }
-.grid-cols-losseswastage { grid-template-columns: 2.2fr 1.3fr 0.9fr 1.1fr 1.2fr; }
-.grid-cols-invvaluation { grid-template-columns: 2.2fr repeat(6, 0.9fr); }
-.grid-cols-reconciliation { grid-template-columns: 1.3fr repeat(3, 1fr) 0.9fr; }
-.grid-cols-bankactivity { grid-template-columns: 1.1fr 1fr 0.9fr 1fr 1.5fr; }
+.grid-cols-profitloss { grid-template-columns: minmax(0, 1.3fr) repeat(5, minmax(0, 1fr)); }
+.grid-cols-foodcost { grid-template-columns: minmax(0, 2.2fr) repeat(6, minmax(0, 0.9fr)); }
+.grid-cols-productperformance { grid-template-columns: minmax(0, 2.2fr) repeat(5, minmax(0, 1fr)); }
+.grid-cols-creditaging { grid-template-columns: minmax(0, 1.8fr) repeat(5, minmax(0, 1fr)); }
+.grid-cols-losseswastage { grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.3fr) minmax(0, 0.9fr) minmax(0, 1.1fr) minmax(0, 1.2fr); }
+.grid-cols-invvaluation { grid-template-columns: minmax(0, 2.2fr) repeat(6, minmax(0, 0.9fr)); }
+.grid-cols-reconciliation { grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)) minmax(0, 0.9fr); }
+.grid-cols-bankactivity { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1.5fr); }
 
 /* Purple theme specifics for Standard Table */
 .theme-purple .std-table-shell {
@@ -25167,10 +25533,10 @@ dialog#formDialog[data-form-type="cashReconciliation"] #formFields {
 
 /* Report Table Shell Grid Columns */
 .grid-cols-reconciliation {
-  grid-template-columns: 140px 1.2fr 1.2fr 1.2fr 120px;
+  grid-template-columns: 140px minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1.2fr) 120px;
 }
 .grid-cols-bankactivity {
-  grid-template-columns: 130px 130px 100px 130px 1.5fr;
+  grid-template-columns: 130px 130px 100px 130px minmax(0, 1.5fr);
 }
 .grid-cols-foodcost {
   grid-template-columns: minmax(180px, 1.8fr) 90px 110px 110px 110px 95px 95px;
@@ -25179,12 +25545,37 @@ dialog#formDialog[data-form-type="cashReconciliation"] #formFields {
   grid-template-columns: minmax(180px, 1.8fr) 90px 90px 90px 90px 90px 120px;
 }
 
+.grid-cols-reconciliation.std-table-header > :nth-child(2),
+.grid-cols-reconciliation.std-table-header > :nth-child(3),
+.grid-cols-reconciliation.std-table-header > :nth-child(4),
+.grid-cols-reconciliation.std-table-row > :nth-child(2),
+.grid-cols-reconciliation.std-table-row > :nth-child(3),
+.grid-cols-reconciliation.std-table-row > :nth-child(4) {
+  text-align: right !important;
+  justify-content: flex-end !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.grid-cols-reconciliation.std-table-header > :nth-child(5),
+.grid-cols-reconciliation.std-table-row > :nth-child(5) {
+  text-align: center !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.grid-cols-bankactivity.std-table-header > :nth-child(4),
+.grid-cols-bankactivity.std-table-row > :nth-child(4) {
+  text-align: right !important;
+  justify-content: flex-end !important;
+  font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 900px) {
   .grid-cols-reconciliation {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
   .grid-cols-bankactivity {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 
@@ -25193,7 +25584,7 @@ dialog#formDialog[data-form-type="cashReconciliation"] #formFields {
   .grid-cols-bankactivity,
   .grid-cols-foodcost,
   .grid-cols-invvaluation {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -25216,4 +25607,13 @@ dialog#formDialog[data-form-type="cashReconciliation"] #formFields {
 }
 .workspace[data-view="cashBankReconciliation"] .std-view > * {
   order: unset !important;
+}
+.workspace[data-view="cashBankReconciliation"] .std-view h3:not(.std-section-title) {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: #e2e8f0 !important;
+  margin: 14px 0 4px 0 !important;
+  letter-spacing: -0.01em;
+  order: unset !important;
+  width: 100% !important;
 }

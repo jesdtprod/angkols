@@ -364,20 +364,20 @@
               <div class="sales-date-range" id="profitLossDateRange" hidden>
                 <div class="sales-date-control"><input id="profitLossDateFrom" type="date" aria-label="Profit and loss date from" /></div>
                 <div class="sales-date-control"><input id="profitLossDateTo" type="date" aria-label="Profit and loss date to" /></div>
-                <button class="button button-secondary sales-pdf-button" id="generateProfitLossPdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-secondary sales-pdf-button pdf-print-button" id="generateProfitLossPdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
                 </button>
-                <button class="button button-primary sales-pdf-button" id="exportProfitLossPdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-primary sales-pdf-button pdf-export-button" id="exportProfitLossPdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg><span>Export PDF</span>
                 </button>
               </div>
               <div class="sales-date-range" id="foodCostMarginDateRange" hidden>
                 <div class="sales-date-control"><input id="foodCostMarginDateFrom" type="date" aria-label="Food cost and margin date from" /></div>
                 <div class="sales-date-control"><input id="foodCostMarginDateTo" type="date" aria-label="Food cost and margin date to" /></div>
-                <button class="button button-secondary sales-pdf-button" id="generateFoodCostMarginPdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-secondary sales-pdf-button pdf-print-button" id="generateFoodCostMarginPdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
                 </button>
-                <button class="button button-primary sales-pdf-button" id="exportFoodCostMarginPdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-primary sales-pdf-button pdf-export-button" id="exportFoodCostMarginPdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg><span>Export PDF</span>
                 </button>
               </div>
@@ -386,20 +386,20 @@
                 <div class="sales-date-control"><input id="productSalesPerformanceDateTo" type="date" aria-label="Product sales date to" /></div>
                 <select id="productSalesPerformanceType" aria-label="Product type"><option value="all">All Products</option><option value="individual">Individual Products</option><option value="bundle">Bundles</option></select>
                 <select id="productSalesPerformanceSort" aria-label="Product sales ranking"><option value="best">Best Selling</option><option value="slow">Slow / No Sales</option><option value="sales">Highest Sales</option><option value="profit">Highest Gross Profit</option></select>
-                <button class="button button-secondary sales-pdf-button" id="generateProductSalesPerformancePdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-secondary sales-pdf-button pdf-print-button" id="generateProductSalesPerformancePdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6zM14 2v4h4M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
                 </button>
-                <button class="button button-primary sales-pdf-button" id="exportProductSalesPerformancePdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-primary sales-pdf-button pdf-export-button" id="exportProductSalesPerformancePdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg><span>Export PDF</span>
                 </button>
               </div>
               <div class="sales-date-range" id="creditAgingDateRange" hidden>
                 <div class="sales-date-control"><input id="creditAgingDateFrom" type="date" aria-label="Credit activity date from" /></div>
                 <div class="sales-date-control"><input id="creditAgingDateTo" type="date" aria-label="Credit aging as of date" /></div>
-                <button class="button button-secondary sales-pdf-button" id="generateCreditAgingPdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-secondary sales-pdf-button pdf-print-button" id="generateCreditAgingPdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l3 3v17H6zM14 2v4h4M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
                 </button>
-                <button class="button button-primary sales-pdf-button" id="exportCreditAgingPdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-primary sales-pdf-button pdf-export-button" id="exportCreditAgingPdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg><span>Export PDF</span>
                 </button>
               </div>
@@ -407,10 +407,10 @@
                 <div class="sales-date-control"><input id="lossesWastageDateFrom" type="date" aria-label="Losses and wastage date from" /></div>
                 <div class="sales-date-control"><input id="lossesWastageDateTo" type="date" aria-label="Losses and wastage date to" /></div>
                 <select id="lossesWastageSource" aria-label="Loss source"><option value="all">All Sources</option><option value="writeoff">Stock Write-offs</option><option value="quarantine">Quarantine Disposals</option><option value="return">Customer Return Disposals</option></select>
-                <button class="button button-secondary sales-pdf-button" id="generateLossesWastagePdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-secondary sales-pdf-button pdf-print-button" id="generateLossesWastagePdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l3 3v17H6zM14 2v4h4M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
                 </button>
-                <button class="button button-primary sales-pdf-button" id="exportLossesWastagePdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-primary sales-pdf-button pdf-export-button" id="exportLossesWastagePdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg><span>Export PDF</span>
                 </button>
               </div>
@@ -420,10 +420,10 @@
                 <button class="button button-secondary sales-pdf-button" id="refreshServicePerformanceButton" type="button">
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg><span>Refresh</span>
                 </button>
-                <button class="button button-secondary sales-pdf-button" id="generateServicePerformancePdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-secondary sales-pdf-button pdf-print-button" id="generateServicePerformancePdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l3 3v17H6zM14 2v4h4M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
                 </button>
-                <button class="button button-primary sales-pdf-button" id="exportServicePerformancePdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-primary sales-pdf-button pdf-export-button" id="exportServicePerformancePdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg><span>Export PDF</span>
                 </button>
               </div>
@@ -431,34 +431,34 @@
                 <div class="sales-date-control"><input id="tableQrPerformanceDateFrom" type="date" aria-label="Table and QR performance date from" /></div>
                 <div class="sales-date-control"><input id="tableQrPerformanceDateTo" type="date" aria-label="Table and QR performance date to" /></div>
                 <button class="button button-secondary sales-pdf-button" id="refreshTableQrPerformanceButton" type="button"><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg><span>Refresh</span></button>
-                <button class="button button-secondary sales-pdf-button" id="generateTableQrPerformancePdfButton" type="button" style="display:none !important;" hidden><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l3 3v17H6zM14 2v4h4M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span></button>
-                <button class="button button-primary sales-pdf-button" id="exportTableQrPerformancePdfButton" type="button" style="display:none !important;" hidden><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg><span>Export PDF</span></button>
+                <button class="button button-secondary sales-pdf-button pdf-print-button" id="generateTableQrPerformancePdfButton" type="button" style="display:none !important;" hidden><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l3 3v17H6zM14 2v4h4M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span></button>
+                <button class="button button-primary sales-pdf-button pdf-export-button" id="exportTableQrPerformancePdfButton" type="button" style="display:none !important;" hidden><svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg><span>Export PDF</span></button>
               </div>
               <div class="sales-date-range" id="inventoryValuationDateRange" hidden>
                 <div class="sales-date-control"><input id="inventoryValuationDateFrom" type="date" aria-label="Inventory valuation date from" /></div>
                 <div class="sales-date-control"><input id="inventoryValuationDateTo" type="date" aria-label="Inventory valuation date to" /></div>
-                <button class="button button-secondary sales-pdf-button" id="generateInventoryValuationPdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-secondary sales-pdf-button pdf-print-button" id="generateInventoryValuationPdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
                 </button>
-                <button class="button button-primary sales-pdf-button" id="exportInventoryValuationPdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-primary sales-pdf-button pdf-export-button" id="exportInventoryValuationPdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg><span>Export PDF</span>
                 </button>
               </div>
               <div class="sales-date-range" id="cashBankReconciliationDateRange" hidden>
                 <div class="sales-date-control"><input id="cashBankReconciliationDateFrom" type="date" aria-label="Cash and bank reconciliation date from" /></div>
                 <div class="sales-date-control"><input id="cashBankReconciliationDateTo" type="date" aria-label="Cash and bank reconciliation date to" /></div>
-                <button class="button button-secondary sales-pdf-button" id="generateCashBankReconciliationPdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-secondary sales-pdf-button pdf-print-button" id="generateCashBankReconciliationPdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg><span>Print PDF</span>
                 </button>
-                <button class="button button-primary sales-pdf-button" id="exportCashBankReconciliationPdfButton" type="button" style="display:none !important;" hidden>
+                <button class="button button-primary sales-pdf-button pdf-export-button" id="exportCashBankReconciliationPdfButton" type="button" style="display:none !important;" hidden>
                   <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg><span>Export PDF</span>
                 </button>
               </div>
-              <button class="button button-secondary sales-pdf-button" id="generateInventoryPdfButton" type="button" style="display:none !important;" hidden>
+              <button class="button button-secondary sales-pdf-button pdf-print-button" id="generateInventoryPdfButton" type="button" style="display:none !important;" hidden>
                 <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
                 <span>Print PDF</span>
               </button>
-              <button class="button button-primary sales-pdf-button" id="exportInventoryPdfButton" type="button" style="display:none !important;" hidden>
+              <button class="button button-primary sales-pdf-button pdf-export-button" id="exportInventoryPdfButton" type="button" style="display:none !important;" hidden>
                 <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
                 <span>Export PDF</span>
               </button>

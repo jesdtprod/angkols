@@ -194,15 +194,111 @@ async function uploadProductImage_(file, productId) {
 }
 
 let badgeAlignmentFrame = 0;
+function tableColumnCells_(row) {
+  return Array.from(row.children).flatMap((cell) => cell.matches('.row-middle-cells, .skeleton-middle-cells') ? Array.from(cell.children) : [cell]);
+}
+
+function amountTone_(label) {
+  const text = String(label || '').toLowerCase();
+  if (/\b(share|margin|percent|rate|qty|quantity|units|item count)\b/.test(text)) return '';
+  if (/net (?:profit|income)/.test(text)) return 'net-profit';
+  if (/profit|income/.test(text)) return 'profit';
+  if (/loss|write.?off|disposal/.test(text)) return 'loss';
+  if (/cogs|cost/.test(text)) return 'cost';
+  if (/expense|withdrawal|refund|discount|outflow|loss/.test(text)) return 'expense';
+  if (/outstanding|credit|receivable|due/.test(text)) return 'credit';
+  if (/cash|float|collected|collection|deposit|change|tendered|variance|over.*short/.test(text)) return 'cash';
+  if (/balance|value/.test(text)) return 'balance';
+  if (/sales|revenue|price|subtotal|total|amount|payment/.test(text)) return 'sales';
+  return '';
+}
+
+function applyAmountTone_(element, label, isCurrencyReadout = false) {
+  const text = element.textContent || '';
+  const tone = isCurrencyReadout || /(?:PHP|₱)\s*[-−]?\s*[\d,.]+/.test(text) ? amountTone_(label) : '';
+  if (!tone) {
+    if (element.hasAttribute('data-amount-tone')) {
+      delete element.dataset.amountTone;
+      delete element.dataset.amountNegative;
+      element.classList.remove('amount-value');
+    }
+    return;
+  }
+  element.classList.add('amount-value');
+  element.dataset.amountTone = tone;
+  element.dataset.amountNegative = /(?:PHP|₱)\s*[-−]\s*\d|[-−]\s*(?:PHP|₱)\s*\d|\(\s*(?:PHP|₱)\s*\d/.test(text) ? 'true' : 'false';
+}
+
+function colorAmountReadouts_() {
+  document.querySelectorAll('table').forEach((table) => {
+    const headings = Array.from(table.querySelector('thead tr:last-child')?.cells || []);
+    if (!headings.length || headings.some((cell) => cell.colSpan !== 1)) return;
+    Array.from(table.tBodies).flatMap((body) => Array.from(body.rows)).forEach((row) => {
+      if (row.cells.length !== headings.length) return;
+      Array.from(row.cells).forEach((cell, index) => applyAmountTone_(cell, headings[index].textContent));
+    });
+  });
+  document.querySelectorAll('.std-kpi-card, .dashboard-kpi-card, .bank-kpi-card, .expenses-kpi-card, .loss-kpi-card, .report-kpi-card').forEach((card) => {
+    const label = card.querySelector('.std-kpi-label, .kpi-label, .bank-kpi-label, .expenses-kpi-label, .loss-kpi-label, .kpi-title');
+    const value = card.querySelector('.std-kpi-value, .kpi-value, .bank-kpi-value, .expenses-kpi-value, .loss-kpi-value, .kpi-val');
+    if (label && value) applyAmountTone_(value, label.textContent);
+  });
+  document.querySelectorAll('.report-summary-grid > div').forEach((card) => {
+    const value = card.querySelector('strong');
+    if (value) applyAmountTone_(value, card.querySelector('span')?.textContent);
+  });
+  document.querySelectorAll('.price-text, .item-subtotal, .cart-batch-price, .dashboard-sale-amount, .dashboard-prod-sales-val, .restaurant-table-tab-pill, .dropdown-opt-price, .tab-summary-total-val, .draft-footer-val, #saleSubtotalDisplay, #saleTotalDisplay, #stockInTotalRetail, #receiptSubtotal, #receiptTotal, .receipt-item-total').forEach((value) => {
+    const parentAmount = value.parentElement?.closest('.amount-value[data-amount-tone]');
+    applyAmountTone_(value, parentAmount ? '' : 'Sales');
+  });
+  document.querySelectorAll('#saleHeroTotal').forEach((value) => applyAmountTone_(value, 'Sales', true));
+  document.querySelectorAll('#saleChangeDisplay, #saleHeroChange, .expected-dock-val, #receiptTendered, #receiptChange, #receiptCreditPaid').forEach((value) => applyAmountTone_(value, 'Cash'));
+  document.querySelectorAll('#stockInTotalCost').forEach((value) => applyAmountTone_(value, 'Cost'));
+  document.querySelectorAll('#receiptDiscount').forEach((value) => applyAmountTone_(value, 'Discount'));
+  document.querySelectorAll('#receiptCreditTotal, #receiptCreditBalance').forEach((value) => applyAmountTone_(value, 'Credit'));
+  document.querySelectorAll('.cart-summary > .total-row, .cart-totals, .cart-total-row, .summary-row').forEach((row) => {
+    const value = row.querySelector('strong');
+    if (value) applyAmountTone_(value, row.querySelector('span')?.textContent || 'Total');
+  });
+}
+
+function alignTableColumns() {
+  const headerSelector = '.std-table-header, .table-header, .expenses-table-header, .bank-table-header, .loss-table-header';
+  const rowSelector = '.std-table-row, .table-row, .expenses-table-row, .bank-table-row, .loss-table-row';
+  document.querySelectorAll(headerSelector).forEach((header) => {
+    const headings = Array.from(header.children);
+    const rows = Array.from(header.parentElement.children).filter((row) => row !== header && row.matches(rowSelector));
+    rows.forEach((row) => row.querySelectorAll('.row-middle-cells, .skeleton-middle-cells').forEach((group) => {
+      applyAmountTone_(group, '');
+      delete group.dataset.columnAlign;
+    }));
+    headings.forEach((heading, index) => {
+      const label = heading.textContent.replace(/\s+/g, ' ').trim().toLowerCase();
+      const alignment = /^(actions?|type|method|payment(?: type)?|role|rank|stock|(?:quantity in|current|in) stock)$|\bstatus$/.test(label)
+        ? 'center'
+        : /\b(price|cost|cogs|amount|balance|outstanding|total|value|deposit|withdrawal|profit|revenue|sales|refunds?|discounts?|collected|expenses|float|cash|variance|units|qty|quantity|stock|count|tickets|requests|confirmed|rejected|pending|margin|days|minutes|sold|loss|transfers|sets)\b|^on hand$|^over\s*\/\s*\(short\)$/.test(label) && !/\b(product|category|date|details|reference|status|action|method|type|name|reason|source|routing)\b/.test(label)
+        ? 'right' : 'left';
+      if (heading.dataset.columnAlign !== alignment) heading.dataset.columnAlign = alignment;
+      rows.forEach((row) => {
+        const cell = tableColumnCells_(row)[index];
+        if (cell && cell.dataset.columnAlign !== alignment) cell.dataset.columnAlign = alignment;
+        if (cell) applyAmountTone_(cell, label);
+      });
+    });
+  });
+}
+
 function alignTableBadges() {
-  const tables = document.querySelectorAll('#inventoryTable, .std-table-shell, .grid-table, dialog table, dialog .table-shell');
+  alignTableColumns();
+  colorAmountReadouts_();
+  const tables = document.querySelectorAll('.std-table-shell, .expenses-table-shell, .bank-table-shell, .loss-table-shell, .grid-table:not(:has(.std-table-shell)), dialog table, dialog .table-shell');
   if (!tables.length) return;
 
   const BADGE_SELECTOR = '.stock-pill, .low-stock-pill, .category-badge, .transfer-badge, .credit-sale-badge, .payment-collected-badge, .in-transit-badge, .bundle-pill, .individual-pill';
   const isMobile = window.matchMedia('(max-width: 640px)').matches;
 
   tables.forEach((table) => {
-    const rows = table.querySelectorAll('.std-table-row:not(.std-table-header), .table-row:not(.table-header), tbody tr');
+    const rows = table.querySelectorAll('.std-table-row:not(.std-table-header), .table-row:not(.table-header), .expenses-table-row, .bank-table-row, .loss-table-row, tbody tr');
     if (!rows.length) return;
 
     // Phase 1: Reset all badge dimensions to measure natural unconstrained text width
@@ -220,7 +316,7 @@ function alignTableBadges() {
 
     rows.forEach((row) => {
       const cells = row.querySelectorAll('[data-label]');
-      const cellList = cells.length ? Array.from(cells) : Array.from(row.children);
+      const cellList = cells.length ? Array.from(cells) : tableColumnCells_(row);
 
       cellList.forEach((cell, cellIdx) => {
         const badgesInCell = Array.from(cell.querySelectorAll(BADGE_SELECTOR));
@@ -2168,7 +2264,7 @@ async function renderServicePerformance(force = false) {
     if (currentSession?.account?.role !== 'admin') throw new Error('Only administrators can access performance reports.');
     if (force || servicePerformanceCache.key !== key || Date.now() - servicePerformanceCache.loadedAt > 30000) {
       servicePerformanceCache = { key: '', data: null, loadedAt: 0 };
-      table.innerHTML = '<div class="std-empty-state"><h4 class="std-empty-title">Loading Staff Performance...</h4></div>';
+      renderSkeletonTable();
       const { data, error } = await requireSupabase_().rpc('get_service_performance_report', { target_branch_id: activeBranchId, date_from_input: $('#servicePerformanceDateFrom').value, date_to_input: $('#servicePerformanceDateTo').value });
       throwIfError_(error);
       if (sequence !== servicePerformanceRenderId || activeView !== 'servicePerformance' || key !== servicePerformanceKey_()) return;
@@ -2212,31 +2308,21 @@ async function renderServicePerformance(force = false) {
       },
     ];
     table.innerHTML = `<div class="std-view theme-sky">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      ${renderPageHeader_({
+        titleHtml: `Kitchen / Waiter Performance`,
+        descriptionHtml: `${escapeHtml(servicePerformanceNote_())}`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 3v18h18M7 15v-4m5 4V7m5 8V5"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">OWNER REPORTING &bull; SERVICE OPERATIONS</span>
-            <strong class="std-hero-title">Kitchen / Waiter Performance</strong>
-            <p class="std-hero-desc">${escapeHtml(servicePerformanceNote_())}</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="servicePerfPrintPdfHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn pdf-print-button" type="button" id="servicePerfPrintPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
             <span>Print PDF</span>
           </button>
-          <button class="button button-primary std-record-btn" type="button" id="servicePerfExportPdfHeroBtn">
+          <button class="button button-primary std-record-btn pdf-export-button" type="button" id="servicePerfExportPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
             <span>Export PDF</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
       <div class="std-kpi-grid">
         ${kpis.map((k) => `
           <div class="std-kpi-card">
@@ -2466,31 +2552,21 @@ function renderLossesWastage() {
 
   table.innerHTML = `
     <div class="std-view theme-sky">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      ${renderPageHeader_({
+        titleHtml: `Losses &amp; Wastage`,
+        descriptionHtml: `${escapeHtml(lossesWastageNote_())}`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 6h18M5 6l1 15h12l1-15M9 6V3h6v3m-6 5 6 6m0-6-6 6"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">OWNER REPORTING &bull; STOCK LOSSES</span>
-            <strong class="std-hero-title">Losses &amp; Wastage</strong>
-            <p class="std-hero-desc">${escapeHtml(lossesWastageNote_())}</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="lossesWastagePrintPdfHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn pdf-print-button" type="button" id="lossesWastagePrintPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
             <span>Print PDF</span>
           </button>
-          <button class="button button-primary std-record-btn" type="button" id="lossesWastageExportPdfHeroBtn">
+          <button class="button button-primary std-record-btn pdf-export-button" type="button" id="lossesWastageExportPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
             <span>Export PDF</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         ${kpis.map((k) => `
@@ -2696,31 +2772,21 @@ function renderCreditAging() {
 
   table.innerHTML = `
     <div class="std-view theme-sky">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      ${renderPageHeader_({
+        titleHtml: `Credit Aging`,
+        descriptionHtml: `${escapeHtml(creditAgingNote_(report))}`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">OWNER REPORTING &bull; RECEIVABLES</span>
-            <strong class="std-hero-title">Credit Aging</strong>
-            <p class="std-hero-desc">${escapeHtml(creditAgingNote_(report))}</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="creditAgingPrintPdfHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn pdf-print-button" type="button" id="creditAgingPrintPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
             <span>Print PDF</span>
           </button>
-          <button class="button button-primary std-record-btn" type="button" id="creditAgingExportPdfHeroBtn">
+          <button class="button button-primary std-record-btn pdf-export-button" type="button" id="creditAgingExportPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
             <span>Export PDF</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         ${kpis.map((k) => `
@@ -2829,8 +2895,8 @@ function buildProductSalesPerformancePdfReport_() {
     <section class="report-summary-grid"><div><span>Product Sales</span><strong>${money(report.totals.sales)}</strong></div><div><span>Units Sold</span><strong>${report.totals.qty.toLocaleString('en-PH')}</strong></div><div><span>COGS</span><strong>${money(report.totals.cogs)}</strong></div><div><span>Gross Profit</span><strong>${money(report.totals.grossProfit)}</strong></div></section>
     <p class="report-note">${escapeHtml(productPerformanceNotes_(report))}</p>
     <div class="report-section-title-wrap"><h2 class="report-section-title">${index === 0 ? 'Product Sales & Contribution Ranking' : 'Product Sales & Contribution Ranking (Continued)'}</h2><span class="report-count-badge">${report.rows.length} product${report.rows.length === 1 ? '' : 's'}</span></div>
-    <table class="report-table"><thead><tr><th>Rank</th><th>Product / Type</th><th>Qty</th><th>Sales</th><th>Share</th><th>COGS</th><th>Gross Profit</th></tr></thead><tbody>
-    ${rows.map((row) => `<tr><td>${row.rank}</td><td><strong>${escapeHtml(row.name)}</strong><br><small>${escapeHtml(row.sku)} &bull; ${row.productType === 'bundle' ? 'Bundle' : 'Individual'}${row.pendingLines ? ` &bull; ${row.pendingLines} cost pending` : ''}</small></td><td>${row.qty.toLocaleString('en-PH')}</td><td>${money(row.sales)}</td><td>${row.share.toFixed(1)}%</td><td>${money(row.cogs)}</td><td>${money(row.grossProfit)}</td></tr>`).join('') || '<tr><td colspan="7">No matching products.</td></tr>'}
+    <table class="report-table"><thead><tr><th>Product / Type</th><th>Qty</th><th>Sales</th><th>Share</th><th>COGS</th><th>Gross Profit</th></tr></thead><tbody>
+    ${rows.map((row) => `<tr><td><strong>${escapeHtml(row.name)}</strong><br><small>${escapeHtml(row.sku)} &bull; ${row.productType === 'bundle' ? 'Bundle' : 'Individual'}${row.pendingLines ? ` &bull; ${row.pendingLines} cost pending` : ''}</small></td><td>${row.qty.toLocaleString('en-PH')}</td><td>${money(row.sales)}</td><td>${row.share.toFixed(1)}%</td><td>${money(row.cogs)}</td><td>${money(row.grossProfit)}</td></tr>`).join('') || '<tr><td colspan="6">No matching products.</td></tr>'}
     </tbody></table>${index === pages.length - 1 ? '<div class="report-sign-block"><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Prepared By (Cashier / Staff)</span><span class="sign-sub">Signature over printed name</span></div><div class="sign-column"><div class="sign-line"></div><span class="sign-title">Audited & Verified By</span><span class="sign-sub">Branch Manager / Operations</span></div></div><div class="report-disclaimer"><p>ANGKOL\'S GRILL &amp; RESTOBAR SYSTEM-GENERATED AUDIT REPORT &bull; CONFIDENTIAL &bull; ALL RIGHTS RESERVED</p></div>' : ''}</div>${renderReportPageFooter(index + 1, pages.length, generated, 'Product Sales Performance')}</div>`).join('');
   return { ...report, renderedPagesHtml, periodText };
 }
@@ -2891,31 +2957,21 @@ function renderProductSalesPerformance() {
 
   table.innerHTML = `
     <div class="std-view theme-sky">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      ${renderPageHeader_({
+        titleHtml: `Product Sales Performance`,
+        descriptionHtml: `Compare individual products and bundles by sales, quantity, or gross profit.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 3v18h18M7 16v-3m5 3V9m5 7V5"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">OWNER REPORTING &bull; PRODUCT PERFORMANCE</span>
-            <strong class="std-hero-title">Product Sales Performance</strong>
-            <p class="std-hero-desc">Rank individual products and bundles by sales, quantity, or gross profit.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="productSalesPerformancePrintPdfHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn pdf-print-button" type="button" id="productSalesPerformancePrintPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
             <span>Print PDF</span>
           </button>
-          <button class="button button-primary std-record-btn" type="button" id="productSalesPerformanceExportPdfHeroBtn">
+          <button class="button button-primary std-record-btn pdf-export-button" type="button" id="productSalesPerformanceExportPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
             <span>Export PDF</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         ${kpis.map((k) => `
@@ -2939,13 +2995,12 @@ function renderProductSalesPerformance() {
 
       <div class="std-table-shell">
         <div class="std-table-header grid-cols-productperformance">
-          <span>Rank</span><span>Product / Type</span><span>Qty Sold</span><span>Sales</span><span>Sales Share</span><span>COGS</span><span>Gross Profit</span>
+          <span>Product / Type</span><span>Qty Sold</span><span>Sales</span><span>Sales Share</span><span>COGS</span><span>Gross Profit</span>
         </div>
         ${pagedRows.map((row) => {
           const thumbHtml = typeof renderProductThumbHtml_ === 'function' ? renderProductThumbHtml_(row.imageUrl || '', row.name) : '';
           return `
           <div class="std-table-row grid-cols-productperformance">
-            <div data-label="Rank">${row.rank}</div>
             <div class="product-cell" data-label="Product / Type">
               ${thumbHtml}
               <div class="product-details-stack" style="min-width:0;">
@@ -4085,6 +4140,7 @@ function renderSkeletonTable() {
 
   if (activeView === 'tableService') {
     table.innerHTML = `
+      ${renderPageHeaderSkeleton_()}
       <section class="table-service-shell table-service-skeleton">
         <div class="table-floor-column">
           <div class="table-floor-header">
@@ -4093,7 +4149,7 @@ function renderSkeletonTable() {
               <div class="skeleton-shimmer" style="width: 140px; height: 20px;"></div>
             </div>
             <div class="table-floor-legend">
-              <div class="skeleton-shimmer" style="width: 160px; height: 16px;"></div>
+              <div class="skeleton-shimmer" style="width: 260px; max-width: 100%; height: 26px; border-radius: 999px;"></div>
             </div>
           </div>
           <div class="restaurant-table-grid">
@@ -4194,17 +4250,7 @@ function renderSkeletonTable() {
   if (activeView === 'lossDamages') {
     table.innerHTML = `
       <div class="loss-damages-view">
-        <div class="loss-hero-card" style="pointer-events: none;">
-          <div class="loss-hero-leading">
-            <div class="skeleton-shimmer" style="width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;"></div>
-            <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
-              <div class="skeleton-shimmer" style="width: 140px; height: 11px;"></div>
-              <div class="skeleton-shimmer" style="width: 200px; height: 22px;"></div>
-              <div class="skeleton-shimmer" style="width: 60%; height: 13px;"></div>
-            </div>
-          </div>
-          <div class="skeleton-shimmer" style="width: 170px; height: 42px; border-radius: 10px;"></div>
-        </div>
+        ${renderPageHeaderSkeleton_()}
 
         <div class="loss-kpi-grid">
           ${Array.from({ length: 4 }).map(() => `
@@ -4219,9 +4265,19 @@ function renderSkeletonTable() {
           `).join('')}
         </div>
 
-        <div class="loss-toolbar-strip" style="pointer-events: none;">
-          <div class="skeleton-shimmer" style="width: 340px; height: 32px; border-radius: 999px;"></div>
-          <div class="skeleton-shimmer" style="width: 180px; height: 32px; border-radius: 8px;"></div>
+        <div class="loss-toolbar-strip" style="pointer-events: none; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <div class="skeleton-shimmer" style="width: 95px; height: 28px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 80px; height: 28px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 75px; height: 28px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 110px; height: 28px; border-radius: 999px;"></div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div class="skeleton-shimmer" style="width: 48px; height: 12px; border-radius: 4px;"></div>
+            <div class="skeleton-shimmer" style="width: 72px; height: 24px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 80px; height: 24px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 60px; height: 24px; border-radius: 6px;"></div>
+          </div>
         </div>
 
         <div class="std-table-shell" style="pointer-events: none;">
@@ -4258,6 +4314,14 @@ function renderSkeletonTable() {
             </div>
           `).join('')}
         </div>
+        <div class="pagination-bar" style="pointer-events: none; opacity: 0.6; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 4px 0;">
+          <div class="skeleton-shimmer" style="width: 140px; height: 14px; border-radius: 4px;"></div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <div class="skeleton-shimmer" style="width: 45px; height: 28px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 28px; height: 28px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 45px; height: 28px; border-radius: 6px;"></div>
+          </div>
+        </div>
       </div>
     `;
     return;
@@ -4266,17 +4330,7 @@ function renderSkeletonTable() {
   if (activeView === 'bankTransactions') {
     table.innerHTML = `
       <div class="bank-ledger-view">
-        <div class="bank-hero-card" style="pointer-events: none;">
-          <div class="bank-hero-leading">
-            <div class="skeleton-shimmer" style="width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;"></div>
-            <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
-              <div class="skeleton-shimmer" style="width: 150px; height: 11px;"></div>
-              <div class="skeleton-shimmer" style="width: 220px; height: 22px;"></div>
-              <div class="skeleton-shimmer" style="width: 60%; height: 13px;"></div>
-            </div>
-          </div>
-          <div class="skeleton-shimmer" style="width: 170px; height: 42px; border-radius: 10px;"></div>
-        </div>
+        ${renderPageHeaderSkeleton_()}
 
         <div class="bank-kpi-grid">
           ${Array.from({ length: 4 }).map(() => `
@@ -4292,8 +4346,13 @@ function renderSkeletonTable() {
         </div>
 
         <div class="bank-toolbar-strip" style="pointer-events: none;">
-          <div class="skeleton-shimmer" style="width: 320px; height: 32px; border-radius: 999px;"></div>
-          <div class="skeleton-shimmer" style="width: 180px; height: 32px; border-radius: 8px;"></div>
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <div class="skeleton-shimmer" style="width: 85px; height: 28px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 80px; height: 28px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 95px; height: 28px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 65px; height: 28px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 75px; height: 28px; border-radius: 999px;"></div>
+          </div>
         </div>
 
         <div class="bank-table-shell" style="pointer-events: none;">
@@ -4324,6 +4383,14 @@ function renderSkeletonTable() {
             </div>
           `).join('')}
         </div>
+        <div class="pagination-bar" style="pointer-events: none; opacity: 0.6; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 4px 0;">
+          <div class="skeleton-shimmer" style="width: 140px; height: 14px; border-radius: 4px;"></div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <div class="skeleton-shimmer" style="width: 45px; height: 28px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 28px; height: 28px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 45px; height: 28px; border-radius: 6px;"></div>
+          </div>
+        </div>
       </div>
     `;
     return;
@@ -4332,17 +4399,7 @@ function renderSkeletonTable() {
   if (activeView === 'dailyExpenses') {
     table.innerHTML = `
       <div class="expenses-ledger-view">
-        <div class="expenses-hero-card" style="pointer-events: none;">
-          <div class="expenses-hero-leading">
-            <div class="skeleton-shimmer" style="width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;"></div>
-            <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
-              <div class="skeleton-shimmer" style="width: 150px; height: 11px;"></div>
-              <div class="skeleton-shimmer" style="width: 220px; height: 22px;"></div>
-              <div class="skeleton-shimmer" style="width: 60%; height: 13px;"></div>
-            </div>
-          </div>
-          <div class="skeleton-shimmer" style="width: 170px; height: 42px; border-radius: 10px;"></div>
-        </div>
+        ${renderPageHeaderSkeleton_()}
 
         <div class="expenses-kpi-grid">
           ${Array.from({ length: 4 }).map(() => `
@@ -4357,9 +4414,19 @@ function renderSkeletonTable() {
           `).join('')}
         </div>
 
-        <div class="expenses-toolbar-strip" style="pointer-events: none;">
-          <div class="skeleton-shimmer" style="width: 320px; height: 32px; border-radius: 999px;"></div>
-          <div class="skeleton-shimmer" style="width: 180px; height: 32px; border-radius: 8px;"></div>
+        <div class="expenses-toolbar-strip" style="pointer-events: none; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <div class="skeleton-shimmer" style="width: 90px; height: 28px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 80px; height: 28px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 75px; height: 28px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 75px; height: 28px; border-radius: 999px;"></div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div class="skeleton-shimmer" style="width: 48px; height: 12px; border-radius: 4px;"></div>
+            <div class="skeleton-shimmer" style="width: 72px; height: 24px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 80px; height: 24px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 60px; height: 24px; border-radius: 6px;"></div>
+          </div>
         </div>
 
         <div class="expenses-table-shell" style="pointer-events: none;">
@@ -4386,6 +4453,346 @@ function renderSkeletonTable() {
                 <div class="skeleton-shimmer" style="width: 28px; height: 28px; border-radius: 6px;"></div>
                 <div class="skeleton-shimmer" style="width: 28px; height: 28px; border-radius: 6px;"></div>
               </div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="pagination-bar" style="pointer-events: none; opacity: 0.6; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 4px 0;">
+          <div class="skeleton-shimmer" style="width: 140px; height: 14px; border-radius: 4px;"></div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <div class="skeleton-shimmer" style="width: 45px; height: 28px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 28px; height: 28px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 45px; height: 28px; border-radius: 6px;"></div>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (activeView === 'quarantine') {
+    table.innerHTML = `
+      <div class="std-view theme-sky">
+        ${renderPageHeaderSkeleton_()}
+
+        <div class="std-kpi-grid">
+          ${Array.from({ length: 4 }).map(() => `
+            <div class="std-kpi-card" style="pointer-events: none;">
+              <div class="skeleton-shimmer" style="width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;"></div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                <div class="skeleton-shimmer" style="width: 80px; height: 10px;"></div>
+                <div class="skeleton-shimmer" style="width: 85px; height: 20px;"></div>
+                <div class="skeleton-shimmer" style="width: 110px; height: 10px;"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="std-toolbar-strip" style="pointer-events: none; display: flex; align-items: center; width: 100%;">
+          <div class="std-filter-chips" style="display: flex; align-items: center; gap: 8px;">
+            <div class="skeleton-shimmer" style="width: 95px; height: 30px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 140px; height: 30px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 135px; height: 30px; border-radius: 999px;"></div>
+          </div>
+        </div>
+
+        <div class="quarantine-cases-list" style="display: flex; flex-direction: column; gap: 14px; width: 100%; pointer-events: none;">
+          ${Array.from({ length: 3 }).map(() => `
+            <section class="quarantine-case-card">
+              <header class="quarantine-case-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div class="skeleton-shimmer" style="width: 130px; height: 22px; border-radius: 999px;"></div>
+                  <div class="skeleton-shimmer" style="width: 90px; height: 16px;"></div>
+                  <div class="skeleton-shimmer" style="width: 170px; height: 12px;"></div>
+                </div>
+                <div class="skeleton-shimmer" style="width: 70px; height: 22px; border-radius: 999px;"></div>
+              </header>
+              <div class="quarantine-case-details" style="display: flex; gap: 24px; padding: 10px 0;">
+                <div class="skeleton-shimmer" style="width: 190px; height: 13px;"></div>
+                <div class="skeleton-shimmer" style="width: 210px; height: 13px;"></div>
+              </div>
+              <div class="quarantine-items">
+                <div class="quarantine-item-row" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
+                  <div class="product-cell" style="display: flex; align-items: center; gap: 10px;">
+                    <div class="skeleton-shimmer" style="width: 36px; height: 36px; border-radius: 8px;"></div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <div class="skeleton-shimmer" style="width: 130px; height: 14px;"></div>
+                      <div class="skeleton-shimmer" style="width: 90px; height: 10px;"></div>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 6px;">
+                    <div class="skeleton-shimmer" style="width: 75px; height: 28px; border-radius: 6px;"></div>
+                    <div class="skeleton-shimmer" style="width: 110px; height: 28px; border-radius: 6px;"></div>
+                    <div class="skeleton-shimmer" style="width: 70px; height: 28px; border-radius: 6px;"></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          `).join('')}
+        </div>
+
+        <div class="pagination-bar" style="pointer-events: none; opacity: 0.6; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 4px 0;">
+          <div class="skeleton-shimmer" style="width: 140px; height: 14px; border-radius: 4px;"></div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <div class="skeleton-shimmer" style="width: 45px; height: 28px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 28px; height: 28px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 45px; height: 28px; border-radius: 6px;"></div>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (activeView === 'servicePerformance') {
+    table.innerHTML = `
+      <div class="std-view theme-sky">
+        ${renderPageHeaderSkeleton_()}
+
+        <div class="std-kpi-grid">
+          ${Array.from({ length: 4 }).map(() => `
+            <div class="std-kpi-card" style="pointer-events: none;">
+              <div class="skeleton-shimmer" style="width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;"></div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                <div class="skeleton-shimmer" style="width: 80px; height: 10px;"></div>
+                <div class="skeleton-shimmer" style="width: 85px; height: 20px;"></div>
+                <div class="skeleton-shimmer" style="width: 110px; height: 10px;"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="std-toolbar-strip" style="pointer-events: none; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div class="skeleton-shimmer" style="width: 280px; max-width: 60%; height: 13px; border-radius: 4px;"></div>
+          <div class="std-quick-dates" style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+            <div class="skeleton-shimmer" style="width: 52px; height: 12px; border-radius: 4px; margin-right: 2px;"></div>
+            <div class="skeleton-shimmer" style="width: 72px; height: 26px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 82px; height: 26px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 58px; height: 26px; border-radius: 6px;"></div>
+          </div>
+        </div>
+
+        <h3 style="margin: 16px 0 8px;"><div class="skeleton-shimmer" style="width: 120px; height: 18px; border-radius: 4px;"></div></h3>
+        <div class="std-table-shell" style="pointer-events: none;">
+          <div class="std-table-header" style="grid-template-columns: 1.6fr repeat(4, 1fr);">
+            <span><div class="skeleton-shimmer" style="width: 90px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 80px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 75px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 70px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 70px; height: 12px;"></div></span>
+          </div>
+          ${Array.from({ length: 3 }).map(() => `
+            <div class="std-table-row" style="grid-template-columns: 1.6fr repeat(4, 1fr);">
+              <div><div class="skeleton-shimmer" style="width: 120px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 45px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 45px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 50px; height: 22px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 60px; height: 14px;"></div></div>
+            </div>
+          `).join('')}
+        </div>
+
+        <h3 style="margin: 22px 0 8px;"><div class="skeleton-shimmer" style="width: 160px; height: 18px; border-radius: 4px;"></div></h3>
+        <div class="std-table-shell" style="pointer-events: none;">
+          <div class="std-table-header" style="grid-template-columns: 1.6fr repeat(6, 1fr);">
+            <span><div class="skeleton-shimmer" style="width: 90px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 60px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 70px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 80px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 70px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 70px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 70px; height: 12px;"></div></span>
+          </div>
+          ${Array.from({ length: 3 }).map(() => `
+            <div class="std-table-row" style="grid-template-columns: 1.6fr repeat(6, 1fr);">
+              <div><div class="skeleton-shimmer" style="width: 120px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 40px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 40px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 40px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 50px; height: 22px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 60px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 60px; height: 14px;"></div></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (activeView === 'tableQrPerformance') {
+    table.innerHTML = `
+      <div class="std-view theme-sky">
+        ${renderPageHeaderSkeleton_()}
+
+        <div class="std-kpi-grid">
+          ${Array.from({ length: 4 }).map(() => `
+            <div class="std-kpi-card" style="pointer-events: none;">
+              <div class="skeleton-shimmer" style="width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;"></div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                <div class="skeleton-shimmer" style="width: 80px; height: 10px;"></div>
+                <div class="skeleton-shimmer" style="width: 85px; height: 20px;"></div>
+                <div class="skeleton-shimmer" style="width: 110px; height: 10px;"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="std-toolbar-strip" style="pointer-events: none; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div class="skeleton-shimmer" style="width: 300px; max-width: 60%; height: 13px; border-radius: 4px;"></div>
+          <div class="std-quick-dates" style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+            <div class="skeleton-shimmer" style="width: 52px; height: 12px; border-radius: 4px; margin-right: 2px;"></div>
+            <div class="skeleton-shimmer" style="width: 72px; height: 26px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 82px; height: 26px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 58px; height: 26px; border-radius: 6px;"></div>
+          </div>
+        </div>
+
+        <h3 style="margin: 16px 0 8px;"><div class="skeleton-shimmer" style="width: 220px; height: 18px; border-radius: 4px;"></div></h3>
+        <div class="std-table-shell" style="pointer-events: none;">
+          <div class="std-table-header" style="grid-template-columns: repeat(8, minmax(0, 1fr));">
+            ${['70px', '75px', '75px', '80px', '85px', '95px', '80px', '75px'].map((w) => `<span><div class="skeleton-shimmer" style="width: ${w}; height: 12px;"></div></span>`).join('')}
+          </div>
+          ${Array.from({ length: 3 }).map(() => `
+            <div class="std-table-row" style="grid-template-columns: repeat(8, minmax(0, 1fr));">
+              <div><div class="skeleton-shimmer" style="width: 65px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 35px; height: 20px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 35px; height: 20px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 35px; height: 20px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 35px; height: 20px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 35px; height: 20px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 70px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 55px; height: 14px;"></div></div>
+            </div>
+          `).join('')}
+        </div>
+
+        <h3 style="margin: 22px 0 8px;"><div class="skeleton-shimmer" style="width: 170px; height: 18px; border-radius: 4px;"></div></h3>
+        <div class="std-table-shell" style="pointer-events: none;">
+          <div class="std-table-header" style="grid-template-columns: repeat(6, minmax(0, 1fr));">
+            ${['70px', '75px', '110px', '95px', '95px', '95px'].map((w) => `<span><div class="skeleton-shimmer" style="width: ${w}; height: 12px;"></div></span>`).join('')}
+          </div>
+          ${Array.from({ length: 2 }).map(() => `
+            <div class="std-table-row" style="grid-template-columns: repeat(6, minmax(0, 1fr));">
+              <div><div class="skeleton-shimmer" style="width: 65px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 35px; height: 20px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 35px; height: 20px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 35px; height: 20px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 50px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 55px; height: 14px;"></div></div>
+            </div>
+          `).join('')}
+        </div>
+
+        <h3 style="margin: 22px 0 8px;"><div class="skeleton-shimmer" style="width: 280px; height: 18px; border-radius: 4px;"></div></h3>
+        <div class="std-table-shell" style="pointer-events: none;">
+          <div class="std-table-header" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+            <span><div class="skeleton-shimmer" style="width: 90px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 60px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 95px; height: 12px;"></div></span>
+          </div>
+          ${Array.from({ length: 2 }).map(() => `
+            <div class="std-table-row" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+              <div><div class="skeleton-shimmer" style="width: 140px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 45px; height: 20px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 80px; height: 14px;"></div></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (activeView === 'cashBankReconciliation') {
+    table.innerHTML = `
+      <div class="std-view theme-sky">
+        ${renderPageHeaderSkeleton_()}
+
+        <div class="std-kpi-grid">
+          ${Array.from({ length: 4 }).map(() => `
+            <div class="std-kpi-card" style="pointer-events: none;">
+              <div class="skeleton-shimmer" style="width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;"></div>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                <div class="skeleton-shimmer" style="width: 80px; height: 10px;"></div>
+                <div class="skeleton-shimmer" style="width: 85px; height: 20px;"></div>
+                <div class="skeleton-shimmer" style="width: 110px; height: 10px;"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="std-toolbar-strip" style="pointer-events: none; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div class="skeleton-shimmer" style="width: 320px; max-width: 60%; height: 13px; border-radius: 4px;"></div>
+          <div class="std-quick-dates" style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+            <div class="skeleton-shimmer" style="width: 52px; height: 12px; border-radius: 4px; margin-right: 2px;"></div>
+            <div class="skeleton-shimmer" style="width: 72px; height: 26px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 82px; height: 26px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 58px; height: 26px; border-radius: 6px;"></div>
+          </div>
+        </div>
+
+        <div class="std-section-head" style="pointer-events: none;">
+          <div class="std-section-title-group">
+            <div class="skeleton-shimmer" style="width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;"></div>
+            <div class="std-section-text" style="gap: 5px;">
+              <div class="skeleton-shimmer" style="width: 220px; height: 15px; border-radius: 4px;"></div>
+              <div class="skeleton-shimmer" style="width: 280px; height: 11px; border-radius: 4px;"></div>
+            </div>
+          </div>
+          <div class="skeleton-shimmer" style="width: 60px; height: 22px; border-radius: 999px;"></div>
+        </div>
+        <div class="std-table-shell" style="pointer-events: none;">
+          <div class="std-table-header grid-cols-reconciliation">
+            <span><div class="skeleton-shimmer" style="width: 85px; height: 12px;"></div></span>
+            <span style="display: flex; justify-content: flex-end;"><div class="skeleton-shimmer" style="width: 85px; height: 12px;"></div></span>
+            <span style="display: flex; justify-content: flex-end;"><div class="skeleton-shimmer" style="width: 85px; height: 12px;"></div></span>
+            <span style="display: flex; justify-content: flex-end;"><div class="skeleton-shimmer" style="width: 75px; height: 12px;"></div></span>
+            <span style="display: flex; justify-content: center;"><div class="skeleton-shimmer" style="width: 60px; height: 12px;"></div></span>
+          </div>
+          ${Array.from({ length: 3 }).map(() => `
+            <div class="std-table-row grid-cols-reconciliation">
+              <div><div class="skeleton-shimmer" style="width: 80px; height: 14px;"></div></div>
+              <div style="display: flex; justify-content: flex-end;"><div class="skeleton-shimmer" style="width: 75px; height: 14px;"></div></div>
+              <div style="display: flex; justify-content: flex-end;"><div class="skeleton-shimmer" style="width: 75px; height: 14px;"></div></div>
+              <div style="display: flex; justify-content: flex-end;"><div class="skeleton-shimmer" style="width: 65px; height: 14px;"></div></div>
+              <div style="display: flex; justify-content: center;"><div class="skeleton-shimmer" style="width: 55px; height: 22px; border-radius: 999px;"></div></div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="pagination-bar" style="pointer-events: none; opacity: 0.6; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 4px 0;">
+          <div class="skeleton-shimmer" style="width: 140px; height: 14px; border-radius: 4px;"></div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <div class="skeleton-shimmer" style="width: 45px; height: 28px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 28px; height: 28px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 45px; height: 28px; border-radius: 6px;"></div>
+          </div>
+        </div>
+
+        <div class="std-section-head" style="margin-top: 24px; pointer-events: none;">
+          <div class="std-section-title-group">
+            <div class="skeleton-shimmer" style="width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;"></div>
+            <div class="std-section-text" style="gap: 5px;">
+              <div class="skeleton-shimmer" style="width: 190px; height: 15px; border-radius: 4px;"></div>
+              <div class="skeleton-shimmer" style="width: 290px; height: 11px; border-radius: 4px;"></div>
+            </div>
+          </div>
+          <div class="skeleton-shimmer" style="width: 90px; height: 22px; border-radius: 999px;"></div>
+        </div>
+        <div class="std-table-shell" style="pointer-events: none;">
+          <div class="std-table-header grid-cols-bankactivity">
+            <span><div class="skeleton-shimmer" style="width: 75px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 75px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 65px; height: 12px;"></div></span>
+            <span style="display: flex; justify-content: flex-end;"><div class="skeleton-shimmer" style="width: 65px; height: 12px;"></div></span>
+            <span><div class="skeleton-shimmer" style="width: 120px; height: 12px;"></div></span>
+          </div>
+          ${Array.from({ length: 2 }).map(() => `
+            <div class="std-table-row grid-cols-bankactivity">
+              <div><div class="skeleton-shimmer" style="width: 80px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 60px; height: 22px; border-radius: 999px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 60px; height: 14px;"></div></div>
+              <div style="display: flex; justify-content: flex-end;"><div class="skeleton-shimmer" style="width: 70px; height: 14px;"></div></div>
+              <div><div class="skeleton-shimmer" style="width: 130px; height: 14px;"></div></div>
             </div>
           `).join('')}
         </div>
@@ -4576,10 +4983,90 @@ function renderSkeletonTable() {
           <div style="display:flex;justify-content:center;align-items:center;"><div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:6px;"></div></div>
         `,
       },
+      profitLoss: {
+        gridClass: 'grid-cols-profitloss',
+        centerLastCol: false,
+        headerCols: ['100px', '85px', '75px', '80px', '95px', '100px'],
+        rowCols: `
+          <div><div class="skeleton-shimmer" style="width: 85px; height: 14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width: 90px; height: 14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width: 90px; height: 14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width: 70px; height: 14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width: 90px; height: 14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width: 95px; height: 14px; border-radius: 4px;"></div></div>
+        `,
+      },
+      foodCostMargin: {
+        gridClass: 'grid-cols-foodcost',
+        centerLastCol: false,
+        headerCols: ['130px', '75px', '80px', '80px', '90px', '75px', '65px'],
+        rowCols: `
+          <div class="product-cell"><div class="skeleton-shimmer" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;"></div><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:120px;height:14px;"></div><div class="skeleton-shimmer" style="width:70px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:55px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:75px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:75px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:80px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:50px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:50px;height:14px;"></div></div>
+        `,
+      },
+      productSalesPerformance: {
+        gridClass: 'grid-cols-productperformance',
+        centerLastCol: false,
+        headerCols: ['130px', '75px', '80px', '85px', '80px', '90px'],
+        rowCols: `
+          <div class="product-cell"><div class="skeleton-shimmer" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;"></div><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:130px;height:14px;"></div><div class="skeleton-shimmer" style="width:85px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:55px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:75px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:50px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:75px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:80px;height:14px;"></div></div>
+        `,
+      },
+      creditAging: {
+        gridClass: 'grid-cols-creditaging',
+        centerLastCol: false,
+        headerCols: ['120px', '80px', '80px', '80px', '80px', '95px'],
+        rowCols: `
+          <div class="product-cell"><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:120px;height:14px;"></div><div class="skeleton-shimmer" style="width:70px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:70px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:70px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:70px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:70px;height:14px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:85px;height:14px;"></div></div>
+        `,
+      },
+      lossesWastage: {
+        gridClass: 'grid-cols-losseswastage',
+        centerLastCol: false,
+        headerCols: ['130px', '95px', '75px', '85px', '85px'],
+        rowCols: `
+          <div class="product-cell"><div class="skeleton-shimmer" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;"></div><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:130px;height:14px;"></div><div class="skeleton-shimmer" style="width:80px;height:10px;"></div></div></div>
+          <div><div style="display:flex;flex-direction:column;gap:4px;"><div class="skeleton-shimmer" style="width:85px;height:13px;"></div><div class="skeleton-shimmer" style="width:65px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:65px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:80px;height:14px;"></div></div>
+          <div><div style="display:flex;flex-direction:column;gap:4px;"><div class="skeleton-shimmer" style="width:75px;height:13px;"></div><div class="skeleton-shimmer" style="width:55px;height:10px;"></div></div></div>
+        `,
+      },
+      inventoryValuation: {
+        gridClass: 'grid-cols-invvaluation',
+        centerLastCol: false,
+        headerCols: ['130px', '65px', '65px', '65px', '65px', '65px', '85px'],
+        rowCols: `
+          <div class="product-cell"><div class="skeleton-shimmer" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;"></div><div style="display:flex;flex-direction:column;gap:4px;flex:1;"><div class="skeleton-shimmer" style="width:120px;height:14px;"></div><div class="skeleton-shimmer" style="width:75px;height:10px;"></div></div></div>
+          <div><div class="skeleton-shimmer" style="width:55px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:55px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:55px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:55px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:55px;height:22px;border-radius:999px;"></div></div>
+          <div><div class="skeleton-shimmer" style="width:80px;height:14px;"></div></div>
+        `,
+      },
     };
 
     const config = viewGridConfigs[activeView] || {
       gridClass: '',
+      centerLastCol: false,
       headerCols: ['120px', '100px', '100px', '80px'],
       rowCols: `
         <div style="display:flex;flex-direction:column;gap:5px;"><div class="skeleton-shimmer" style="width:140px;height:14px;"></div><div class="skeleton-shimmer" style="width:75px;height:11px;"></div></div>
@@ -4589,19 +5076,51 @@ function renderSkeletonTable() {
       `,
     };
 
+    const isDatePresetView = ['profitLoss', 'foodCostMargin', 'productSalesPerformance', 'creditAging', 'lossesWastage', 'inventoryValuation'].includes(activeView);
+    const isChipAndPresetView = ['dailySpotCash', 'quarantineReport'].includes(activeView);
+
+    const toolbarStripHtml = isDatePresetView
+      ? `
+        <div class="std-toolbar-strip" style="pointer-events: none; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div class="skeleton-shimmer" style="width: 320px; max-width: 60%; height: 13px; border-radius: 4px;"></div>
+          <div class="std-quick-dates" style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+            <div class="skeleton-shimmer" style="width: 52px; height: 12px; border-radius: 4px; margin-right: 2px;"></div>
+            <div class="skeleton-shimmer" style="width: 72px; height: 26px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 82px; height: 26px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 58px; height: 26px; border-radius: 6px;"></div>
+          </div>
+        </div>
+      `
+      : isChipAndPresetView
+      ? `
+        <div class="std-toolbar-strip" style="pointer-events: none; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div class="std-filter-chips" style="display: flex; align-items: center; gap: 8px;">
+            <div class="skeleton-shimmer" style="width: 85px; height: 30px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 100px; height: 30px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 95px; height: 30px; border-radius: 999px;"></div>
+          </div>
+          <div class="std-quick-dates" style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+            <div class="skeleton-shimmer" style="width: 52px; height: 12px; border-radius: 4px; margin-right: 2px;"></div>
+            <div class="skeleton-shimmer" style="width: 72px; height: 26px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 82px; height: 26px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 58px; height: 26px; border-radius: 6px;"></div>
+          </div>
+        </div>
+      `
+      : `
+        <div class="std-toolbar-strip" style="pointer-events: none; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div class="std-filter-chips" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <div class="skeleton-shimmer" style="width: 95px; height: 30px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 85px; height: 30px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 85px; height: 30px; border-radius: 999px;"></div>
+            <div class="skeleton-shimmer" style="width: 90px; height: 30px; border-radius: 999px;"></div>
+          </div>
+        </div>
+      `;
+
     table.innerHTML = `
       <div class="std-view ${theme}">
-        <div class="std-hero-card" style="pointer-events: none;">
-          <div class="std-hero-leading">
-            <div class="skeleton-shimmer" style="width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;"></div>
-            <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
-              <div class="skeleton-shimmer" style="width: 140px; height: 11px;"></div>
-              <div class="skeleton-shimmer" style="width: 220px; height: 22px;"></div>
-              <div class="skeleton-shimmer" style="width: 65%; height: 13px;"></div>
-            </div>
-          </div>
-          <div class="skeleton-shimmer" style="width: 160px; height: 42px; border-radius: 10px;"></div>
-        </div>
+        ${renderPageHeaderSkeleton_()}
 
         <div class="std-kpi-grid">
           ${Array.from({ length: 4 }).map(() => `
@@ -4616,16 +5135,13 @@ function renderSkeletonTable() {
           `).join('')}
         </div>
 
-        <div class="std-toolbar-strip" style="pointer-events: none;">
-          <div class="skeleton-shimmer" style="width: 320px; height: 32px; border-radius: 999px;"></div>
-          <div class="skeleton-shimmer" style="width: 160px; height: 32px; border-radius: 8px;"></div>
-        </div>
+        ${toolbarStripHtml}
 
         <div class="std-table-shell" style="pointer-events: none;">
           <div class="std-table-header ${config.gridClass}">
             ${config.headerCols.map((w, idx) => `
-              <span${idx === config.headerCols.length - 1 ? ' style="text-align: center;"' : ''}>
-                <div class="skeleton-shimmer" style="width: ${w}; height: 12px;${idx === config.headerCols.length - 1 ? ' margin-inline: auto;' : ''}"></div>
+              <span${config.centerLastCol !== false && idx === config.headerCols.length - 1 ? ' style="text-align: center;"' : ''}>
+                <div class="skeleton-shimmer" style="width: ${w}; height: 12px;${config.centerLastCol !== false && idx === config.headerCols.length - 1 ? ' margin-inline: auto;' : ''}"></div>
               </span>
             `).join('')}
           </div>
@@ -4634,6 +5150,15 @@ function renderSkeletonTable() {
               ${config.rowCols}
             </div>
           `).join('')}
+        </div>
+
+        <div class="pagination-bar" style="pointer-events: none; opacity: 0.6; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 4px 0;">
+          <div class="skeleton-shimmer" style="width: 140px; height: 14px; border-radius: 4px;"></div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <div class="skeleton-shimmer" style="width: 45px; height: 28px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 28px; height: 28px; border-radius: 6px;"></div>
+            <div class="skeleton-shimmer" style="width: 45px; height: 28px; border-radius: 6px;"></div>
+          </div>
         </div>
       </div>
     `;
@@ -5937,31 +6462,21 @@ function renderInventoryReports() {
 
   table.innerHTML = `
     <div class="std-view theme-sky">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Active Branch Stock Report`,
+        descriptionHtml: `Complete product inventory audit tracking units sold, stock-in receipts, recorded losses, inter-branch transfers, and live on-hand branch inventory.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M9 12h6M9 16h6M9 20h4"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">INVENTORY AUDIT &bull; STOCK RECONCILIATION</span>
-            <strong class="std-hero-title">Active Branch Stock Report</strong>
-            <p class="std-hero-desc">Complete product inventory audit tracking units sold, stock-in receipts, recorded losses, inter-branch transfers, and live on-hand branch inventory.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="inventoryReportsPrintPdfHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn pdf-print-button" type="button" id="inventoryReportsPrintPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
             <span>Print PDF</span>
           </button>
-          <button class="button button-primary std-record-btn" type="button" id="inventoryReportsExportPdfHeroBtn">
+          <button class="button button-primary std-record-btn pdf-export-button" type="button" id="inventoryReportsExportPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
             <span>Export PDF</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -6202,31 +6717,21 @@ function renderProfitLoss() {
   table.innerHTML = `
     <div class="std-view theme-sky">
       ${costNotice ? `<div class="std-toolbar-strip"><span class="text-amber">${escapeHtml(costNotice)}</span></div>` : ''}
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      ${renderPageHeader_({
+        titleHtml: `Daily Profit &amp; Loss`,
+        descriptionHtml: `Revenue, refunds, recorded FIFO product cost, operating expenses, and estimated net profit for the selected period.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 3v18h18"/><path d="m7 15 3-3 3 2 4-5"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">OWNER REPORTING &bull; ESTIMATED PROFITABILITY</span>
-            <strong class="std-hero-title">Daily Profit &amp; Loss</strong>
-            <p class="std-hero-desc">Revenue, refunds, recorded FIFO product cost, operating expenses, and estimated net profit for the selected period.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="profitLossPrintPdfHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn pdf-print-button" type="button" id="profitLossPrintPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
             <span>Print PDF</span>
           </button>
-          <button class="button button-primary std-record-btn" type="button" id="profitLossExportPdfHeroBtn">
+          <button class="button button-primary std-record-btn pdf-export-button" type="button" id="profitLossExportPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
             <span>Export PDF</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -6349,31 +6854,21 @@ function renderFoodCostMargin() {
   table.innerHTML = `
     <div class="std-view theme-sky">
       ${report.costNotice ? `<div class="std-toolbar-strip"><span class="text-amber">${escapeHtml(report.costNotice)}</span></div>` : ''}
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      ${renderPageHeader_({
+        titleHtml: `Food Cost &amp; Margin`,
+        descriptionHtml: `Recorded FIFO cost and gross margin per sold product for ${escapeHtml(period)}.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-7"/><path d="M7 7h10"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">OWNER REPORTING &bull; MENU PROFITABILITY</span>
-            <strong class="std-hero-title">Food Cost &amp; Margin</strong>
-            <p class="std-hero-desc">Recorded FIFO cost and gross margin per sold product for ${escapeHtml(period)}.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="foodCostMarginPrintPdfHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn pdf-print-button" type="button" id="foodCostMarginPrintPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
             <span>Print PDF</span>
           </button>
-          <button class="button button-primary std-record-btn" type="button" id="foodCostMarginExportPdfHeroBtn">
+          <button class="button button-primary std-record-btn pdf-export-button" type="button" id="foodCostMarginExportPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
             <span>Export PDF</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -6541,31 +7036,21 @@ function renderInventoryValuation() {
   table.innerHTML = `
     <div class="std-view theme-sky">
       ${movementNotice ? `<div class="std-toolbar-strip"><span class="text-amber">${escapeHtml(movementNotice)}</span></div>` : ''}
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      ${renderPageHeader_({
+        titleHtml: `Inventory Valuation &amp; Movement`,
+        descriptionHtml: `Current on-hand FIFO cost value with stock movement for ${escapeHtml(period)}.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-7"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">OWNER REPORTING &bull; FIFO INVENTORY VALUE</span>
-            <strong class="std-hero-title">Inventory Valuation &amp; Movement</strong>
-            <p class="std-hero-desc">Current on-hand FIFO cost value with stock movement for ${escapeHtml(period)}.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="inventoryValuationPrintPdfHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn pdf-print-button" type="button" id="inventoryValuationPrintPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
             <span>Print PDF</span>
           </button>
-          <button class="button button-primary std-record-btn" type="button" id="inventoryValuationExportPdfHeroBtn">
+          <button class="button button-primary std-record-btn pdf-export-button" type="button" id="inventoryValuationExportPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
             <span>Export PDF</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -6644,7 +7129,7 @@ function renderInventoryValuation() {
               </div>
               <div data-label="On Hand"><span class="stock-pill stock-quantity">${row.onHand.toLocaleString('en-PH')}</span></div>
               <div data-label="Stock In"><span class="stock-pill stock-normal">+${Number(row.movement.stockIn || 0).toLocaleString('en-PH')}</span></div>
-              <div data-label="Sold"><span class="stock-pill stock-info">-${Number(row.movement.sold || 0).toLocaleString('en-PH')}</span></div>
+              <div data-label="Sold"><span class="stock-pill stock-sold">-${Number(row.movement.sold || 0).toLocaleString('en-PH')}</span></div>
               <div data-label="Loss"><span class="stock-pill stock-low">-${Number(row.movement.losses || 0).toLocaleString('en-PH')}</span></div>
               <div data-label="Transfers"><span class="stock-pill category-badge">${transfer > 0 ? '+' : ''}${transfer.toLocaleString('en-PH')}</span></div>
               <div data-label="FIFO Value" style="font-weight:800;color:#34d399;">${money(row.costValue)}</div>
@@ -6700,31 +7185,21 @@ function renderCashBankOverview_() {
 
   table.innerHTML = `
     <div class="std-view theme-sky">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      ${renderPageHeader_({
+        titleHtml: `Cash &amp; Bank Reconciliation`,
+        descriptionHtml: `Compare expected cash with daily counts and bank movement for ${escapeHtml(period)}.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h12M6 14h4"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">OWNER REPORTING &bull; CASH CONTROL</span>
-            <strong class="std-hero-title">Cash &amp; Bank Reconciliation</strong>
-            <p class="std-hero-desc">Compare expected cash with daily counts and bank movement for ${escapeHtml(period)}.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="cashBankPrintPdfHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn pdf-print-button" type="button" id="cashBankPrintPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
             <span>Print PDF</span>
           </button>
-          <button class="button button-primary std-record-btn" type="button" id="cashBankExportPdfHeroBtn">
+          <button class="button button-primary std-record-btn pdf-export-button" type="button" id="cashBankExportPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
             <span>Export PDF</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -6785,13 +7260,27 @@ function renderCashBankOverview_() {
         ${typeof renderDatePresets === 'function' ? renderDatePresets(activePreset, 'data-cash-bank-preset') : ''}
       </div>
 
-      <div class="report-section-title-wrap" style="margin-top:10px;">
-        <h3 class="report-section-title" style="margin:0;font-size:15px;color:#fff;">Daily Cash Drawer Reconciliation</h3>
-        <span class="report-count-badge">${filteredRows.length} day${filteredRows.length === 1 ? '' : 's'}</span>
+      <div class="std-section-head">
+        <div class="std-section-title-group">
+          <div class="std-section-icon icon-sky">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h12M6 14h4"/>
+            </svg>
+          </div>
+          <div class="std-section-text">
+            <h3 class="std-section-title">Daily Cash Drawer Reconciliation</h3>
+            <span class="std-section-sub">Closing drawer counts, expected sales cash, and variance records</span>
+          </div>
+        </div>
+        <span class="std-section-badge">${filteredRows.length} day${filteredRows.length === 1 ? '' : 's'}</span>
       </div>
       <div class="std-table-shell">
         <div class="std-table-header grid-cols-reconciliation">
-          <span>Business Date</span><span>Expected Cash</span><span>Counted Cash</span><span>Over / (Short)</span><span>Status</span>
+          <span>Business Date</span>
+          <span style="text-align: right;">Expected Cash</span>
+          <span style="text-align: right;">Counted Cash</span>
+          <span style="text-align: right;">Over / (Short)</span>
+          <span style="text-align: center;">Status</span>
         </div>
         ${pagedRows.map((row) => {
           const status = row.countedCash === null ? 'Open' : Math.abs(row.variance) >= 0.005 ? 'Variance' : (row.closed ? 'Reconciled' : 'Counted');
@@ -6800,10 +7289,10 @@ function renderCashBankOverview_() {
           return `
             <div class="std-table-row grid-cols-reconciliation">
               <div data-label="Business Date"><strong>${escapeHtml(row.date)}</strong></div>
-              <div data-label="Expected Cash">${money(row.expectedCash)}</div>
-              <div data-label="Counted Cash">${row.countedCash === null ? '—' : money(row.countedCash)}</div>
-              <div data-label="Over / (Short)" style="font-weight:800;color:${varColor};">${row.variance === null ? '—' : money(row.variance)}</div>
-              <div data-label="Status"><span class="stock-pill ${statusClass}">${status}</span></div>
+              <div data-label="Expected Cash" style="text-align: right; justify-content: flex-end; font-variant-numeric: tabular-nums;">${money(row.expectedCash)}</div>
+              <div data-label="Counted Cash" style="text-align: right; justify-content: flex-end; font-variant-numeric: tabular-nums;">${row.countedCash === null ? '—' : money(row.countedCash)}</div>
+              <div data-label="Over / (Short)" style="text-align: right; justify-content: flex-end; font-weight: 800; font-variant-numeric: tabular-nums; color:${varColor};">${row.variance === null ? '—' : money(row.variance)}</div>
+              <div data-label="Status" style="display: flex; justify-content: center; align-items: center;"><span class="stock-pill ${statusClass}">${status}</span></div>
             </div>
           `;
         }).join('') || `
@@ -6823,20 +7312,34 @@ function renderCashBankOverview_() {
       </div>
       ${paginationHtml}
 
-      <div class="report-section-title-wrap" style="margin-top:20px;">
-        <h3 class="report-section-title" style="margin:0;font-size:15px;color:#fff;">Bank Transactions Ledger</h3>
-        <span class="report-count-badge">${bankActivity.length} transaction${bankActivity.length === 1 ? '' : 's'}</span>
+      <div class="std-section-head" style="margin-top:24px;">
+        <div class="std-section-title-group">
+          <div class="std-section-icon icon-purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </div>
+          <div class="std-section-text">
+            <h3 class="std-section-title">Bank Transactions Ledger</h3>
+            <span class="std-section-sub">Bank deposits, withdrawals, fund transfers, and ledger references</span>
+          </div>
+        </div>
+        <span class="std-section-badge badge-purple">${bankActivity.length} transaction${bankActivity.length === 1 ? '' : 's'}</span>
       </div>
       <div class="std-table-shell">
         <div class="std-table-header grid-cols-bankactivity">
-          <span>Bank Date</span><span>Transaction</span><span>Method</span><span>Amount</span><span>Reference / Details</span>
+          <span>Bank Date</span>
+          <span>Transaction</span>
+          <span>Method</span>
+          <span style="text-align: right;">Amount</span>
+          <span>Reference / Details</span>
         </div>
         ${bankActivity.map((item) => `
           <div class="std-table-row grid-cols-bankactivity">
             <div data-label="Bank Date"><strong>${escapeHtml(item.businessDate || '')}</strong></div>
             <div data-label="Transaction"><span class="stock-pill ${item.type === 'Deposit' ? 'stock-normal' : 'stock-warning'}">${escapeHtml(item.type || '')}</span></div>
             <div data-label="Method">${escapeHtml(item.method || '')}</div>
-            <div data-label="Amount" style="font-weight:800;color:${item.type === 'Deposit' ? '#34d399' : '#fbbf24'};">${money(item.amount)}</div>
+            <div data-label="Amount" style="text-align: right; justify-content: flex-end; font-weight: 800; font-variant-numeric: tabular-nums; color:${item.type === 'Deposit' ? '#34d399' : '#fbbf24'};">${money(item.amount)}</div>
             <div data-label="Reference / Details">${escapeHtml(item.reference || item.chequeNumber || item.details || '—')}</div>
           </div>
         `).join('') || `
@@ -7028,30 +7531,20 @@ function renderStaffAccounts() {
 
   table.innerHTML = `
     <div class="std-view theme-blue">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Staff Accounts &amp; Branch Permissions`,
+        descriptionHtml: `Manage authorized cashiers, table service waiters, and kitchen crew. Configure granular menu permissions, audit logins, and control operational station access.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
               <circle cx="9" cy="7" r="4"/>
               <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
               <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">SECURITY &amp; ACCESS &bull; STAFF DIRECTORY</span>
-            <strong class="std-hero-title">Staff Accounts &amp; Branch Permissions</strong>
-            <p class="std-hero-desc">Manage authorized cashiers, table service waiters, and kitchen crew. Configure granular menu permissions, audit logins, and control operational station access.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-primary std-record-btn" type="button" id="addStaffHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-primary std-record-btn" type="button" id="addStaffHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
             <span>Add Staff Account</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -7266,28 +7759,18 @@ function renderAdminAccount() {
 
   table.innerHTML = `
     <div class="std-view theme-blue">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Administrator Directory &amp; System Operations`,
+        descriptionHtml: `Superuser accounts with unlimited cross-branch oversight, security auditing, and database snapshot backup/restore management.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/>
               <path d="m9 12 2 2 4-4"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">SYSTEM ADMINISTRATION &bull; PRIVILEGED ACCESS</span>
-            <strong class="std-hero-title">Administrator Directory &amp; System Operations</strong>
-            <p class="std-hero-desc">Superuser accounts with unlimited cross-branch oversight, security auditing, and database snapshot backup/restore management.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-primary std-record-btn" type="button" id="addAdminHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-primary std-record-btn" type="button" id="addAdminHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
             <span>Add Administrator</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -7641,8 +8124,577 @@ let dashboardStockWarningsCurrentPage = 1;
 let dashboardTransfersCurrentPage = 1;
 let dashboardLastActiveDate = null;
 
+// Header HTML is supplied only by the application's templates; dynamic text is escaped at the call site.
+function renderPageHeader_({ titleHtml, descriptionHtml, iconHtml = '', actionsHtml = '', className = '' }) {
+  const dateLabel = new Date().toLocaleDateString('en-PH', {
+    timeZone: 'Asia/Manila', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+  });
+  const icon = iconHtml || '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>';
+  return `<div class="dashboard-header-banner page-header ${escapeHtml(className)}">
+    <div class="dashboard-title-area">
+      <div class="dashboard-eyebrow-row">
+        <span class="dashboard-live-pill"><span class="pulse-dot"></span><span>LIVE OPERATIONS</span></span>
+        <span class="dashboard-date-chip">${escapeHtml(dateLabel)}</span>
+      </div>
+      <h2 class="dashboard-main-title"><span class="dashboard-title-icon" aria-hidden="true">${icon}</span><span>${titleHtml}</span></h2>
+      <p class="dashboard-main-sub">${descriptionHtml}</p>
+    </div>
+    ${actionsHtml ? `<div class="dashboard-quick-actions page-header-actions">${actionsHtml}</div>` : ''}
+  </div>`;
+}
+
+function renderPageHeaderSkeleton_() {
+  return `<div class="dashboard-header-banner page-header page-header-skeleton" aria-hidden="true">
+    <div class="dashboard-title-area">
+      <div class="dashboard-eyebrow-row"><div class="skeleton-shimmer page-header-skeleton-pill"></div><div class="skeleton-shimmer page-header-skeleton-date"></div></div>
+      <div class="dashboard-main-title"><div class="skeleton-shimmer dashboard-title-icon"></div><div class="skeleton-shimmer page-header-skeleton-title"></div></div>
+      <div class="skeleton-shimmer page-header-skeleton-desc"></div>
+    </div>
+    <div class="skeleton-shimmer page-header-skeleton-action"></div>
+  </div>`;
+}
+
 function renderDashboard() {
-  renderOwnerDashboard_();
+  const dashboard = $('#dashboard');
+  if (!dashboard) return;
+  const completedSales = salesHistory.filter((sale) => String(sale.status || 'completed').toLowerCase() !== 'cancelled');
+  const selectedDate = dashboardDate ? new Date(`${dashboardDate}T00:00:00`) : new Date();
+  const selectedDateKey = formatDateInput(selectedDate);
+
+  if (selectedDateKey !== dashboardLastActiveDate) {
+    dashboardSalesCurrentPage = 1;
+    dashboardStockWarningsCurrentPage = 1;
+    dashboardTransfersCurrentPage = 1;
+    dashboardLastActiveDate = selectedDateKey;
+  }
+
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() - (6 - index));
+    return {
+      key: formatDateInput(date),
+      label: date.toLocaleDateString('en-PH', { weekday: 'short' }),
+      dateFormatted: date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }),
+      total: 0,
+      transactions: 0
+    };
+  });
+  const dayMap = Object.fromEntries(days.map((day) => [day.key, day]));
+  completedSales.forEach((sale) => {
+    const day = dayMap[saleDateKey(sale.date)];
+    if (day) { day.total += Number(sale.total || 0); day.transactions += 1; }
+  });
+  const periodSalesRecords = completedSales.filter((sale) => dayMap[saleDateKey(sale.date)]);
+  const selectedSalesRecords = completedSales.filter((sale) => saleDateKey(sale.date) === selectedDateKey);
+  const selectedSales = selectedSalesRecords.reduce((total, sale) => total + Number(sale.total || 0), 0);
+  const selectedCashCollected = selectedSalesRecords.filter((sale) => sale.paymentType === 'cash').reduce((total, sale) => total + Number(sale.total || 0), 0);
+  const selectedDiscount = selectedSalesRecords.reduce((total, sale) => total + Number(sale.discount || 0), 0);
+  const selectedCreditSales = selectedSalesRecords.filter((sale) => sale.paymentType === 'credit').reduce((total, sale) => total + Number(sale.total || 0), 0);
+  const creditOutstanding = creditAccounts.reduce((total, account) => total + Number(account.balance || 0), 0);
+
+  const selectedExpenses = dailyExpenses
+    .filter((item) => item.businessDate === selectedDateKey)
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const selectedExpenseRecords = dailyExpenses.filter((item) => item.businessDate === selectedDateKey);
+  const selectedSpotCash = dailySpotCash
+    .filter((item) => item.businessDate === selectedDateKey)
+    .reduce((sum, item) => sum + Number(item.openingCash || 0), 0);
+  const selectedCashOnHand = selectedCashCollected + selectedSpotCash - selectedExpenses;
+  const selectedNetSales = Math.max(selectedSales - selectedExpenses, 0);
+  const selectedNetIncome = selectedNetSales * 0.20;
+
+  const sevenDayTotal = days.reduce((sum, d) => sum + d.total, 0);
+  const sevenDayAvg = Math.round(sevenDayTotal / 7);
+  const selectedAvgTicket = selectedSalesRecords.length > 0 ? Math.round(selectedSales / selectedSalesRecords.length) : 0;
+  const cashRatio = selectedSales > 0 ? Math.min(Math.round((selectedCashCollected / selectedSales) * 100), 100) : 0;
+
+  const maxDayTotal = Math.max(...days.map((day) => day.total), 1);
+  const productTotals = new Map();
+  periodSalesRecords.forEach((sale) => (sale.items || []).forEach((item) => {
+    const current = productTotals.get(item.productId) || { id: item.productId, name: item.name, unit: item.unit, qty: 0, total: 0 };
+    current.qty += Number(item.qty || 0);
+    current.total += Number(item.qty || 0) * Number(item.price || 0);
+    productTotals.set(item.productId, current);
+  }));
+
+  const topProducts = [...productTotals.values()]
+    .sort((a, b) => b.qty - a.qty || a.name.localeCompare(b.name))
+    .slice(0, 5);
+  const maxProductQty = topProducts.length > 0 ? Math.max(...topProducts.map((p) => p.qty), 1) : 1;
+
+  const lowStockItems = products
+    .filter((item) => item.status === 'Active' && Number(item.qty) <= Number(item.lowStockLevel || 0))
+    .sort((a, b) => Number(a.qty) - Number(b.qty) || a.name.localeCompare(b.name));
+  const outOfStockCount = lowStockItems.filter((item) => Number(item.qty) <= 0).length;
+  const lowStockCount = lowStockItems.filter((item) => Number(item.qty) > 0).length;
+  const totalStockWarnings = lowStockItems.length;
+  const stockWarningsTotalPages = Math.max(1, Math.ceil(totalStockWarnings / DASHBOARD_PAGE_SIZE));
+  dashboardStockWarningsCurrentPage = Math.max(1, Math.min(dashboardStockWarningsCurrentPage, stockWarningsTotalPages));
+  const stockWarningsStartIdx = (dashboardStockWarningsCurrentPage - 1) * DASHBOARD_PAGE_SIZE;
+  const pagedStockWarnings = lowStockItems.slice(stockWarningsStartIdx, stockWarningsStartIdx + DASHBOARD_PAGE_SIZE);
+  const stockWarningsPaginationHtml = totalStockWarnings > DASHBOARD_PAGE_SIZE
+    ? `<div class="dashboard-pagination-wrap" data-dashboard-pagination="stockWarnings">${renderPaginationControls_({ totalRecords: totalStockWarnings, totalPages: stockWarningsTotalPages, currentPage: dashboardStockWarningsCurrentPage, startIndex: stockWarningsStartIdx, pageSize: DASHBOARD_PAGE_SIZE }, 'stock warnings')}</div>`
+    : '';
+
+  const allPendingTransfers = transfers
+    .filter((item) => !['Received', 'Cancelled'].includes(item.status))
+    .sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0));
+  const totalTransfers = allPendingTransfers.length;
+  const transfersTotalPages = Math.max(1, Math.ceil(totalTransfers / DASHBOARD_PAGE_SIZE));
+  dashboardTransfersCurrentPage = Math.max(1, Math.min(dashboardTransfersCurrentPage, transfersTotalPages));
+  const transfersStartIdx = (dashboardTransfersCurrentPage - 1) * DASHBOARD_PAGE_SIZE;
+  const pagedPendingTransfers = allPendingTransfers.slice(transfersStartIdx, transfersStartIdx + DASHBOARD_PAGE_SIZE);
+  const transfersPaginationHtml = totalTransfers > DASHBOARD_PAGE_SIZE
+    ? `<div class="dashboard-pagination-wrap" data-dashboard-pagination="transfers">${renderPaginationControls_({ totalRecords: totalTransfers, totalPages: transfersTotalPages, currentPage: dashboardTransfersCurrentPage, startIndex: transfersStartIdx, pageSize: DASHBOARD_PAGE_SIZE }, 'pending transfers')}</div>`
+    : '';
+
+  const sortedSales = [...selectedSalesRecords]
+    .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  const totalSalesCount = sortedSales.length;
+  const salesTotalPages = Math.max(1, Math.ceil(totalSalesCount / DASHBOARD_PAGE_SIZE));
+  dashboardSalesCurrentPage = Math.max(1, Math.min(dashboardSalesCurrentPage, salesTotalPages));
+  const salesStartIdx = (dashboardSalesCurrentPage - 1) * DASHBOARD_PAGE_SIZE;
+  const pagedSales = sortedSales.slice(salesStartIdx, salesStartIdx + DASHBOARD_PAGE_SIZE);
+  const salesPaginationHtml = totalSalesCount > DASHBOARD_PAGE_SIZE
+    ? `<div class="dashboard-pagination-wrap" data-dashboard-pagination="sales">${renderPaginationControls_({ totalRecords: totalSalesCount, totalPages: salesTotalPages, currentPage: dashboardSalesCurrentPage, startIndex: salesStartIdx, pageSize: DASHBOARD_PAGE_SIZE }, 'completed sales')}</div>`
+    : '';
+
+  const branchName = branches.find((branch) => branch.id === activeBranchId)?.name || 'Selected Branch';
+  const permissions = currentSession?.account?.permissions || ['*'];
+  const canAccess = (view) => permissions.includes('*') || permissions.includes(view);
+
+  const selectedDateFormatted = selectedDate.toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+  const getCustomerInitials = (name) => {
+    const clean = displayCustomerName(name).replace(/[^a-zA-Z0-9\s]/g, '').trim();
+    if (!clean || clean.toLowerCase() === 'walk-in customer') return 'WC';
+    const parts = clean.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  dashboard.innerHTML = `
+    <div class="dashboard-header-banner">
+      <div class="dashboard-title-area">
+        <div class="dashboard-eyebrow-row">
+          <span class="dashboard-live-pill">
+            <span class="pulse-dot"></span>
+            <span>LIVE OPERATIONS</span>
+          </span>
+          <span class="dashboard-date-chip">${escapeHtml(selectedDateFormatted)}</span>
+        </div>
+        <h2 class="dashboard-main-title"><svg class="dashboard-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg><span>${escapeHtml(branchName)} Dashboard</span></h2>
+        <p class="dashboard-main-sub">Real-time revenue metrics, product velocity, and operational stock alerts.</p>
+      </div>
+      <div class="dashboard-quick-actions">
+        <div class="dashboard-date-filter" id="dashboardDateFilterWrap">
+          <span class="dashboard-date-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="3"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+            <span>Dashboard date</span>
+          </span>
+          <input id="dashboardDateInput" type="date" value="${selectedDateKey}" max="${formatDateInput(new Date())}" aria-label="Dashboard date" />
+        </div>
+        <button class="button button-secondary dashboard-action-btn dashboard-refresh-btn" type="button" data-dashboard-action="refresh" title="Refresh dashboard data" aria-label="Refresh dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="dashboard-summary-grid">
+      <article class="dashboard-kpi-card kpi-revenue" data-dashboard-view="sales" role="button" tabindex="0" title="Click to view sales history">
+        <div class="kpi-head">
+          <div class="kpi-icon-wrap icon-blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <span class="kpi-badge badge-blue">${selectedSalesRecords.length} order${selectedSalesRecords.length === 1 ? '' : 's'}</span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-label">Gross Sales</span>
+          <strong class="kpi-value text-glow-blue">${money(selectedSales)}</strong>
+        </div>
+        <div class="kpi-foot">
+          <span class="kpi-foot-sub">Discount: <b>${money(selectedDiscount)}</b></span>
+          <span class="kpi-foot-link">Ledger &rarr;</span>
+        </div>
+      </article>
+
+      <article class="dashboard-kpi-card kpi-cash" data-dashboard-view="sales" role="button" tabindex="0" title="Click to view sales records">
+        <div class="kpi-head">
+          <div class="kpi-icon-wrap icon-emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+          </div>
+          <span class="kpi-badge badge-emerald">${cashRatio}% cash share</span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-label">Cash Collected</span>
+          <strong class="kpi-value text-success">${money(selectedCashCollected)}</strong>
+        </div>
+        <div class="kpi-foot">
+          <span class="kpi-foot-sub">Credit: <b>${money(selectedCreditSales)}</b></span>
+          <span class="kpi-foot-link">Details &rarr;</span>
+        </div>
+      </article>
+
+      ${canAccess('credits') ? `
+        <article class="dashboard-kpi-card kpi-credit" data-dashboard-view="credits" role="button" tabindex="0" title="Click to manage credit accounts">
+          <div class="kpi-head">
+            <div class="kpi-icon-wrap icon-amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+            </div>
+            <span class="kpi-badge badge-amber">${creditAccounts.length} customer${creditAccounts.length === 1 ? '' : 's'}</span>
+          </div>
+          <div class="kpi-body">
+            <span class="kpi-label">Credit Receivables</span>
+            <strong class="kpi-value text-amber">${money(creditOutstanding)}</strong>
+          </div>
+          <div class="kpi-foot">
+            <span class="kpi-foot-sub">Outstanding balance due</span>
+            <span class="kpi-foot-link">Manage &rarr;</span>
+          </div>
+        </article>
+      ` : ''}
+
+      ${canAccess('inventory') ? `
+        <article class="dashboard-kpi-card kpi-stock" data-dashboard-view="inventory" role="button" tabindex="0" title="Click to audit branch inventory">
+          <div class="kpi-head">
+            <div class="kpi-icon-wrap icon-rose">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+            </div>
+            <span class="kpi-badge badge-rose">${outOfStockCount > 0 ? `${outOfStockCount} zero stock` : 'Low warnings'}</span>
+          </div>
+          <div class="kpi-body">
+            <span class="kpi-label">Stock Attention</span>
+            <strong class="kpi-value text-danger">${lowStockItems.length} <small style="font-size:13px;font-weight:600;color:var(--text-muted);">items</small></strong>
+          </div>
+          <div class="kpi-foot">
+            <span class="kpi-foot-sub">${outOfStockCount} out of stock &bull; ${lowStockCount} low</span>
+            <span class="kpi-foot-link">Audit &rarr;</span>
+          </div>
+        </article>
+      ` : ''}
+
+      <article class="dashboard-kpi-card kpi-cashonhand" data-dashboard-view="dailySpotCash" role="button" tabindex="0" title="Click to view spot cash operations">
+        <div class="kpi-head">
+          <div class="kpi-icon-wrap icon-cyan">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h20v14H2z"/><path d="M16 14a4 4 0 0 1-8 0"/><path d="M6 7V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v3"/></svg>
+          </div>
+          <span class="kpi-badge badge-cyan">Liquid Cash</span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-label">Cash Collected + Spot Cash - Expenses</span>
+          <strong class="kpi-value text-cyan">${money(selectedCashOnHand)}</strong>
+        </div>
+        <div class="kpi-foot">
+          <span class="kpi-foot-sub">Cash collected + opening float - expenses</span>
+          <span class="kpi-foot-link">Float &rarr;</span>
+        </div>
+      </article>
+
+      <article class="dashboard-kpi-card kpi-expense" data-dashboard-view="dailyExpenses" role="button" tabindex="0" title="Click to view daily expenses">
+        <div class="kpi-head">
+          <div class="kpi-icon-wrap icon-rose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v12"/></svg>
+          </div>
+          <span class="kpi-badge badge-rose">${selectedExpenseRecords.length} record${selectedExpenseRecords.length === 1 ? '' : 's'}</span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-label">Selected Date Expenses</span>
+          <strong class="kpi-value text-danger">${money(selectedExpenses)}</strong>
+        </div>
+        <div class="kpi-foot">
+          <span class="kpi-foot-sub">Operational spend</span>
+          <span class="kpi-foot-link">Manage &rarr;</span>
+        </div>
+      </article>
+
+      <article class="dashboard-kpi-card kpi-netsales" data-dashboard-view="dailySpotCash" role="button" tabindex="0" title="Click to view spot cash operations">
+        <div class="kpi-head">
+          <div class="kpi-icon-wrap icon-purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          </div>
+          <span class="kpi-badge badge-purple">Opening Float</span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-label">Selected Date Spot Cash</span>
+          <strong class="kpi-value text-purple">${money(selectedSpotCash)}</strong>
+        </div>
+        <div class="kpi-foot">
+          <span class="kpi-foot-sub">Opening cash before operations</span>
+          <span class="kpi-foot-link">Float &rarr;</span>
+        </div>
+      </article>
+
+      <article class="dashboard-kpi-card kpi-income" data-dashboard-view="inventoryReports" role="button" tabindex="0" title="Click to view financial & sales reports">
+        <div class="kpi-head">
+          <div class="kpi-icon-wrap icon-teal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 6v12"/></svg>
+          </div>
+          <span class="kpi-badge badge-teal">20% Margin</span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-label">Selected Date Income</span>
+          <strong class="kpi-value text-teal">${money(selectedNetIncome)}</strong>
+        </div>
+        <div class="kpi-foot">
+          <span class="kpi-foot-sub">Net sales &times; 20%</span>
+          <span class="kpi-foot-link">Report &rarr;</span>
+        </div>
+      </article>
+    </div>
+
+    <div class="dashboard-main-grid">
+      <section class="dashboard-panel dashboard-sales-panel">
+        <div class="dashboard-panel-head">
+          <div class="panel-head-titles">
+            <span class="panel-eyebrow">REVENUE VELOCITY</span>
+            <h3>Daily Sales Trend</h3>
+          </div>
+          <div class="sales-chart-legend">
+            <span class="chart-summary-chip">7-Day Total: <strong>${money(sevenDayTotal)}</strong></span>
+            <span class="chart-avg-pill">Avg: ${money(sevenDayAvg)}/day</span>
+          </div>
+        </div>
+        <div class="sales-chart-wrapper">
+          <div class="sales-chart" role="img" aria-label="Daily sales trend for the past seven days">
+            ${days.map((day) => {
+              const isToday = day.key === selectedDateKey;
+              const isPeak = day.total === maxDayTotal && day.total > 0;
+              const hasSales = day.total > 0;
+              const barHeightPct = hasSales ? Math.max(Math.round((day.total / maxDayTotal) * 92), 6) : 3;
+              return `
+                <div class="sales-chart-col${isToday ? ' is-today' : ''}${isPeak ? ' is-peak' : ''}${!hasSales ? ' is-empty' : ''}">
+                  <div class="sales-chart-tooltip" role="tooltip">
+                    <span class="tooltip-date">${escapeHtml(day.label)}, ${escapeHtml(day.dateFormatted)}</span>
+                    <strong class="tooltip-amount">${money(day.total)}</strong>
+                    <span class="tooltip-tx">${day.transactions} transaction${day.transactions === 1 ? '' : 's'}</span>
+                  </div>
+                  <div class="sales-chart-track">
+                    <div class="sales-chart-bar${!hasSales ? ' bar-empty' : ''}" style="${hasSales ? `height:${barHeightPct}%` : ''}" aria-valuenow="${day.total}" aria-label="${escapeHtml(day.label)}: ${money(day.total)}">
+                      ${isPeak ? '<span class="peak-badge">PEAK</span>' : ''}
+                    </div>
+                  </div>
+                  <div class="sales-chart-col-foot">
+                    <span class="sales-chart-label">${escapeHtml(day.label)}</span>
+                    ${isToday ? '<span class="today-marker-dot" title="Selected date"></span>' : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard-panel">
+        <div class="dashboard-panel-head">
+          <div class="panel-head-titles">
+            <span class="panel-eyebrow">PRODUCT MOVEMENT</span>
+            <h3>Top Moving Products</h3>
+          </div>
+          <span class="dashboard-period-badge">Past 7 Days</span>
+        </div>
+        <div class="dashboard-top-list">
+          ${topProducts.length ? topProducts.map((product, index) => {
+            const rankClass = index === 0 ? 'rank-gold' : index === 1 ? 'rank-silver' : index === 2 ? 'rank-bronze' : 'rank-standard';
+            const progressPct = Math.max(Math.round((product.qty / maxProductQty) * 100), 10);
+            return `
+              <div class="dashboard-prod-row">
+                <div class="dashboard-rank ${rankClass}">${index + 1}</div>
+                <div class="dashboard-prod-info">
+                  <div class="dashboard-prod-top-line">
+                    <strong class="dashboard-prod-name" title="${escapeHtml(product.name)}">${escapeHtml(product.name)}</strong>
+                    <span class="dashboard-prod-qty">${product.qty} <small>${escapeHtml(product.unit || 'unit')}</small></span>
+                  </div>
+                  <div class="dashboard-progress-track">
+                    <div class="dashboard-progress-bar ${rankClass}" style="width:${progressPct}%"></div>
+                  </div>
+                  <div class="dashboard-prod-sub-line">
+                    <span class="dashboard-prod-sales-val">${money(product.total)} sales contribution</span>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('') : `
+            <div class="dashboard-empty-panel">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" x2="12" y1="22" y2="12"/></svg>
+              <p>No completed sales recorded in this branch yet.</p>
+              <small>Sales transactions will automatically populate product volume rankings.</small>
+            </div>
+          `}
+        </div>
+      </section>
+    </div>
+
+    <div class="dashboard-bottom-grid">
+      ${canAccess('inventory') ? `
+        <section class="dashboard-panel">
+          <div class="dashboard-panel-head">
+            <div class="panel-head-titles">
+              <span class="panel-eyebrow">CRITICAL INVENTORY</span>
+              <h3>Stock Warnings</h3>
+            </div>
+            <button class="dashboard-text-link" type="button" data-dashboard-view="inventory">Open inventory &rarr;</button>
+          </div>
+          <div class="dashboard-feed-list">
+            ${pagedStockWarnings.length ? pagedStockWarnings.map((product) => `
+              <div class="dashboard-feed-item">
+                <div class="dashboard-feed-item-icon warning-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                </div>
+                <div class="dashboard-feed-details">
+                  <strong class="dashboard-feed-title" title="${escapeHtml(product.name)}">${escapeHtml(product.name)}</strong>
+                  <span class="dashboard-feed-sub">${product.qty} ${escapeHtml(product.unit || 'unit')} in stock</span>
+                </div>
+                <span class="stock-pill ${product.qty <= 0 ? 'stock-low' : 'stock-quantity'}" style="${product.qty <= 0 ? 'background:rgba(227,41,52,0.18);color:#ff4d5a;border-color:rgba(227,41,52,0.4);' : 'background:rgba(245,158,11,0.18);color:#fbbf24;border-color:rgba(245,158,11,0.4);'}">
+                  ${product.qty <= 0 ? 'Out of stock' : 'Low stock'}
+                </span>
+              </div>
+            `).join('') : `
+              <div class="dashboard-empty-feed">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                <p>All items are safely above minimum stock levels.</p>
+              </div>
+            `}
+          </div>
+          ${stockWarningsPaginationHtml}
+        </section>
+      ` : ''}
+
+      ${canAccess('transfers') ? `
+        <section class="dashboard-panel">
+          <div class="dashboard-panel-head">
+            <div class="panel-head-titles">
+              <span class="panel-eyebrow">BRANCH LOGISTICS</span>
+              <h3>Pending Transfers</h3>
+            </div>
+            <button class="dashboard-text-link" type="button" data-dashboard-view="transfers">View transfers &rarr;</button>
+          </div>
+          <div class="dashboard-feed-list">
+            ${pagedPendingTransfers.length ? pagedPendingTransfers.map((transfer) => `
+              <div class="dashboard-feed-item">
+                <div class="dashboard-feed-item-icon transfer-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+                </div>
+                <div class="dashboard-feed-details">
+                  <strong class="dashboard-feed-title" title="${escapeHtml(transfer.productName || 'Transfer')}">${escapeHtml(transfer.productName || 'Transfer')}</strong>
+                  <span class="dashboard-feed-sub">${escapeHtml(transfer.sourceBranchName)} &rarr; ${escapeHtml(transfer.destinationBranchName)} &bull; ${transfer.qty} ${escapeHtml(transfer.unit || 'unit')}</span>
+                </div>
+                <span class="stock-pill stock-quantity" style="${transfer.status === 'In Transit' ? 'background:rgba(0,102,245,0.18);color:#38bdf8;border-color:rgba(0,102,245,0.4);' : ''}">
+                  ${escapeHtml(transfer.status)}
+                </span>
+              </div>
+            `).join('') : `
+              <div class="dashboard-empty-feed">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                <p>No active stock transfers currently pending.</p>
+              </div>
+            `}
+          </div>
+          ${transfersPaginationHtml}
+        </section>
+      ` : ''}
+
+      <section class="dashboard-panel">
+        <div class="dashboard-panel-head">
+          <div class="panel-head-titles">
+            <span class="panel-eyebrow">LIVE ACTIVITY</span>
+            <h3>Completed Sales for Selected Date</h3>
+          </div>
+          <button class="dashboard-text-link" type="button" data-dashboard-view="sales">View all &rarr;</button>
+        </div>
+        <div class="dashboard-feed-list">
+          ${pagedSales.length ? pagedSales.map((sale) => {
+            const isCash = sale.paymentType === 'cash';
+            const initials = getCustomerInitials(sale.customerName);
+            const timeStr = sale.date ? new Date(sale.date).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
+            return `
+              <div class="dashboard-feed-item">
+                <div class="dashboard-avatar-badge">${escapeHtml(initials)}</div>
+                <div class="dashboard-feed-details">
+                  <div class="dashboard-feed-customer-line">
+                    <strong class="dashboard-feed-title" title="${escapeHtml(displayCustomerName(sale.customerName))}">${escapeHtml(displayCustomerName(sale.customerName))}</strong>
+                    <span class="dashboard-payment-pill ${isCash ? 'is-cash' : 'is-credit'}">${isCash ? 'Cash' : 'Credit'}</span>
+                  </div>
+                  <span class="dashboard-feed-sub">${escapeHtml(sale.saleId)} &bull; ${escapeHtml(timeStr)}</span>
+                </div>
+                <strong class="dashboard-sale-amount">${money(sale.total)}</strong>
+              </div>
+            `;
+          }).join('') : `
+            <div class="dashboard-empty-feed">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              <p>No completed sales recorded for the selected date.</p>
+            </div>
+          `}
+        </div>
+        ${salesPaginationHtml}
+      </section>
+    </div>
+  `;
+
+  initCustomDatePickers(dashboard);
+  const dashboardDateInput = $('#dashboardDateInput');
+  if (dashboardDateInput) {
+    dashboardDateInput.addEventListener('change', () => {
+      dashboardDate = dashboardDateInput.value || formatDateInput(new Date());
+      dashboardSalesCurrentPage = 1;
+      dashboardStockWarningsCurrentPage = 1;
+      dashboardTransfersCurrentPage = 1;
+      renderDashboard();
+    });
+  }
+
+  dashboard.querySelectorAll('[data-dashboard-pagination]').forEach((container) => {
+    const feed = container.dataset.dashboardPagination;
+    container.querySelectorAll('.table-pagination [data-page]').forEach((button) => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetPage = Number(button.dataset.page);
+        if (!Number.isFinite(targetPage) || targetPage < 1) return;
+        if (feed === 'sales') dashboardSalesCurrentPage = targetPage;
+        else if (feed === 'stockWarnings') dashboardStockWarningsCurrentPage = targetPage;
+        else if (feed === 'transfers') dashboardTransfersCurrentPage = targetPage;
+        renderDashboard();
+        const panel = container.closest('.dashboard-panel');
+        if (panel) {
+          panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      });
+    });
+  });
+
+  // Interactive bindings
+  dashboard.querySelectorAll('[data-dashboard-view]').forEach((elem) => {
+    elem.addEventListener('click', () => setView(elem.dataset.dashboardView));
+    if (elem.classList.contains('dashboard-kpi-card')) {
+      elem.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          setView(elem.dataset.dashboardView);
+        }
+      });
+    }
+  });
+
+  dashboard.querySelectorAll('[data-dashboard-action="stockIn"]').forEach((btn) => {
+    btn.addEventListener('click', () => openForm('stock'));
+  });
+
+  dashboard.querySelectorAll('[data-dashboard-action="refresh"]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.classList.add('is-spinning');
+      showToast('Refreshing dashboard data...', 'info');
+      try {
+        await refresh();
+        showToast('Dashboard updated with latest data.', 'success');
+      } catch (err) {
+        showToast(err.message || 'Failed to refresh.', 'error');
+      } finally {
+        btn.classList.remove('is-spinning');
+        btn.disabled = false;
+      }
+    });
+  });
 }
 
 function renderDashboardSkeleton() {
@@ -7860,33 +8912,17 @@ function renderTableService() {
   const hasKitchenRoutedItems = selectedItems.some((item) => productMap.get(item.productId)?.kitchenEnabled === true);
   const availableProducts = products.filter((product) => product.category !== RAW_MATERIAL_CATEGORY && product.status === 'Active' && Number(product.qty || 0) > 0);
   const canRegisterTables = currentSession?.account?.role === 'admin';
-  const tableServiceHeroHtml = `
-    <div class="std-hero-card table-hero-card" style="margin-bottom: 18px;">
-      <div class="std-hero-glow"></div>
-      <div class="std-hero-leading">
-        <div class="std-hero-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 10h16"/>
-            <path d="M6 10v9M18 10v9M3 19h18"/>
-            <path d="M8 6a4 4 0 0 1 8 0v4H8Z"/>
-          </svg>
-        </div>
-        <div class="std-hero-text">
-          <span class="std-hero-kicker">SERVICE FLOOR &bull; DINING TABLES</span>
-          <strong class="std-hero-title">Table Service &amp; Dine-In Tabs</strong>
-          <p class="std-hero-desc">Monitor floor layout, table occupancy, guest seating, open tabs, and kitchen order status in real time.</p>
-        </div>
-      </div>
-      <div class="std-hero-actions">
-        ${canRegisterTables ? `
-          <button class="button button-primary std-record-btn" type="button" data-register-table id="tableServiceRegisterHeroBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
-            <span>Register Table</span>
-          </button>
-        ` : ''}
-      </div>
-    </div>
-  `;
+  const tableServiceHeroHtml = renderPageHeader_({
+    titleHtml: 'Table Service &amp; Dine-In Tabs',
+    descriptionHtml: 'Monitor floor layout, table occupancy, guest seating, open tabs, and kitchen order status in real time.',
+    iconHtml: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16"/><path d="M6 10v9M18 10v9M3 19h18"/><path d="M8 6a4 4 0 0 1 8 0v4H8Z"/></svg>',
+    className: 'table-hero-card',
+    actionsHtml: canRegisterTables ? `
+      <button class="button button-primary std-record-btn" type="button" data-register-table id="tableServiceRegisterHeroBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
+        <span>Register Table</span>
+      </button>` : ''
+  });
 
   if (!visibleTables.length) {
     table.innerHTML = `
@@ -7925,9 +8961,9 @@ function renderTableService() {
             <h3 class="table-floor-count">${visibleTables.length} ${visibleTables.length === 1 ? 'Table' : 'Tables'} on Floor</h3>
           </div>
           <div class="table-floor-legend">
-            <span class="legend-item"><span class="legend-dot status-vacant"></span>Vacant</span>
-            <span class="legend-item"><span class="legend-dot status-occupied"></span>Occupied</span>
-            <span class="legend-item"><span class="legend-dot status-reserved"></span>Reserved</span>
+            <span class="legend-item status-vacant"><span class="legend-dot status-vacant" aria-hidden="true"></span>Vacant</span>
+            <span class="legend-item status-occupied"><span class="legend-dot status-occupied" aria-hidden="true"></span>Occupied</span>
+            <span class="legend-item status-reserved"><span class="legend-dot status-reserved" aria-hidden="true"></span>Reserved</span>
           </div>
         </div>
         <div class="restaurant-table-grid">
@@ -7959,7 +8995,6 @@ function renderTableService() {
               <div class="table-tab-title-wrap">
                 <span class="table-tab-kicker">ACTIVE ORDER TAB</span>
                 <div class="table-tab-heading-row">
-                  <h3 class="table-tab-title">${escapeHtml(selectedTable.name)}</h3>
                   <span class="restaurant-table-status status-${selectedTable.status.toLowerCase()}">${escapeHtml(selectedTable.status)}</span>
                   <span class="table-tab-meta">${escapeHtml(selectedTable.area || 'Dining area')} &bull; ${selectedTable.capacity} seats</span>
                 </div>
@@ -7975,6 +9010,7 @@ function renderTableService() {
                 </div>
               ` : ''}
             </div>
+            <h3 class="table-tab-title">${escapeHtml(selectedTable.name)}</h3>
             <div class="table-tab-actions">
               ${selectedOrder ? `
                 <button class="button button-primary table-action-btn table-pay-hero-btn" type="button" data-table-payment="${escapeHtml(selectedOrder.id)}">
@@ -8419,19 +9455,8 @@ function dateTimeLocalValue_(value) {
 
 function renderWaiterQueueSkeletonHtml_() {
   return `
+    ${renderPageHeaderSkeleton_()}
     <section class="waiter-queue-shell waiter-queue-skeleton">
-      <div class="waiter-queue-header-card">
-        <div class="waiter-queue-header-left" style="width: 45%;">
-          <div class="skeleton-shimmer" style="width: 130px; height: 11px; margin-bottom: 6px;"></div>
-          <div class="skeleton-shimmer" style="width: 220px; height: 22px; margin-bottom: 6px;"></div>
-          <div class="skeleton-shimmer" style="width: 320px; height: 12px;"></div>
-        </div>
-        <div class="waiter-queue-stats">
-          <div class="skeleton-shimmer" style="width: 100px; height: 54px; border-radius: 10px;"></div>
-          <div class="skeleton-shimmer" style="width: 100px; height: 54px; border-radius: 10px;"></div>
-          <div class="skeleton-shimmer" style="width: 100px; height: 54px; border-radius: 10px;"></div>
-        </div>
-      </div>
       <div class="waiter-queue-controls">
         <div class="skeleton-shimmer" style="width: 280px; height: 36px; border-radius: 9px;"></div>
         <div class="skeleton-shimmer" style="width: 90px; height: 34px; border-radius: 8px;"></div>
@@ -8561,29 +9586,16 @@ async function renderWaiterQueue_() {
     });
 
     root.innerHTML = `
-      <section class="waiter-queue-shell">
-        <div class="std-hero-card waiter-hero-card">
-          <div class="std-hero-glow"></div>
-          <div class="std-hero-leading">
-            <div class="std-hero-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Customer QR Orders &amp; Waiter Queue`,
+        descriptionHtml: `Orders placed by guests via table QR codes. Claim an order to review items and dispatch directly to the kitchen.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                 <path d="M2 8c0-2.2.9-4.2 2.3-5.7"/>
                 <path d="M22 8c0-2.2-.9-4.2-2.3-5.7"/>
-              </svg>
-            </div>
-            <div class="std-hero-text">
-              <span class="std-hero-kicker" style="display:inline-flex;align-items:center;gap:6px;">
-                <span class="live-dot" style="display:inline-block;"></span>
-                SERVICE FLOOR &bull; CUSTOMER REQUESTS
-              </span>
-              <strong class="std-hero-title">Customer QR Orders &amp; Waiter Queue</strong>
-              <p class="std-hero-desc">Orders placed by guests via table QR codes. Claim an order to review items and dispatch directly to the kitchen.</p>
-            </div>
-          </div>
-          <div class="std-hero-actions">
-            <div class="waiter-queue-stats">
+              </svg>`,
+        actionsHtml: `<div class="waiter-queue-stats">
               <div class="waiter-stat-pill is-pending">
                 <span class="waiter-stat-val">${pendingRequests.length}</span>
                 <span class="waiter-stat-lbl">Awaiting Claim</span>
@@ -8596,9 +9608,10 @@ async function renderWaiterQueue_() {
                 <span class="waiter-stat-val">${totalCount}</span>
                 <span class="waiter-stat-lbl">Total in Queue</span>
               </div>
-            </div>
-          </div>
-        </div>
+            </div>`,
+        className: 'waiter-hero-card'
+      })}
+      <section class="waiter-queue-shell">
 
         <div class="waiter-queue-controls">
           <div class="waiter-filter-tabs" role="tablist">
@@ -8906,23 +9919,8 @@ let kitchenDisplayFilter_ = 'all';
 
 function renderKitchenDisplaySkeletonHtml_() {
   return `
+    ${renderPageHeaderSkeleton_()}
     <section class="kitchen-display-shell kitchen-display-skeleton">
-      <div class="kitchen-header-card">
-        <div class="kitchen-header-left" style="width: 45%;">
-          <div class="skeleton-shimmer" style="width: 140px; height: 11px; margin-bottom: 6px;"></div>
-          <div class="skeleton-shimmer" style="width: 240px; height: 22px; margin-bottom: 6px;"></div>
-          <div class="skeleton-shimmer" style="width: 340px; height: 12px;"></div>
-        </div>
-        <div class="kitchen-header-right">
-          <div class="kitchen-stats-row">
-            <div class="skeleton-shimmer" style="width: 90px; height: 54px; border-radius: 10px;"></div>
-            <div class="skeleton-shimmer" style="width: 90px; height: 54px; border-radius: 10px;"></div>
-            <div class="skeleton-shimmer" style="width: 90px; height: 54px; border-radius: 10px;"></div>
-            <div class="skeleton-shimmer" style="width: 90px; height: 54px; border-radius: 10px;"></div>
-          </div>
-          <div class="skeleton-shimmer" style="width: 130px; height: 38px; border-radius: 9px;"></div>
-        </div>
-      </div>
       <div class="kitchen-controls-bar">
         <div class="skeleton-shimmer" style="width: 320px; height: 36px; border-radius: 9px;"></div>
         <div class="skeleton-shimmer" style="width: 90px; height: 34px; border-radius: 8px;"></div>
@@ -9028,28 +10026,14 @@ async function renderKitchenDisplay_() {
     });
 
     root.innerHTML = `
-      <section class="kitchen-display-shell">
-        <div class="std-hero-card kitchen-hero-card">
-          <div class="std-hero-glow"></div>
-          <div class="std-hero-leading">
-            <div class="std-hero-icon" aria-hidden="true" style="color:#38bdf8;background:linear-gradient(135deg, rgba(56, 189, 248, 0.18) 0%, rgba(2, 132, 199, 0.28) 100%);border-color:rgba(56, 189, 248, 0.4);">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Active Food Preparation &amp; Kitchen Tickets`,
+        descriptionHtml: `Incoming kitchen tickets ordered by arrival. Update cooking progress on each line item and dispatch served orders once handed off.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="6 2 18 2 18 6 6 6 6 2"/>
                 <rect width="20" height="14" x="2" y="6" rx="2"/>
-              </svg>
-            </div>
-            <div class="std-hero-text">
-              <span class="std-hero-kicker" style="display:inline-flex;align-items:center;gap:6px;">
-                <span class="kitchen-dot" style="display:inline-block;"></span>
-                KITCHEN DISPLAY SYSTEM &bull; FOOD PREPARATION
-              </span>
-              <strong class="std-hero-title">Active Food Preparation &amp; Kitchen Tickets</strong>
-              <p class="std-hero-desc">Incoming kitchen tickets ordered by arrival. Update cooking progress on each line item and dispatch served orders once handed off.</p>
-            </div>
-          </div>
-
-          <div class="std-hero-actions">
-            <div class="kitchen-stats-row">
+              </svg>`,
+        actionsHtml: `<div class="kitchen-stats-row">
               <div class="kitchen-stat-pill is-new">
                 <span class="kitchen-stat-val">${newCount}</span>
                 <span class="kitchen-stat-lbl">New Orders</span>
@@ -9076,9 +10060,10 @@ async function renderKitchenDisplay_() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
                 <span>Enable Chime</span>
               `}
-            </button>
-          </div>
-        </div>
+            </button>`,
+        className: 'kitchen-hero-card'
+      })}
+      <section class="kitchen-display-shell">
 
         <div class="kitchen-controls-bar">
           <div class="kitchen-filter-tabs" role="tablist">
@@ -9419,33 +10404,23 @@ function renderProductsTable_() {
 
   table.innerHTML = `
     <div class="std-view theme-sky">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Product Registration &amp; Price Management`,
+        descriptionHtml: `Master catalog for retail items, bundle combos, recipes, and raw materials. Configure selling prices, low stock thresholds, and POS visibility.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
               <polyline points="3.29 7 12 12 20.71 7"/>
               <line x1="12" y1="22" x2="12" y2="12"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">CATALOG MASTER &bull; PRODUCT REGISTRY</span>
-            <strong class="std-hero-title">Product Registration &amp; Price Management</strong>
-            <p class="std-hero-desc">Master catalog for retail items, bundle combos, recipes, and raw materials. Configure selling prices, low stock thresholds, and POS visibility.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="addExistingProductHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn" type="button" id="addExistingProductHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="9"/></svg>
             <span>Add Existing Product</span>
           </button>
           <button class="button button-primary std-record-btn" type="button" id="registerProductHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
             <span>Register Product</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -9552,7 +10527,7 @@ function renderProductsTable_() {
             : '<span class="price-text price-unset" style="color:#64748b;font-size:11px;">Stock In req.</span>';
 
           const stockPill = isOut ? '<span class="stock-pill stock-low" style="font-size:11px;">Out of stock</span>'
-            : isLow ? `<span class="stock-pill stock-low" style="font-size:11px;">${product.qty} low</span>`
+            : isLow ? `<span class="stock-pill stock-warning" style="font-size:11px;">${product.qty} low</span>`
             : `<span class="stock-pill stock-normal" style="font-size:11px;">${product.qty} in stock</span>`;
 
           return `
@@ -9679,33 +10654,23 @@ function renderInventoryStockTable_() {
 
   table.innerHTML = `
     <div class="std-view theme-sky">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Inventory Stock &amp; Warning Levels`,
+        descriptionHtml: `Live physical stock quantities across all branch inventory. Monitor low stock warnings, critical outages, and total inventory asset valuation.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"/>
               <path d="M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"/>
               <path d="M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">BRANCH WAREHOUSE &bull; STOCK VALUATION</span>
-            <strong class="std-hero-title">Inventory Stock &amp; Warning Levels</strong>
-            <p class="std-hero-desc">Live physical stock quantities across all branch inventory. Monitor low stock warnings, critical outages, and total inventory asset valuation.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="stockInHistoryHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn" type="button" id="stockInHistoryHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M3 3v18h18"/><path d="M7 15v-4"/><path d="M12 15V7"/><path d="M17 15v-7"/></svg>
             <span>Stock-In History</span>
           </button>
           <button class="button button-primary std-record-btn" type="button" id="stockInHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 2v14"/><path d="m19 9-7 7-7-7"/><circle cx="12" cy="21" r="1"/></svg>
             <span>Stock In Receipt</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -9802,7 +10767,7 @@ function renderInventoryStockTable_() {
           const stockBadge = isOut
             ? `<span class="stock-pill stock-low" style="font-size:11px;">Out of stock</span>`
             : isLow
-            ? `<span class="stock-pill stock-low" style="font-size:11px;">${product.qty} low</span>`
+            ? `<span class="stock-pill stock-warning" style="font-size:11px;">${product.qty} low</span>`
             : `<span class="stock-pill stock-normal" style="font-size:11px;">${product.qty} in stock</span>`;
 
           return `
@@ -9980,7 +10945,7 @@ function renderInventory() {
     const stockBadge = isOut
       ? `<span class="stock-pill stock-low">Out of stock</span>`
       : isLow
-      ? `<span class="stock-pill stock-low">${product.qty} low</span>`
+      ? `<span class="stock-pill stock-warning">${product.qty} low</span>`
       : `<span class="stock-pill stock-normal">${product.qty} in stock</span>`;
 
     const statusPill = product.status === 'Active'
@@ -10158,27 +11123,17 @@ function renderBundleMonitoring() {
 
   table.innerHTML = `
     <div class="std-view theme-purple">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Bundle &amp; Combo Monitoring`,
+        descriptionHtml: `Real-time producible kit availability computed from ingredient components and branch stock availability.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M7 3h10l2 4-2 14H7L5 7l2-4Z"/><path d="M5 7h14M9 3v4m6-4v4"/><path d="M9 12h6M9 16h6"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">RECIPE AUDIT &bull; COMBO KITS &amp; SETS</span>
-            <strong class="std-hero-title">Bundle &amp; Combo Monitoring</strong>
-            <p class="std-hero-desc">Real-time producible kit availability computed from ingredient components and branch stock availability.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-primary std-record-btn" type="button" id="bundleRegisterHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-primary std-record-btn" type="button" id="bundleRegisterHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
             <span>Register Bundle / Set</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -10464,28 +11419,18 @@ function renderLossDamages() {
 
   table.innerHTML = `
     <div class="loss-damages-view">
-      <div class="loss-hero-card">
-        <div class="loss-hero-glow"></div>
-        <div class="loss-hero-leading">
-          <div class="loss-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Loss &amp; Damages Register`,
+        descriptionHtml: `Audit trail for expired, spoiled, broken, or unaccounted stock. Every write-off immediately deducts branch inventory and preserves full audit records.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
               <path d="m9 11 6 6m0-6-6 6"/>
-            </svg>
-          </div>
-          <div class="loss-hero-text">
-            <span class="loss-hero-kicker">STOCK AUDIT &bull; INVENTORY WRITE-OFFS</span>
-            <strong class="loss-hero-title">Loss &amp; Damages Register</strong>
-            <p class="loss-hero-desc">Audit trail for expired, spoiled, broken, or unaccounted stock. Every write-off immediately deducts branch inventory and preserves full audit records.</p>
-          </div>
-        </div>
-        <div class="loss-hero-actions">
-          <button class="button button-danger loss-record-btn" type="button" id="recordLossButton">
+            </svg>`,
+        actionsHtml: `<button class="button button-danger loss-record-btn" type="button" id="recordLossButton">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
             <span>Record Loss / Damage</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="loss-kpi-grid">
         <div class="loss-kpi-card">
@@ -10833,28 +11778,18 @@ function renderQuarantinedItems() {
 
   table.innerHTML = `
     <div class="std-view theme-sky">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Quarantine &amp; Quality Inspection`,
+        descriptionHtml: `Inventory holding area for goods isolated from available stock. Inspect flagged items carefully before authorizing restocking, return, or disposal.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/>
               <path d="M12 8v4"/><path d="M12 16h.01"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">QUALITY CONTROL &bull; STOCK ISOLATION</span>
-            <strong class="std-hero-title">Quarantine &amp; Quality Inspection</strong>
-            <p class="std-hero-desc">Inventory holding area for goods isolated from available stock. Inspect flagged items carefully before authorizing restocking, return, or disposal.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="quarantineReportNavBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn" type="button" id="quarantineReportNavBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="m9 15 2 2 4-4"/><path d="M9 11h6"/></svg>
             <span>Quarantine Report</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -11167,31 +12102,21 @@ function renderQuarantineReport() {
 
   table.innerHTML = `
     <div class="std-view theme-sky">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Branch Quarantine Report`,
+        descriptionHtml: `Inspection audit trail tracking quarantined inventory and final resolution: goods restocked to active shelves, dispatched back to suppliers, or written off as scrap.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z"/><path d="M12 8v4"/><path d="M12 16h.01"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">QUALITY CONTROL &bull; DISPOSITION AUDIT</span>
-            <strong class="std-hero-title">Branch Quarantine Report</strong>
-            <p class="std-hero-desc">Inspection audit trail tracking quarantined inventory and final resolution: goods restocked to active shelves, dispatched back to suppliers, or written off as scrap.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="quarantineReportPrintPdfHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn pdf-print-button" type="button" id="quarantineReportPrintPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
             <span>Print PDF</span>
           </button>
-          <button class="button button-primary std-record-btn" type="button" id="quarantineReportExportPdfHeroBtn">
+          <button class="button button-primary std-record-btn pdf-export-button" type="button" id="quarantineReportExportPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
             <span>Export PDF</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -12087,28 +13012,18 @@ function renderBranches() {
 
   table.innerHTML = `
     <div class="std-view theme-sky">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Branch Management &amp; Locations`,
+        descriptionHtml: `Manage business branches, satellite outlets, and warehouse locations. Configure addresses and operational branch status.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
               <polyline points="9 22 9 12 15 12 15 22"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">ORGANIZATION &bull; LOCATIONS</span>
-            <strong class="std-hero-title">Branch Management &amp; Locations</strong>
-            <p class="std-hero-desc">Manage business branches, satellite outlets, and warehouse locations. Configure addresses and operational branch status.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-primary std-record-btn" type="button" id="registerBranchHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-primary std-record-btn" type="button" id="registerBranchHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
             <span>Register Branch</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -12323,30 +13238,20 @@ function renderCustomers() {
 
   table.innerHTML = `
     <div class="std-view theme-sky">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Customer Accounts &amp; Credit Portfolios`,
+        descriptionHtml: `Registered retail clients, contact profiles, credit limits, and real-time ledger balances. Record customer payments and view transaction histories.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
               <circle cx="9" cy="7" r="4"/>
               <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
               <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">CUSTOMER DIRECTORY &bull; RECEIVABLES</span>
-            <strong class="std-hero-title">Customer Accounts &amp; Credit Portfolios</strong>
-            <p class="std-hero-desc">Registered retail clients, contact profiles, credit limits, and real-time ledger balances. Record customer payments and view transaction histories.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-primary std-record-btn" type="button" id="addCustomerHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-primary std-record-btn" type="button" id="addCustomerHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
             <span>Add Customer</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -12665,29 +13570,19 @@ function renderCreditPayments() {
 
   table.innerHTML = `
     <div class="std-view theme-crimson">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Credit Sales &amp; Payment History`,
+        descriptionHtml: `Detailed ledger of customer credit sales, repayments, outstanding balances, and account aging. Track credit invoices, payment timelines, and settlement compliance.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect width="20" height="14" x="2" y="5" rx="2"/>
               <line x1="2" x2="22" y1="10" y2="10"/>
               <path d="M6 15h.01M10 15h2"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">CREDIT LEDGER &bull; AR RECEIVABLES</span>
-            <strong class="std-hero-title">Credit Sales &amp; Payment History</strong>
-            <p class="std-hero-desc">Detailed ledger of customer credit sales, repayments, outstanding balances, and account aging. Track credit invoices, payment timelines, and settlement compliance.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-primary std-record-btn" type="button" id="viewCustomersHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-primary std-record-btn" type="button" id="viewCustomersHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             <span>Customer Directory</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -13013,29 +13908,19 @@ function renderDailySpotCash() {
 
   table.innerHTML = `
     <div class="std-view theme-amber">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Daily Cash Reconciliation`,
+        descriptionHtml: `Opening floats, cash movements, counted drawer cash, and daily variance in one auditable register.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect width="20" height="12" x="2" y="6" rx="2"/>
               <circle cx="12" cy="12" r="2"/>
               <path d="M6 12h.01M18 12h.01"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">BRANCH OPERATIONS &bull; CASH RECONCILIATION</span>
-            <strong class="std-hero-title">Daily Cash Reconciliation</strong>
-            <p class="std-hero-desc">Opening floats, cash movements, counted drawer cash, and daily variance in one auditable register.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-primary std-record-btn" type="button" id="recordDailySpotCashBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-primary std-record-btn" type="button" id="recordDailySpotCashBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
             <span>Add Daily Spot Cash</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -13337,29 +14222,19 @@ function renderDailyExpenses() {
 
   table.innerHTML = `
     <div class="expenses-ledger-view">
-      <div class="expenses-hero-card">
-        <div class="expenses-hero-glow"></div>
-        <div class="expenses-hero-leading">
-          <div class="expenses-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Daily Expenses Register`,
+        descriptionHtml: `Audit trail for operational cash outflows, petty cash purchases, utilities, and branch supplies with receipt references.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/>
               <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/>
               <path d="M12 6v12"/>
-            </svg>
-          </div>
-          <div class="expenses-hero-text">
-            <span class="expenses-hero-kicker">BRANCH OPERATIONS &bull; CASH DISBURSEMENTS</span>
-            <strong class="expenses-hero-title">Daily Expenses Register</strong>
-            <p class="expenses-hero-desc">Audit trail for operational cash outflows, petty cash purchases, utilities, and branch supplies with receipt references.</p>
-          </div>
-        </div>
-        <div class="expenses-hero-actions">
-          <button class="button button-primary expenses-record-btn" type="button" id="recordDailyExpenseButton">
+            </svg>`,
+        actionsHtml: `<button class="button button-primary expenses-record-btn" type="button" id="recordDailyExpenseButton">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
             <span>Record Daily Expense</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="expenses-kpi-grid">
         <div class="expenses-kpi-card">
@@ -13664,29 +14539,19 @@ function renderBankTransactions() {
 
   table.innerHTML = `
     <div class="bank-ledger-view">
-      <div class="bank-hero-card">
-        <div class="bank-hero-glow"></div>
-        <div class="bank-hero-leading">
-          <div class="bank-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Bank Transactions &amp; Running Balance`,
+        descriptionHtml: `Audit trail for deposits, cheque clearing, cash bankings, and operational disbursements with real-time balance reconciliation.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="2" y="5" width="20" height="14" rx="2"/>
               <line x1="2" x2="22" y1="10" y2="10"/>
               <path d="M6 15h4"/>
-            </svg>
-          </div>
-          <div class="bank-hero-text">
-            <span class="bank-hero-kicker">BRANCH OPERATIONS &bull; BANK LEDGER &bull; CASHFLOW AUDIT</span>
-            <strong class="bank-hero-title">Bank Transactions &amp; Running Balance</strong>
-            <p class="bank-hero-desc">Audit trail for deposits, cheque clearing, cash bankings, and operational disbursements with real-time balance reconciliation.</p>
-          </div>
-        </div>
-        <div class="bank-hero-actions">
-          <button class="button button-primary bank-record-btn" type="button" id="recordBankTransactionButton">
+            </svg>`,
+        actionsHtml: `<button class="button button-primary bank-record-btn" type="button" id="recordBankTransactionButton">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
             <span>Record Transaction</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="bank-kpi-grid">
         <div class="bank-kpi-card">
@@ -14048,31 +14913,21 @@ function renderSalesHistory() {
 
   table.innerHTML = `
     <div class="std-view theme-sky">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Branch Sales History`,
+        descriptionHtml: `Complete transactional audit trail of register sales, walk-in customers, account credits, itemized receipts, and sale return workflows.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">REVENUE AUDIT &bull; SALES TRANSACTION LEDGER</span>
-            <strong class="std-hero-title">Branch Sales History</strong>
-            <p class="std-hero-desc">Complete transactional audit trail of register sales, walk-in customers, account credits, itemized receipts, and sale return workflows.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-secondary std-record-btn" type="button" id="salesHistoryPrintPdfHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-secondary std-record-btn pdf-print-button" type="button" id="salesHistoryPrintPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M6 2h9l3 3v17H6z"/><path d="M14 2v4h4"/><path d="M8 15h8M8 18h6M8 12h3"/></svg>
             <span>Print PDF</span>
           </button>
-          <button class="button button-primary std-record-btn" type="button" id="salesHistoryExportPdfHeroBtn">
+          <button class="button button-primary std-record-btn pdf-export-button" type="button" id="salesHistoryExportPdfHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/><path d="M5 17v4h14v-4"/></svg>
             <span>Export PDF</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -14830,27 +15685,17 @@ function renderTransfers() {
 
   table.innerHTML = `
     <div class="std-view theme-purple">
-      <div class="std-hero-card">
-        <div class="std-hero-glow"></div>
-        <div class="std-hero-leading">
-          <div class="std-hero-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      ${renderPageHeader_({
+        titleHtml: `Stock Transfer Manifest`,
+        descriptionHtml: `Chain of custody audit trail for branch stock transfers. Track outgoing dispatches, in-transit cargo, and verified branch receipts.`,
+        iconHtml: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>
-            </svg>
-          </div>
-          <div class="std-hero-text">
-            <span class="std-hero-kicker">BRANCH LOGISTICS &bull; INTER-BRANCH ROUTING</span>
-            <strong class="std-hero-title">Stock Transfer Manifest</strong>
-            <p class="std-hero-desc">Chain of custody audit trail for branch stock transfers. Track outgoing dispatches, in-transit cargo, and verified branch receipts.</p>
-          </div>
-        </div>
-        <div class="std-hero-actions">
-          <button class="button button-primary std-record-btn" type="button" id="createTransferHeroBtn">
+            </svg>`,
+        actionsHtml: `<button class="button button-primary std-record-btn" type="button" id="createTransferHeroBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
             <span>Create Transfer</span>
-          </button>
-        </div>
-      </div>
+          </button>`
+      })}
 
       <div class="std-kpi-grid">
         <div class="std-kpi-card">
@@ -17895,12 +18740,9 @@ window.addEventListener('resize', updateReceiptScrollFade, { passive: true });
 window.addEventListener('resize', scheduleBadgeAlignment, { passive: true });
 if (document.fonts?.ready) document.fonts.ready.then(scheduleBadgeAlignment);
 
-const inventoryTableElement = $('#inventoryTable');
-if (inventoryTableElement) {
-  const inventoryTableObserver = new MutationObserver(scheduleBadgeAlignment);
-  inventoryTableObserver.observe(inventoryTableElement, { childList: true, subtree: true });
-  scheduleBadgeAlignment();
-}
+const amountContentObserver = new MutationObserver(scheduleBadgeAlignment);
+amountContentObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+scheduleBadgeAlignment();
 
 document.querySelectorAll('[data-view]').forEach((link) => link.addEventListener('click', async () => {
   if (await enforcePasswordResetLogout_()) setView(link.dataset.view);

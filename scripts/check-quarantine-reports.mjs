@@ -20,7 +20,7 @@ assert(quarantinedItemsMatch, 'renderQuarantinedItems function body extracted');
 const quarantinedItemsBody = quarantinedItemsMatch[0];
 
 assert(quarantinedItemsBody.includes('class="std-view theme-sky"'), 'renderQuarantinedItems must use .std-view.theme-sky');
-assert(quarantinedItemsBody.includes('class="std-hero-card"'), 'renderQuarantinedItems must use .std-hero-card');
+assert(quarantinedItemsBody.includes('renderPageHeader_({'), 'renderQuarantinedItems must use the shared page header');
 assert(quarantinedItemsBody.includes('class="std-empty-state"'), 'renderQuarantinedItems must use .std-empty-state');
 assert(quarantinedItemsBody.includes('id="quarantineResetFiltersBtn"'), 'renderQuarantinedItems must have quarantineResetFiltersBtn');
 assert(quarantinedItemsBody.includes('id="quarantineReportNavBtn"'), 'renderQuarantinedItems must have quarantineReportNavBtn');
@@ -36,7 +36,7 @@ assert(quarantineReportMatch, 'renderQuarantineReport function body extracted');
 const quarantineReportBody = quarantineReportMatch[0];
 
 assert(quarantineReportBody.includes('class="std-view theme-sky"'), 'renderQuarantineReport must use .std-view.theme-sky');
-assert(quarantineReportBody.includes('class="std-hero-card"'), 'renderQuarantineReport must use .std-hero-card');
+assert(quarantineReportBody.includes('renderPageHeader_({'), 'renderQuarantineReport must use the shared page header');
 assert(quarantinedItemsBody.includes('class="std-empty-state"'), 'renderQuarantineReport must use .std-empty-state');
 assert(quarantineReportBody.includes('id="quarantineReportPrintPdfHeroBtn"'), 'renderQuarantineReport must have Print PDF button');
 assert(quarantineReportBody.includes('id="quarantineReportExportPdfHeroBtn"'), 'renderQuarantineReport must have Export PDF button');
